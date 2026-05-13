@@ -19,7 +19,6 @@ static GBMU_FILE: LazyLock<Mutex<GbmuFile>> =
 #[tokio::main]
 
 async fn main() {
-
     let arguments = EmulatorArguments::get();
 
     let options = eframe::NativeOptions {
@@ -45,4 +44,5 @@ async fn main() {
         options,
         Box::new(|_cc| Ok(Box::new(app))),
     );
+
 }

@@ -303,7 +303,6 @@ impl Drop for CoreGameDevice {
 }
 
 impl CoreGameDevice {
-
     pub fn update_and_size_image(&mut self, ui: &mut egui::Ui) {
         if  self.updated_image_boolean.load(Ordering::Relaxed) {
             
@@ -331,8 +330,6 @@ impl CoreGameDevice {
             i.keys_down.clone()
         });
         self.key_mapping.generate_key_input(keys_down)
-
-
     }
 
     fn new(options: CoreGameOptions) -> Self {
@@ -418,7 +415,5 @@ pub struct DebuggingDevice {
 }
 
 impl Default for AppState {
-    fn default() -> Self {
-        Self::StartingHub(Default::default())
-    }
+    fn default() -> Self { Self::StartingHub(Default::default()) }
 }
