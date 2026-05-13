@@ -64,6 +64,7 @@ impl DebuggingDevice {
     }
 
     pub fn debug_view(mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) -> AppState {
+        self.core_game.capture_and_send_input(ui);
         let debugging_data_in = self.update_and_get_debugging_data(ui);
         let actions_to_perform = display_interface(ui, _frame, debugging_data_in);
         println!("{actions_to_perform:?}");
