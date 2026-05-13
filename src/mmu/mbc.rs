@@ -54,12 +54,12 @@ fn map_rom_into_bank(rom_image: &[u8]) -> Result<Vec<[u8; ROM_BANK_SIZE]>, Strin
     let banks: Vec<[u8; ROM_BANK_SIZE]> = rom_image .chunks_exact(ROM_BANK_SIZE)
         .map(|slice|{
             let mut data = [0; ROM_BANK_SIZE];
-            data.copy_from_slice(&slice);
+            data.copy_from_slice(slice);
             data
         }).collect();
     let supposed_rom_bank_size = get_rom_bank_size(rom_image)?;
     println!("rom banks count {}", banks.len());
-    if banks.iter().count() != supposed_rom_bank_size {
+    if banks.len() != supposed_rom_bank_size {
         return Err(
             format!("Inconsistent Rom Header : size must be : {}", supposed_rom_bank_size)
         );
@@ -78,9 +78,9 @@ impl Mbc for Mbc1 {
         println!("rom detected is Mbc1");
         let banks = map_rom_into_bank(rom_image)?;
         let ram_banks = map_ram_banks(rom_image)?;
-        if ram_banks.iter().count() > 4 {
+        if ram_banks.len() > 4 {
             Err(
-                format!("Supposed ram bank size can't be more than 4 in mbc1 cartridge.")
+                "Supposed ram bank size can't be more than 4 in mbc1 cartridge.".to_string()
             )
         } else {
             Ok(Mbc1 {
@@ -108,7 +108,7 @@ impl Mbc for Mbc1 {
                 self.banks[
                     ((self.bank_register_2 << 5) + self.bank_register_1) as usize
                 ][
-                    addr as usize - ROM_BANK_SIZE as usize
+                    addr as usize - ROM_BANK_SIZE
                 ]
             },
             0xA000..0xC000 => {
@@ -243,7 +243,7 @@ pub struct Mbc3 {
 impl Mbc3 {
     fn get_time_value(&self, rtc_select: &u8) -> u8 {
         let time = if let Some(latched_time) = &self.latched_time_value {
-            latched_time.clone()
+            *latched_time
         } else {
             self.get_actual_time()
         };
@@ -370,8 +370,8 @@ impl Mbc for Mbc5 {
     fn write(&mut self, addr: u16, val: u8) {
         match addr {
             0x0000..0x2000 => self.ram_gate_enable = val == 0b0000_1010,
-            0x2000..0x3000 => self.rom_bank_register = self.rom_bank_register & 0x100 + val as u16,
-            0x3000..0x4000 => self.rom_bank_register = self.rom_bank_register & 0x0FF + val as u16 & 0x01 * 0x100,
+            0x2000..0x3000 => self.rom_bank_register &= 0x100 + val as u16,
+            0x3000..0x4000 => self.rom_bank_register = self.rom_bank_register & (0x0FF + val as u16) & 0x100,
             0x4000..0x6000 => {
                 self.ram_bank_register = val & 0x0F;
                 self.ramble = (val & 0x10) != 0;

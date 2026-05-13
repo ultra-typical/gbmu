@@ -1,9 +1,8 @@
 #![allow(unreachable_code)]
 
 use crate::gameboy::GameBoy;
-use crate::gui::{DebugCommandQueries, DebugResponse, KeyInput, WatchedAdresses};
+use crate::gui::{DebugCommandQueries, DebugResponse, KeyInput, LaunchGameData, WatchedAdresses};
 use crate::mmu::mbc::Mbc;
-use crate::gui::LaunchGameData;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -22,7 +21,6 @@ pub struct GameApp<T: Mbc> {
     is_sending_registers: bool,
     watched_adress: WatchedAdresses,
 }
-
 
 impl<T: Mbc> GameApp<T> {
     pub fn new(
@@ -53,7 +51,7 @@ impl<T: Mbc> GameApp<T> {
                 addresses_n_values: Vec::new(),
             },
         };
-        if game_data.boot_rom == false { 
+        if !game_data.boot_rom { 
             app.gameboy.simulate_boot_rom_effect()
         }
         Ok(app)

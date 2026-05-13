@@ -1,16 +1,12 @@
 use eframe::egui::{Visuals, Color32, Stroke};
 
 pub fn get_light_theme_visual() -> Visuals {
-    let mut visuals = Visuals::default();
-
-    // Couleur de fond du panneau principal
-    visuals.panel_fill = Color32::from_hex("#c4c8d1").expect("invalid hex color");
-
-    // Couleur de fond des zones de saisie (TextEdit, ComboBox...)
-    visuals.extreme_bg_color = Color32::from_hex("#7c7d85").expect("invalid hex");
-
-    // Couleur très légèrement différente du fond, utilisée pour les bandes alternées dans les tables
-    visuals.faint_bg_color = Color32::from_hex("#d4d4d8").expect("invalid hex");
+    let mut visuals = egui::Visuals {
+        panel_fill: Color32::from_hex("#c4c8d1").expect("invalid hex color"),
+        extreme_bg_color: Color32::from_hex("#7c7d85").expect("invalid hex"),
+        faint_bg_color: Color32::from_hex("#d4d4d8").expect("invalid hex"),
+        ..Default::default()
+    };
 
     // Fond des boutons/widgets au repos
     visuals.widgets.inactive.weak_bg_fill = Color32::from_hex("#707177").expect("invalid hex");

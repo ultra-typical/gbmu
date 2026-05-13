@@ -1,8 +1,6 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use std::u8;
-
 use crate::ppu::colors_palette::Color;
 
 #[derive(Debug, Clone, Copy)]

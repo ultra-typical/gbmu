@@ -36,6 +36,7 @@ pub struct PixelFetcher {
 }
 
 impl PixelFetcher {
+    #[allow(clippy::too_many_arguments)]
     pub fn tick<T: Mbc>(&mut self, bus: &Rc<RefCell<Mmu<T>>>, fifo: &PixelFifo, ly: u8, scx: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> Option<[Pixel; 8]> {
         self.dot_counter = self.dot_counter.wrapping_add(1);
 
@@ -46,23 +47,20 @@ impl PixelFetcher {
             self.fetcher_state = FetcherState::GetTileId;
 
             tile
-        } else if self.dot_counter % 2 == 0 {
+        } else if self.dot_counter.is_multiple_of(2) {
             match self.fetcher_state {
                 FetcherState::GetTileId => {
-                    self.tile_id = self.get_tile_id(&bus, ly, scx, scy, wly, lcd_control, use_window);
+                    self.tile_id = self.get_tile_id(bus, ly, scx, scy, wly, lcd_control, use_window);
                     self.fetcher_state = FetcherState::GetLowData;
-
-                    return None
+                    None
                 },
                 FetcherState::GetLowData => {
-                    self.tile_data_low = self.get_tile_data_low(&bus, ly, scy, wly, lcd_control, use_window);
+                    self.tile_data_low = self.get_tile_data_low(bus, ly, scy, wly, lcd_control, use_window);
                     self.fetcher_state = FetcherState::GetHighData;
-
-                    return None
+                    None
                 },
                 FetcherState::GetHighData => {
-                    self.tile_data_high = self.get_tile_data_high(&bus, ly, scy, wly, lcd_control, use_window);
-
+                    self.tile_data_high = self.get_tile_data_high(bus, ly, scy, wly, lcd_control, use_window);
                     if self.first_fetch_done {
                         if fifo.is_empty() {
                             let tile: Option<[Pixel; 8]> = self.push_pixel(bus);
@@ -77,15 +75,13 @@ impl PixelFetcher {
                     } else {
                         self.reset_internal(true);
                     }
-
-                    return None
+                    None
                 },
                 FetcherState::Sleep => {
                     self.fetcher_state = FetcherState::PushPixel;
-
-                    return None
+                    None
                 },
-                FetcherState::PushPixel => { return None; },
+                FetcherState::PushPixel => None,
             }
         } else {
             None
@@ -110,6 +106,7 @@ impl PixelFetcher {
         self.fetcher_state = FetcherState::GetTileId;
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn get_tile_id<T: Mbc>(&mut self, bus: &Rc<RefCell<Mmu<T>>>, ly: u8, scx: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
         let tilemap_base: std::ops::Range<u16> = if use_window {
             lcd_control.window_tile_map_area()
@@ -125,18 +122,15 @@ impl PixelFetcher {
         } else {
             (
                 ((scx / 8) as usize + self.fetcher_x as usize) & 0x1F, // mask to keep the 5 lowest bits
-                (((ly as usize + scy as usize) & 0xFF) / 8) as usize,
+                ((ly as usize + scy as usize) & 0xFF) / 8,
             )
         };
 
 
         let offset = (y * 32 + x) as u16;
 
-        let tile_number = bus
-            .borrow_mut()
-            .read_byte(tilemap_base.start + offset);
-
-        tile_number
+        bus.borrow_mut()
+            .read_byte(tilemap_base.start + offset)
     }
 
     fn get_tile_data_low<T: Mbc>(&mut self, bus: &Rc<RefCell<Mmu<T>>>, ly: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
@@ -151,22 +145,16 @@ impl PixelFetcher {
         if lcd_control.bg_window_tile_data_area().start == TILE_DATA_1_START {
             let tilemap_base = TILE_DATA_1_START + (self.tile_id as u16) * 16;
 
-            let tile_low = bus
-                .borrow_mut()
-                .read_byte(tilemap_base + correct_byte as u16);
-
-            tile_low
+            bus.borrow_mut()
+                .read_byte(tilemap_base + correct_byte as u16)
             
         } else if lcd_control.bg_window_tile_data_area().start == TILE_DATA_0_START {
             let base = 0x9000u16;
             let offset = (self.tile_id as i8) as i16 * 16;
             let tilemap_base = base.wrapping_add_signed(offset);
 
-            let tile_low = bus
-                .borrow_mut()
-                .read_byte(tilemap_base + correct_byte as u16);
-
-            tile_low
+            bus.borrow_mut()
+                .read_byte(tilemap_base + correct_byte as u16)
         } else {
             unreachable!()
         }
@@ -185,18 +173,13 @@ impl PixelFetcher {
         if lcd_control.bg_window_tile_data_area().start == TILE_DATA_1_START {
             let tilemap_base = TILE_DATA_1_START + (self.tile_id as u16) * 16;
 
-            let tile_low = bus.borrow_mut().read_byte(tilemap_base + correct_byte as u16);
-
-            tile_low
-            
+            bus.borrow_mut().read_byte(tilemap_base + correct_byte as u16)
         } else if lcd_control.bg_window_tile_data_area().start == TILE_DATA_0_START {
             let base = 0x9000u16;
             let offset = (self.tile_id as i8) as i16 * 16;
             let tilemap_base = base.wrapping_add_signed(offset);
 
-            let tile_low = bus.borrow_mut().read_byte(tilemap_base + correct_byte as u16);
-
-            tile_low
+            bus.borrow_mut().read_byte(tilemap_base + correct_byte as u16)
         } else {
             unreachable!()
         }
@@ -220,7 +203,7 @@ impl PixelFetcher {
             let high_weight_bit = (self.tile_data_high >> bit_index) & 1;
 
             let color_index = (high_weight_bit << 1) | low_weight_bit;
-            let bgp = self.apply_background_palette(&bus, color_index);
+            let bgp = self.apply_background_palette(bus, color_index);
 
             let pixel = Pixel::new_bg(bgp, color_index);
             

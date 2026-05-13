@@ -107,8 +107,8 @@ impl Oam {
     }
 
     fn write_corrupt_words_in_oam(&mut self, corrupt_words: [u16; 4], offset: u8, i: usize) {
-        let high_byte = (corrupt_words[i as usize] >> 8) as u8;
-        let low_byte = (corrupt_words[i as usize] & 0xFF) as u8;
+        let high_byte = (corrupt_words[i] >> 8) as u8;
+        let low_byte = (corrupt_words[i] & 0xFF) as u8;
 
         self.write_word_raw(offset + (i * 2) as u8, high_byte, low_byte);
     }
@@ -177,7 +177,7 @@ impl Oam {
 
     pub fn trigger_oam_bug_read_increase(&mut self, offset: u8) {
         // 8 * 4 and 152 since it doesn't apply to the first 4 rows and the last row
-        if offset >= 32 && offset < 152 { 
+        if (32..152).contains(&offset) { 
             let mut words: [u16; 4] = [0; 4];
             let mut prev_words: [u16; 4] = [0; 4];
             let mut two_prev_words: [u16; 4] = [0; 4];
@@ -190,10 +190,8 @@ impl Oam {
 
             prev_words[0] = self.corrupt_words_if_read_increase(words, prev_words, two_prev_words);
             
-            for i in 0..4 {
-                words[i] = prev_words[i];
-                two_prev_words[i] = prev_words[i];
-            }
+            words.copy_from_slice(&prev_words);
+            two_prev_words.copy_from_slice(&prev_words);
 
             self.write_corrupt_words_in_oam(prev_words, offset - 8, 0);
             for i in 0..4 {

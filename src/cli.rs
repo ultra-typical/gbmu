@@ -33,11 +33,7 @@ impl EmulatorArguments {
 
 
         // path is specified in cli command
-        let rom_path = if let Some(path) = matches.get_one::<String>("rom_path") {
-            Some(String::from(path))
-        } else {
-            None
-        };
+        let rom_path = matches.get_one::<String>("rom_path").map(String::from);
 
         // boot_with_nintendo_room
         let boot_rom = matches.get_flag("boot_rom");

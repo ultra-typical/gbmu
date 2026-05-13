@@ -74,9 +74,9 @@ impl MemoryRegion {
     }
 }
 
-impl<T: Mbc> Into<Rc<RefCell<Mmu<T>>>> for Mmu<T> {
-    fn into(self) -> Rc<RefCell<Mmu<T>>> {
-        Rc::new(RefCell::new(self))
+impl<T: Mbc> From<Mmu<T>> for Rc<RefCell<Mmu<T>>> {
+    fn from(val: Mmu<T>) -> Self {
+        Rc::new(RefCell::new(val))
     }
 }
 
@@ -198,7 +198,7 @@ impl<T: Mbc> Mmu<T> {
 
                     self.update_joypad_register();
                 } else if addr == 0xFF41 { // STAT register
-                    let current_val = self.data[0xFF41 as usize];
+                    let current_val = self.data[0xFF41_usize];
 
                     // We keep 0-2 (PPU), we take 3-6 of CPU (val), bit 7 is always 1
                     self.data[addr as usize] = (val & 0b0111_1000) | (current_val & 0b0000_0111) | 0x80;

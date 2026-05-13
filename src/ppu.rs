@@ -347,7 +347,7 @@ impl<T: Mbc> Ppu<T> {
             };
         }
 
-        if self.dots % 2 == 0 && self.oam_scan_index < 40 {
+        if self.dots.is_multiple_of(2) && self.oam_scan_index < 40 {
             let mmu = self.bus.borrow_mut();
             let oam = mmu.get_oam();
 
@@ -365,7 +365,7 @@ impl<T: Mbc> Ppu<T> {
         }
 
         // accessed_oam_row count in M-cycles
-        if self.dots % 4 == 0 {
+        if self.dots.is_multiple_of(4){
             self.bus.borrow_mut().update_accessed_oam_row(8);
         }
 
@@ -476,27 +476,26 @@ impl<T: Mbc> Ppu<T> {
         };
 
         if self.fetching_sprite {
-            if let Some(index) = self.current_sprite_to_fetch {
-                if let Some(sprite) = self.visible_sprites[index] {
-                    let lcdc = self.read_lcdc();
+            if let Some(index) = self.current_sprite_to_fetch 
+                && let Some(sprite) = self.visible_sprites[index] {
+                let lcdc = self.read_lcdc();
 
-                    self.fetching_sprite = !self.oam_fetcher.tick(
-                        &self.bus,
-                        &sprite,
-                        &mut self.obj_piso,
-                        self.ly,
-                        &lcdc,
-                        height,
-                        self.x,
-                    );
+                self.fetching_sprite = !self.oam_fetcher.tick(
+                    &self.bus,
+                    &sprite,
+                    &mut self.obj_piso,
+                    self.ly,
+                    &lcdc,
+                    height,
+                    self.x,
+                );
 
-                    if !self.fetching_sprite {
-                        self.visible_sprites[index] = None;
+                if !self.fetching_sprite {
+                    self.visible_sprites[index] = None;
 
-                        let remaining_pixels = self.bg_fifo.len() as u8;
-                        if remaining_pixels < 6 {
-                            self.stall_dots = 6 - remaining_pixels;
-                        }
+                    let remaining_pixels = self.bg_fifo.len() as u8;
+                    if remaining_pixels < 6 {
+                        self.stall_dots = 6 - remaining_pixels;
                     }
                 }
             };
@@ -507,31 +506,29 @@ impl<T: Mbc> Ppu<T> {
             let lcdc = self.read_lcdc();
 
             for (index, sprite_opt) in self.visible_sprites.iter_mut().enumerate() {
-                if let Some(sprite) = sprite_opt {
+                if let Some(sprite) = sprite_opt 
+                    && sprite.x as usize <= self.x + 8 {
+                    let spritex = sprite.x;
+                    let selfx = self.x;
 
-                    if sprite.x as usize <= self.x + 8 {
-                        let spritex = sprite.x;
-                        let selfx = self.x;
+                    self.current_sprite_to_fetch = Some(index);
+                    self.pixel_fetcher.reset_to_state_1();
 
-                        self.current_sprite_to_fetch = Some(index);
-                        self.pixel_fetcher.reset_to_state_1();
+                    self.fetching_sprite = !self.oam_fetcher.tick(
+                        &self.bus,
+                        sprite,
+                        &mut self.obj_piso,
+                        self.ly,
+                        &lcdc,
+                        height,
+                        self.x,
+                    );
 
-                        self.fetching_sprite = !self.oam_fetcher.tick(
-                            &self.bus,
-                            sprite,
-                            &mut self.obj_piso,
-                            self.ly,
-                            &lcdc,
-                            height,
-                            self.x,
-                        );
-
-                        if !self.fetching_sprite {
-                            *sprite_opt = None;
-                        }
-
-                        break;
+                    if !self.fetching_sprite {
+                        *sprite_opt = None;
                     }
+
+                    break;
                 }
             }
         }

@@ -34,10 +34,11 @@ pub struct OamFetcher {
 }
 
 impl OamFetcher {
+    #[allow(clippy::too_many_arguments)]
     pub fn tick<T: Mbc>(&mut self, bus: &Rc<RefCell<Mmu<T>>>, sprite: &Sprite, piso: &mut ObjPiso, ly: u8, lcd_control: &LcdControl, height: u8, scanline_x: usize) -> bool {
         self.dot_counter = self.dot_counter.wrapping_add(1);
 
-        if self.dot_counter % 2 == 0 {
+        if self.dot_counter.is_multiple_of(2) {
             match self.fetcher_state {
                 FetcherState::GetTileId => {
                     self.tile_id = self.get_tile_id(sprite, ly, height);
@@ -87,20 +88,14 @@ impl OamFetcher {
         let tile_address = VRAM.to_address()
             + (self.tile_id as u16 * 16)
             + (self.actual_sprite_line % 8 * 2) as u16;
-
-        let data = bus.borrow_mut().read_byte(tile_address as u16);
-
-        data
+        bus.borrow_mut().read_byte(tile_address)
     }
 
     fn get_tile_data_high<T: Mbc>(&mut self, bus: &Rc<RefCell<Mmu<T>>>) -> u8 {
         let tile_address = VRAM.to_address()
             + (self.tile_id as u16 * 16)
             + (self.actual_sprite_line % 8 * 2) as u16;
-
-        let data = bus.borrow_mut().read_byte(tile_address as u16 + 1);
-
-        data
+        bus.borrow_mut().read_byte(tile_address + 1)
     }
 
     fn extract_attributes(&self, attributes: u8) -> (bool, bool, bool, bool) {

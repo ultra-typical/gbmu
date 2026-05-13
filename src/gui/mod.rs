@@ -19,6 +19,7 @@ use std::sync::atomic::Ordering;
 
 use std::time::Instant;
 
+#[derive(Default)]
 pub struct GraphicalApp {
     app_state: AppState,
 }
@@ -89,13 +90,6 @@ impl EmulationAppOptions {
     }
 }
 
-impl Default for GraphicalApp {
-    fn default() -> Self {
-        Self {
-            app_state: AppState::default(),
-        }
-    }
-}
 
 impl GraphicalApp {
     pub fn create_emulation_app(options: EmulationAppOptions) -> Self {
@@ -125,16 +119,16 @@ pub struct KeyInput{
     pub right_pushed: bool,
 }
 
-impl Into<bool> for &KeyInput {
-    fn into(self) -> bool {
-        self.a_pushed ||
-        self.b_pushed ||
-        self.select_pushed ||
-        self.start_pushed ||
-        self.up_pushed ||
-        self.down_pushed ||
-        self.left_pushed ||
-        self.right_pushed 
+impl From<&KeyInput> for bool {
+    fn from(val: &KeyInput) -> Self {
+        val.a_pushed ||
+        val.b_pushed ||
+        val.select_pushed ||
+        val.start_pushed ||
+        val.up_pushed ||
+        val.down_pushed ||
+        val.left_pushed ||
+        val.right_pushed 
     }
 }
 
@@ -164,7 +158,7 @@ impl Default for KeyMapping {
     }
 }
 
-
+#[allow(clippy::large_enum_variant)]
 pub enum AppState {
     StartingHub(StartingHubDevice),
     SelectionHub(SelectionDevice),
@@ -191,13 +185,13 @@ impl AnyGameApp {
             0x00 | 0x08 | 0x09 => Ok(
                 AnyGameApp::OnlyRom(GameApp::new(rom_data, game_data)?)
             ),
-            0x01 | 0x02 | 0x03 => Ok(
+            0x01..=0x03 => Ok(
                 AnyGameApp::Mbc1(GameApp::new(rom_data, game_data)?)
             ),
             0x05 | 0x06 => Ok(
                 AnyGameApp::Mbc2(GameApp::new(rom_data, game_data)?)
             ),
-            0x0F | 0x10 | 0x11 | 0x12 | 0x13 => Ok(
+            0x0F..0x13 => Ok(
                 AnyGameApp::Mbc3(GameApp::new(rom_data, game_data)?)
             ),
             /*
@@ -235,12 +229,49 @@ impl AnyGameApp {
     }
 }
 
+pub struct GameBuilder {
+    pub rom_path: String,
+    pub boot_rom: bool,
+    pub input_receiver: Receiver<KeyInput>,
+    pub updated_image_boolean: Arc<AtomicBool>,
+    pub command_query_receiver: Receiver<DebugCommandQueries>,
+    pub debug_response_sender: Sender<DebugResponse>,
+    pub global_is_debug: Arc<AtomicBool>,
+    pub image_to_change: Arc<Mutex<Vec<u8>>>,
+}
+
+impl GameBuilder {
+    pub fn deconstruct(self) -> (String, Arc<AtomicBool>, Receiver<KeyInput>, AnyAppBuilder) {
+        (
+            self.rom_path, 
+            self.updated_image_boolean,
+            self.input_receiver,
+            AnyAppBuilder {
+                boot_rom: self.boot_rom,
+                command_query_receiver: self.command_query_receiver,
+                debug_response_sender: self.debug_response_sender,
+                global_is_debug: self.global_is_debug,
+                image_to_change: self.image_to_change,
+            }
+        )
+    }
+}
+
+pub struct AnyAppBuilder {
+    pub boot_rom: bool,
+    pub command_query_receiver: Receiver<DebugCommandQueries>,
+    pub debug_response_sender: Sender<DebugResponse>,
+    pub global_is_debug: Arc<AtomicBool>,
+    pub image_to_change: Arc<Mutex<Vec<u8>>>,
+}
+
+
 async fn async_launch_game(
     game_data: LaunchGameData
 ) -> Result<(), String> {
     let app = AnyGameApp::new(game_data)?;
-
-    Ok(app.launch())
+    app.launch();
+    Ok(())
 }
 
 pub struct LaunchGameData {

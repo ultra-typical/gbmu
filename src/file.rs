@@ -26,6 +26,7 @@ impl GbmuFile {
             .expect("Could not find home directory")
             .join(".gbmu/gbmu.json");
 
+        #[allow(clippy::field_reassign_with_default)]
         match File::open(&path) {
             Ok(file) => {
                 println!("Reading existing file!");

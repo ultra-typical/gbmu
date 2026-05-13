@@ -19,6 +19,7 @@ impl ObjPiso {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn merge(
         &mut self,
         tile_data_low: u8,
@@ -34,7 +35,7 @@ impl ObjPiso {
             let pos = (sprite_x as i16 + i as i16 - 8) - scanline_x as i16;
 
             // Check if the pixel is outside the fifo
-            if pos < 0 || pos >= 8 {
+            if !(0..8).contains(&pos) {
                 continue;
             }
 
