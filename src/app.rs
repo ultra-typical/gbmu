@@ -3,7 +3,7 @@
 use crate::gameboy::GameBoy;
 use crate::gui::{DebugCommandQueries, DebugResponse, KeyInput, WatchedAdresses};
 use crate::mmu::mbc::Mbc;
-use std::sync::Mutex;
+use crate::gui::LaunchGameData;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -11,31 +11,25 @@ use std::sync::{
 use tokio::sync::mpsc::{Receiver, Sender};
 
 pub struct GameApp<T: Mbc> {
+    updated_image_boolean: Arc<AtomicBool>,
     is_debug_mode: Arc<AtomicBool>,
     gameboy: GameBoy<T>,
+    input_receiver: Receiver<KeyInput>,
     debug_receiver: Receiver<DebugCommandQueries>,
     debug_sender: Sender<DebugResponse>,
     is_step_mode: bool,
     nb_next_intruction: u8,
     is_sending_registers: bool,
     watched_adress: WatchedAdresses,
-    // image_to_change: Arc<Mutex<Vec<u8>>>,
 }
 
-impl<T: Mbc> GameApp<T> {
-    pub fn simulate_boot_rom_effect(&mut self) {
-        self.gameboy.simulate_boot_rom_effect()
-    }
 
+impl<T: Mbc> GameApp<T> {
     pub fn new(
-        rom: Vec<u8>,
-        receiver: Receiver<DebugCommandQueries>,
-        sender: Sender<DebugResponse>,
-        global_bool: Arc<AtomicBool>,
-        image_to_change: Arc<Mutex<Vec<u8>>>,
-        boot_with_nintendo: bool,
+        rom_data: Vec<u8>,
+        game_data: LaunchGameData,
     ) -> Result<Self, String> {
-        let boot_rom = if boot_with_nintendo {
+        let boot_rom = if game_data.boot_rom {
             let boot_bytes = std::fs::read("boot-roms/dmg.bin").expect("cannot read boot rom");
             assert!(boot_bytes.len() == 0x100, "boot rom must be 256 bytes");
 
@@ -43,22 +37,39 @@ impl<T: Mbc> GameApp<T> {
             boot_rom.copy_from_slice(&boot_bytes);
             Some(boot_rom)
         } else { None };
+        let gameboy = GameBoy::<T>::new(rom_data, boot_rom, game_data.actual_image)?;
 
-
-        let gameboy = GameBoy::<T>::new(rom, boot_rom, image_to_change.clone())?;
-        Ok(Self {
+        let mut app = Self {
             gameboy,
-            debug_receiver: receiver,
-            debug_sender: sender,
+            updated_image_boolean: game_data.updated_image_boolean,
+            debug_receiver: game_data.command_query_receiver,
+            debug_sender: game_data.debug_response_sender,
+            input_receiver: game_data.input_receiver,
             is_step_mode: false,
-            is_debug_mode: global_bool,
+            is_debug_mode: game_data.global_is_debug,
             is_sending_registers: false,
             nb_next_intruction: 0,
             watched_adress: WatchedAdresses {
                 addresses_n_values: Vec::new(),
             },
-            // image_to_change,
-        })
+        };
+        if game_data.boot_rom == false { 
+            app.gameboy.simulate_boot_rom_effect()
+        }
+        Ok(app)
+    }
+
+    pub fn launch(mut self) {
+        let mut input = KeyInput::default();
+        loop {
+            while let Ok(new_input) = self.input_receiver.try_recv(){
+                input = new_input;
+            }
+            let buffer_was_updated = self.update(&input);
+            if buffer_was_updated {
+                self.updated_image_boolean.store(true, Ordering::Relaxed);
+            }
+        }
     }
 
     fn send_watched_address(&mut self) {

@@ -25,8 +25,7 @@ use crate::app::GameApp;
 pub mod themes;
 use eframe::egui;
 use std::sync::Mutex;
-use std::fs;
-use std::process; use tokio::sync::mpsc::{Receiver, Sender, channel};
+use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
 
 
@@ -162,20 +161,8 @@ pub enum AppState {
     Default,
 }
 
-fn read_rom(rom_path: String) -> Vec<u8> {
-    if !rom_path.is_empty() {
-        match fs::read(&rom_path) {
-            Ok(data) => data,
-            Err(e) => {
-                eprintln!("Failed to read the file: {e}");
-                process::exit(1);
-            }
-        }
-    } else {
-        eprintln!("Failed to read the file: {rom_path} : path is empty");
-        process::exit(1);
-    }
-}
+use std::fs;
+use std::process;
 
 pub enum AnyGameApp {
     OnlyRom(GameApp<RomOnly>),
@@ -185,83 +172,77 @@ pub enum AnyGameApp {
 }
 
 impl AnyGameApp {
-    pub fn update(&mut self, keys_down: &KeyInput) ->  bool {
-        match self {
-            AnyGameApp::OnlyRom(g) => g.update(keys_down),
-            AnyGameApp::Mbc1(g)=> g.update(keys_down),
-            AnyGameApp::Mbc2(g)=> g.update(keys_down),
-            AnyGameApp::Mbc3(g)=> g.update(keys_down),
+    pub fn new(game_data: LaunchGameData) -> Result<Self, String> {
+        let rom_data: Vec<u8> = Self::read_rom(game_data.rom_path.clone());
+        let code = rom_data[0x0147];
+        match code {
+            0x00 | 0x08 | 0x09 => Ok(
+                AnyGameApp::OnlyRom(GameApp::new(rom_data, game_data)?)
+            ),
+            0x01 | 0x02 | 0x03 => Ok(
+                AnyGameApp::Mbc1(GameApp::new(rom_data, game_data)?)
+            ),
+            0x05 | 0x06 => Ok(
+                AnyGameApp::Mbc2(GameApp::new(rom_data, game_data)?)
+            ),
+            0x0F | 0x10 | 0x11 | 0x12 | 0x13 => Ok(
+                AnyGameApp::Mbc3(GameApp::new(rom_data, game_data)?)
+            ),
+            /*
+                0x0B | 0x0C | 0x0D => Ok(todo!()), // MMM01 pas dans le sujet
+                0x19 | 0x1A | 0x1B | 0x1C | 0x1D | 0x1E => Ok(todo!()), // Mbc5
+                0x20 => Ok(todo!()), // Mbc6
+                0x22 => Ok(todo!()),// MBC7+SENSOR+RUMBLE+RAM+BATTERY
+            */
+                _ => Err("Unmanaged cartridge type".into())
         }
     }
 
-    pub fn simulate_boot_rom_effect(&mut self) {
+    fn read_rom(rom_path: String) -> Vec<u8> {
+        if !rom_path.is_empty() {
+            match fs::read(&rom_path) {
+                Ok(data) => data,
+                Err(e) => {
+                    eprintln!("Failed to read the file: {e}");
+                    process::exit(1);
+                }
+            }
+        } else {
+            eprintln!("Failed to read the file: {rom_path} : path is empty");
+            process::exit(1);
+        }
+    }
+
+    pub fn launch(self) {
         match self {
-            AnyGameApp::OnlyRom(g) => g.simulate_boot_rom_effect(),
-            AnyGameApp::Mbc1(g)=> g.simulate_boot_rom_effect(),
-            AnyGameApp::Mbc2(g)=> g.simulate_boot_rom_effect(),
-            AnyGameApp::Mbc3(g)=> g.simulate_boot_rom_effect(),
+            AnyGameApp::OnlyRom(g) => g.launch(),
+            AnyGameApp::Mbc1(g)=> g.launch(),
+            AnyGameApp::Mbc2(g)=> g.launch(),
+            AnyGameApp::Mbc3(g)=> g.launch(),
         }
     }
 }
 
 async fn async_launch_game(
-    rom_path: String,
-    boot_rom: bool,
-    input_receiver: Receiver<KeyInput>,
-    updated_image_boolean: Arc<AtomicBool>,
-    command_query_receiver: Receiver<DebugCommandQueries>,
-    debug_response_sender: Sender<DebugResponse>,
-    global_is_debug: Arc<AtomicBool>,
-    image_to_change: Arc<Mutex<Vec<u8>>>,
+    game_data: LaunchGameData
 ) -> Result<(), String> {
-    launch_game(rom_path, boot_rom, input_receiver, updated_image_boolean, command_query_receiver, debug_response_sender, global_is_debug, image_to_change)
+    let app = AnyGameApp::new(game_data)?;
+
+    Ok(app.launch())
 }
 
-fn launch_game(
-    rom_path: String,
-    boot_rom: bool,
-    mut input_receiver: Receiver<KeyInput>,
-    updated_image_boolean: Arc<AtomicBool>,
-    command_query_receiver: Receiver<DebugCommandQueries>,
-    debug_response_sender: Sender<DebugResponse>,
-    global_is_debug: Arc<AtomicBool>,
-    image_to_change: Arc<Mutex<Vec<u8>>>,
-) -> Result<(), String> {
-    let rom_data: Vec<u8> = read_rom(rom_path);
-    let code = rom_data[0x0147];
-    let mut app = match code {
-            0x00 | 0x08 | 0x09 => Ok(AnyGameApp::OnlyRom(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change, boot_rom)?)),
-            0x01 | 0x02 | 0x03 => Ok(AnyGameApp::Mbc1(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change, boot_rom)?)),
-            0x05 | 0x06 => Ok(AnyGameApp::Mbc2(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change, boot_rom)?)),
-            0x0F | 0x10 | 0x11 | 0x12 | 0x13 => Ok(AnyGameApp::Mbc3(GameApp::new( rom_data, command_query_receiver, debug_response_sender, global_is_debug, image_to_change, boot_rom)?)),
-        /*
-            0x0B | 0x0C | 0x0D => Ok(todo!()), // MMM01 pas dans le sujet
-            0x19 | 0x1A | 0x1B | 0x1C | 0x1D | 0x1E => Ok(todo!()), // Mbc5
-            0x20 => Ok(todo!()), // Mbc6
-            0x22 => Ok(todo!()),// MBC7+SENSOR+RUMBLE+RAM+BATTERY
-        */
-            _ => Err("Unmanaged cartridge type")
-
-    }?;
-
-    if !boot_rom {
-        app.simulate_boot_rom_effect()
-    }
-
-    let mut input = KeyInput::default();
-
-    loop {
-        while let Ok(new_input) = input_receiver.try_recv(){
-            input = new_input;
-        }
-
-        let buffer_was_updated = app.update(&input);
-
-        if buffer_was_updated {
-            updated_image_boolean.store(true, Ordering::Relaxed);
-        }
-    }
+pub struct LaunchGameData {
+    pub actual_image : Arc<Mutex<Vec<u8>>>,
+    pub rom_path: String,
+    pub boot_rom: bool,
+    pub input_receiver: Receiver<KeyInput>,
+    pub updated_image_boolean: Arc<AtomicBool>,
+    pub command_query_receiver: Receiver<DebugCommandQueries>,
+    pub debug_response_sender: Sender<DebugResponse>,
+    pub global_is_debug: Arc<AtomicBool>,
+    pub ui_is_alive: Arc<AtomicBool>,
 }
+
 
 pub enum DebugCommandQueries {
     SetStepMode,
@@ -296,6 +277,7 @@ pub struct CoreGameDevice {
     pub global_is_debug: Arc<AtomicBool>,
     texture_handler: Option<TextureHandle>,
     key_mapping: KeyMapping,
+    ui_is_alive: Arc<AtomicBool>,
 }
 
 impl KeyMapping {
@@ -360,20 +342,24 @@ impl CoreGameDevice {
         let (debug_response_sender, debug_response_receiver) = channel::<DebugResponse>(10);
         let global_is_debug = Arc::new(AtomicBool::new(false));
         let actual_image = Arc::new(Mutex::new(vec![0; 160 * 144 * 3]));
+        let ui_is_alive = Arc::new(AtomicBool::new(false));
         let texture_handler = None;
         Self {
             input_sender,
             command_query_sender,
             debug_response_receiver,
             handler: tokio::spawn(async_launch_game(
-                options.rom_path,
-                options.boot_rom,
-                input_receiver,
-                updated_image_boolean.clone(),
-                command_query_receiver,
-                debug_response_sender,
-                global_is_debug.clone(),
-                actual_image.clone(),
+                LaunchGameData {
+                    rom_path: options.rom_path,
+                    boot_rom: options.boot_rom,
+                    input_receiver,
+                    updated_image_boolean: updated_image_boolean.clone(),
+                    command_query_receiver,
+                    debug_response_sender,
+                    global_is_debug: global_is_debug.clone(),
+                    ui_is_alive: ui_is_alive.clone(),
+                    actual_image: actual_image.clone(),
+                }
             )),
             texture_handler,
             updated_image_boolean,
@@ -381,6 +367,7 @@ impl CoreGameDevice {
             global_is_debug,
             sized_image: None,
             key_mapping: KeyMapping::default(),
+            ui_is_alive,
         }
     }
 }
