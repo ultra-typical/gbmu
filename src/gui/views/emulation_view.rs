@@ -11,10 +11,8 @@ impl EmulationDevice {
         let debut = Instant::now();
         self.core_game.update_and_size_image(ui);
         let duration = debut.elapsed();
-        //println!("update and size image: Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
-        let input = self.core_game.capture_input(ui);
+        self.core_game.capture_and_send_input(ui);
 
-        _ = self.core_game.input_sender.try_send(input);
 
         egui::CentralPanel::default()
             .show_inside(ui, |ui| {

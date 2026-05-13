@@ -325,11 +325,10 @@ impl CoreGameDevice {
         }
     }
 
-    pub fn capture_input(&self, ui: &mut egui::Ui) -> KeyInput {
-        let keys_down= ui.ctx().input(|i| {
-            i.keys_down.clone()
-        });
-        self.key_mapping.generate_key_input(keys_down)
+    pub fn capture_and_send_input(&self, ui: &mut egui::Ui) {
+        let keys_down= ui.ctx().input(|i| { i.keys_down.clone() });
+        let input = self.key_mapping.generate_key_input(keys_down);
+        _ = self.input_sender.try_send(input);
     }
 
     fn new(options: CoreGameOptions) -> Self {
