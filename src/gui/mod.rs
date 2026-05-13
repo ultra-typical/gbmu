@@ -28,7 +28,6 @@ use std::sync::Mutex;
 use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
 
-
 use std::sync::{Arc, atomic::AtomicBool};
 
 impl eframe::App for GraphicalApp {
@@ -37,6 +36,7 @@ impl eframe::App for GraphicalApp {
 
     fn ui(&mut self, _ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let debut = Instant::now();
+        
         self.app_state = match std::mem::replace(&mut self.app_state, AppState::Default) {
             AppState::StartingHub(device) => device.starting_view(_ui, _frame),
             AppState::SelectionHub(device) => device.selection_view(_ui, _frame),
@@ -45,7 +45,11 @@ impl eframe::App for GraphicalApp {
             AppState::Default => unreachable!(),
         };
         let duration = debut.elapsed();
-        //println!("egui : Temps écoulé : {:?} ({} ms)", duration, duration.as_millis());
+
+        let keys_down = _ui.ctx().input(|i| { i.keys_down.clone()});
+        if keys_down.contains(&Key::Escape) { 
+            _ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+        }
         _ui.ctx().request_repaint();
     }
 }
