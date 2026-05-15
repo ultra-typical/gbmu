@@ -301,6 +301,26 @@ impl Rtc {
         }
     }
 
+    pub fn write_registers(&mut self, selector: u8, val: u8) {
+        let mut registers = self.current(); 
+
+        match selector {
+            0x08 => registers.seconds = val & 0b0011_1111, // Max 59
+            0x09 => registers.minutes = val & 0b0011_1111, // Max 59
+            0x0A => registers.hours = val & 0b0001_1111,   // Max 23
+            0x0B => registers.day_counter = (registers.day_counter & 0b1_0000_0000) | (val as u16),
+            0x0C => {
+                registers.day_counter = (registers.day_counter & 0xFF) | (((val & 1) as u16) << 8);
+                registers.halted = (val & 0b0100_0000) != 0;
+                registers.day_carry = (val & 0b1000_0000) != 0;
+            },
+            _ => return,
+        }
+        
+        self.base = registers;
+        self.base_timestamp = Local::now();
+    }
+
     pub fn current(&self) -> RtcRegisters {
         if self.base.halted {
             return self.base.clone();
@@ -398,11 +418,24 @@ impl Mbc for Mbc3 {
                 self.latch_clock_data = new_bit;
             },
             0xA000..0xC000 => {
-                self.ram_banks[
-                    self.ram_rtc_select as usize
-                ][
-                    (addr - 0xA000) as usize
-                ] = val;
+                match self.ram_rtc_select {
+                    0x00..0x08 => {
+                        let bank = self.ram_rtc_select as usize;
+                        if bank < self.ram_banks.len() {
+                            self.ram_banks[bank][(addr - 0xA000) as usize] = val;
+                        }
+                    },
+                    0x08..0x0D => {
+                        self.rtc.write_registers(self.ram_rtc_select, val);
+                    },
+                    _ => {}
+                }
+                
+                // self.ram_banks[
+                //     self.ram_rtc_select as usize
+                // ][
+                //     (addr - 0xA000) as usize
+                // ] = val;
             }
             _ => unreachable!(),
         }
