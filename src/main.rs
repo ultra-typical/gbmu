@@ -8,18 +8,23 @@ mod gui;
 mod mmu;
 mod ppu;
 mod file;
+mod sound;
 
+use sound::sound_test;
 use gui::GraphicalApp;
 use crate::{cli::EmulatorArguments, file::{GbmuFile}, gui::EmulationAppOptions};
 use std::sync::{LazyLock, Mutex};
 
 static GBMU_FILE: LazyLock<Mutex<GbmuFile>> =
     LazyLock::new(|| Mutex::new(GbmuFile::get_existing_or_new()));
-    
-#[tokio::main]
 
+#[tokio::main]
 async fn main() {
     let arguments = EmulatorArguments::get();
+
+    if arguments.sound_test {
+        return sound_test();
+    }
 
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
