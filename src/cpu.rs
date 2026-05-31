@@ -8,15 +8,15 @@ pub mod block3;
 pub mod block_prefix;
 pub mod conditions;
 pub mod flags_registers;
+pub mod ops8;
 pub mod registers;
 pub mod utils;
-pub mod ops8;
 
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
-use crate::cpu::registers::{R8, R16, Registers};
+use crate::cpu::registers::{Registers, R16, R8};
 use crate::mmu::mbc::Mbc;
 use crate::mmu::Mmu;
 
@@ -41,12 +41,9 @@ pub struct Cpu<T: Mbc> {
 
 impl<T: Mbc> Default for Cpu<T> {
     fn default() -> Self {
-        Cpu::new(
-            Mmu::<T>::default().into(),
-        )
+        Cpu::new(Mmu::<T>::default().into())
     }
 }
-
 
 impl<T: Mbc> Cpu<T> {
     pub fn new(bus: Rc<RefCell<Mmu<T>>>) -> Self {
@@ -278,7 +275,7 @@ mod tests {
     fn test_halt_opcode_sets_halted_and_advances_pc() {
         // Setup: place a HALT (0x76) at address 0x200
         let mut cpu = Cpu::<RomOnly>::default();
-        cpu.bus.borrow_mut().write_byte( 0x8000, 0x76);
+        cpu.bus.borrow_mut().write_byte(0x8000, 0x76);
 
         cpu.pc = 0x8000;
 
@@ -298,7 +295,7 @@ mod tests {
         cpu.halted = true;
         cpu.pc = 0x123;
         cpu.ime = false; // IME doesn't matter when no interrupt
-        // Ensure IF & IE = 0
+                         // Ensure IF & IE = 0
         cpu.step();
         assert!(cpu.halted, "Still halted if no interrupt pending");
         assert_eq!(cpu.pc, 0x123, "PC must not change when halted and idle");

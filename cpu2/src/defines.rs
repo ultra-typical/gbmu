@@ -30,11 +30,18 @@ pub struct Instruction {
 pub type MicroOp = fn(&mut Cpu);
 pub type Flags = u8;
 
+pub struct Accumulator {
+    pub value: u32,
+    pub pos: u8
+}
+
 pub struct Cpu {
     pub queue: &'static [MicroOp],
     pub registers : Registers,
     pub instructions_list: Vec<u8>,
-    pub op_index: usize
+    pub op_index: usize,
+    pub accumulator : Accumulator,
+    pub bus: [u8; 0x10000]
 }
 
 pub struct Registers {

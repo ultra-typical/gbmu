@@ -20,7 +20,7 @@ pub struct GbmuFile {
     pub path: PathBuf,
 }
 
-impl GbmuFile {
+impl GbmuFile {    
     pub fn get_existing_or_new() -> Self {
         let path = dirs::home_dir()
             .expect("Could not find home directory")
