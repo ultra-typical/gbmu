@@ -14,11 +14,12 @@ use std::path::Path;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
+    Mutex
 };
-use std::time::{Duration, Instant};
 use std::io::{BufReader, Write};
 use std::rc::Rc;
 use std::error;
+use std::time::{Duration, Instant};
 use tokio::sync::mpsc::{Receiver, Sender};
 
 const SAVE_CPU_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/gbmu_save_states/save_cpu.json");
@@ -82,6 +83,8 @@ impl<T: Mbc> GameApp<T> {
 
     pub fn launch(mut self) -> Result<Option<Vec<u8>>, String>{
         let mut input = KeyInput::default();
+        let debut = Instant::now();
+        let mut old_instant_frame_in_ms = debut.elapsed().as_millis();
         let mut cycle = 0;
         //TODO: A changer / enlever
         if Path::new(SAVE_BUS_PATH).exists() &&
@@ -300,7 +303,6 @@ impl<T: Mbc> GameApp<T> {
             "bus" => serde_json::to_string_pretty(&self.gameboy.bus),
             _ => todo!()
         }
-
     }
 
     pub fn load_state(&mut self) -> Result<(), Box<dyn error::Error>> {
