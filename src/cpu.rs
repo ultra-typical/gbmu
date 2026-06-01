@@ -424,7 +424,7 @@ mod tests {
         }
 
         let rom_data = fs::read(rom_path).expect("Failed to read ROM file");
-        let bus = Mmu::<RomOnly>::new(&rom_data).unwrap();
+        let bus = Mmu::<RomOnly>::new(rom_data, None).unwrap();
         let mut cpu = Cpu::<RomOnly>::new(bus.into());
         let mut logfile = fs::File::create(format!("logfiles/{}", logfile_name))
             .expect("Failed to create logfile");

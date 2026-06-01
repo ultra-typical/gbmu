@@ -126,7 +126,7 @@ mod tests {
     use std::{cell::RefCell, rc::Rc};
 
     fn setup_bus() -> Rc<RefCell<Mmu<RomOnly>>> {
-        Mmu::<RomOnly>::new(&[]).unwrap().into()
+        Mmu::<RomOnly>::default().into()
     }
 
     #[test]

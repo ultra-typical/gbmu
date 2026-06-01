@@ -23,8 +23,13 @@ pub struct GameApp<T: Mbc> {
 }
 
 impl<T: Mbc> GameApp<T> {
+    pub fn ram_dump(self) -> Option<Vec<u8>> {
+        self.gameboy.bus.borrow_mut().ram_dump()
+    }
+
     pub fn new(
         rom_data: Vec<u8>,
+        ram_data: Option<Vec<u8>>,
         game_data: LaunchGameData,
     ) -> Result<Self, String> {
         let boot_rom = if game_data.boot_rom {
@@ -35,7 +40,7 @@ impl<T: Mbc> GameApp<T> {
             boot_rom.copy_from_slice(&boot_bytes);
             Some(boot_rom)
         } else { None };
-        let gameboy = GameBoy::<T>::new(rom_data, boot_rom, game_data.actual_image)?;
+        let gameboy = GameBoy::<T>::new(rom_data, boot_rom, ram_data, game_data.actual_image)?;
 
         let mut app = Self {
             gameboy,
@@ -57,7 +62,7 @@ impl<T: Mbc> GameApp<T> {
         Ok(app)
     }
 
-    pub fn launch(mut self) {
+    pub fn launch(mut self) -> Result<Option<Vec<u8>>, String>{
         let mut input = KeyInput::default();
         loop {
             use tokio::sync::mpsc::error::TryRecvError;
@@ -71,7 +76,9 @@ impl<T: Mbc> GameApp<T> {
                 self.updated_image_boolean.store(true, Ordering::Relaxed);
             }
         }
+        Ok(self.ram_dump())
     }
+
 
     fn send_watched_address(&mut self) {
         if !self.watched_adress.addresses_n_values.is_empty() {
@@ -87,7 +94,6 @@ impl<T: Mbc> GameApp<T> {
                 .debug_sender
                 .try_send(DebugResponse::AddressesWatched(values));
         }
-        //65408
     }
 
     fn send_registers(&mut self) {

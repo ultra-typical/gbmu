@@ -179,20 +179,23 @@ pub enum AnyGameApp {
 
 impl AnyGameApp {
     pub fn new(game_data: LaunchGameData) -> Result<Self, String> {
-        let rom_data: Vec<u8> = Self::read_rom(game_data.rom_path.clone());
+        let rom_data: Vec<u8> = Self::read_rom(&game_data.rom_path);
+        let ram_path = game_data.rom_path.to_owned() + ".save";
+        let ram_data: Option<Vec<u8>> = Self::read_ram(&ram_path);
+        if ram_data.is_some() { println!("Backup detected") };
         let code = rom_data[0x0147];
         match code {
             0x00 | 0x08 | 0x09 => Ok(
-                AnyGameApp::OnlyRom(GameApp::new(rom_data, game_data)?)
+                AnyGameApp::OnlyRom(GameApp::new(rom_data, ram_data, game_data)?)
             ),
             0x01..=0x03 => Ok(
-                AnyGameApp::Mbc1(GameApp::new(rom_data, game_data)?)
+                AnyGameApp::Mbc1(GameApp::new(rom_data,ram_data,  game_data)?)
             ),
             0x05 | 0x06 => Ok(
-                AnyGameApp::Mbc2(GameApp::new(rom_data, game_data)?)
+                AnyGameApp::Mbc2(GameApp::new(rom_data,ram_data,  game_data)?)
             ),
             0x0F..0x13 => Ok(
-                AnyGameApp::Mbc3(GameApp::new(rom_data, game_data)?)
+                AnyGameApp::Mbc3(GameApp::new(rom_data,ram_data,  game_data)?)
             ),
             /*
                 0x0B | 0x0C | 0x0D => Ok(todo!()), // MMM01 pas dans le sujet
@@ -204,9 +207,13 @@ impl AnyGameApp {
         }
     }
 
-    fn read_rom(rom_path: String) -> Vec<u8> {
+    fn read_ram(ram_path: &String) -> Option<Vec<u8>> {
+        fs::read(ram_path).ok()
+    }
+
+    fn read_rom(rom_path: &String) -> Vec<u8> {
         if !rom_path.is_empty() {
-            match fs::read(&rom_path) {
+            match fs::read(rom_path) {
                 Ok(data) => data,
                 Err(e) => {
                     eprintln!("Failed to read the file: {e}");
@@ -219,7 +226,7 @@ impl AnyGameApp {
         }
     }
 
-    pub fn launch(self) {
+    pub fn launch(self) -> Result<Option<Vec<u8>>, String>{
         match self {
             AnyGameApp::OnlyRom(g) => g.launch(),
             AnyGameApp::Mbc1(g)=> g.launch(),
@@ -269,8 +276,15 @@ pub struct AnyAppBuilder {
 async fn async_launch_game(
     game_data: LaunchGameData
 ) -> Result<(), String> {
+    let rom_path = game_data.rom_path.clone();
     let app = AnyGameApp::new(game_data)?;
-    app.launch();
+    if let Some(value) = app.launch()? {
+        let str = rom_path.clone() + ".save";
+        println!("{}", str);
+        fs::write(rom_path + ".save", value).unwrap_or_else(
+            |err| eprintln!("backup was unsucessfull {:?}", err)
+        );
+    }
     Ok(())
 }
 
@@ -427,10 +441,26 @@ impl Default for SelectionDevice {
             selected_file: None,
             picked_file: None,
             file_dialog: FileDialog::new()
-            .default_size([600.0, 400.0])
-            .set_file_icon("🎮", Filter::new(|path: &Path| path.extension().unwrap_or_default() == "gb" || path.extension().unwrap_or_default() == "gbc"))
-            .add_file_filter("GameBoy ROMS", Filter::new(|path: &Path| path.extension().unwrap_or_default() == "gb" || path.extension().unwrap_or_default() == "gbc"))
-            .default_file_filter("GameBoy ROMS")
+                .default_size([600.0, 400.0])
+                .set_file_icon(
+                    "🎮",
+                    Filter::new(
+                        |path: &Path|
+                        path.extension().unwrap_or_default() == "gb"
+                        || path.extension().unwrap_or_default() == "gbc"
+                    )
+                )
+                .add_file_filter(
+                    "GameBoy ROMS",
+                    Filter::new(
+                        |path: &Path|
+                        path.extension().unwrap_or_default() == "gb"
+                        || path.extension().unwrap_or_default() == "gbc"
+                    )
+                )
+                .default_file_filter(
+                    "GameBoy ROMS"
+                )
         }
     }
 }

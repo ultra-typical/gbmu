@@ -8,3 +8,4 @@ logfile
 .DS_store
 gb-test-roms
 callgrind.*
+rtc3test

@@ -27,8 +27,8 @@ pub struct GameBoy<T: Mbc> {
 }
 
 impl<T: Mbc>  GameBoy<T> {
-    pub fn new(rom: Vec<u8>, boot_rom: Option<[u8; 0x0100]>, image: Arc<Mutex<Vec<u8>>>) -> Result<GameBoy<T>, String> {
-        let bus_ref = Rc::new(RefCell::new(Mmu::<T>::new(&rom)?));
+    pub fn new(rom_data: Vec<u8>, boot_rom: Option<[u8; 0x0100]>, ram_data: Option<Vec<u8>>, image: Arc<Mutex<Vec<u8>>>) -> Result<GameBoy<T>, String> {
+        let bus_ref = Rc::new(RefCell::new(Mmu::<T>::new(rom_data, ram_data)?));
 
         if let Some(boot_rom) = boot_rom {
             let mut mmu = bus_ref.borrow_mut();
@@ -98,6 +98,7 @@ impl<T: Mbc>  GameBoy<T> {
 
 
     pub fn manage_input(&mut self, key_input: &KeyInput) {
+
 
         let mut dpad = 0x0F;
         if key_input.down_pushed    { dpad &= 0b1111_0111; }

@@ -223,7 +223,7 @@ mod tests {
     use crate::ppu::lcd_control::LcdControl;
 
     fn setup_bus() -> Rc<RefCell<Mmu<RomOnly>>> {
-        Mmu::<RomOnly>::new(&[]).unwrap().into()
+        Rc::new(RefCell::new(Mmu::<RomOnly>::default()))
     }
 
     fn write(bus: Rc<RefCell<Mmu<RomOnly>>>, addr: u16, val: u8) {

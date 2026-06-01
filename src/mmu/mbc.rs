@@ -6,9 +6,10 @@ const ROM_BANK_SIZE: usize = 0x4000;
 const RAM_BANK_SIZE: usize = 0x2000;
 
 pub trait Mbc {
-    fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized;
+    fn new(rom_image: Vec<u8>, saved_ram: Option<Vec<u8>>) -> Result<Self, String> where Self: Sized;
     fn read(&self, addr: u16) -> u8;
     fn write(&mut self, addr: u16, val: u8);
+    fn dump(&self) -> Option<Vec<u8>>;
 }
 
 #[derive(Clone)]
@@ -67,17 +68,37 @@ fn map_rom_into_bank(rom_image: &[u8]) -> Result<Vec<[u8; ROM_BANK_SIZE]>, Strin
     Ok(banks)
 }
 
-fn map_ram_banks(rom_image: &[u8]) -> Result<Vec<[u8; RAM_BANK_SIZE]>, String> {
+fn map_ram_banks(rom_image: &[u8], saved_ram: Option<Vec<u8>>) -> Result<Vec<[u8; RAM_BANK_SIZE]>, String> {
     let supposed_ram_bank_size = get_ram_bank_size(rom_image)?;
     println!("rom banks count {}", supposed_ram_bank_size);
-    Ok(vec![[0u8; RAM_BANK_SIZE]; supposed_ram_bank_size])
+    let Some(saved_ram) = saved_ram else {
+        return Ok(vec![[0u8; RAM_BANK_SIZE]; supposed_ram_bank_size]);
+    };
+    let ram_banks: Vec<[u8; RAM_BANK_SIZE]> = saved_ram.chunks(RAM_BANK_SIZE).map(
+        | chunk | chunk.try_into().expect("Invalid size of saved ram file")
+    ).collect();
+
+    if ram_banks.len() == supposed_ram_bank_size {
+        Ok(ram_banks)
+    } else {
+        Err(
+            format!(
+                "Invalid number of ram in banks supposed != detected {} != {}",
+                supposed_ram_bank_size,
+                ram_banks.len()
+            )
+        )
+    }
 }
 
 impl Mbc for Mbc1 {
-    fn new(rom_image: &[u8]) -> Result<Self, String> {
+    fn dump(&self) -> Option<Vec<u8>> {
+        self.ram_banks.concat().into()
+    }
+    fn new(rom_image: Vec<u8>, saved_ram: Option<Vec<u8>>) -> Result<Self, String> {
         println!("rom detected is Mbc1");
-        let banks = map_rom_into_bank(rom_image)?;
-        let ram_banks = map_ram_banks(rom_image)?;
+        let banks = map_rom_into_bank(&rom_image)?;
+        let ram_banks = map_ram_banks(&rom_image, saved_ram)?;
         if ram_banks.len() > 4 {
             Err(
                 "Supposed ram bank size can't be more than 4 in mbc1 cartridge.".to_string()
@@ -150,6 +171,9 @@ pub struct Mbc2 {
 }
 
 impl Mbc for Mbc2 {
+    fn dump(&self) -> Option<Vec<u8>> {
+        self.ram_banks.concat().into()
+    }
     fn read(&self, addr: u16) -> u8 {
         match addr {
             0x0000..0x4000 => {
@@ -190,9 +214,10 @@ impl Mbc for Mbc2 {
         }
     }
 
-    fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized {
+    fn new(rom_image: Vec<u8>, saved_ram: Option<Vec<u8>>) -> Result<Self, String> where Self: Sized {
         println!("rom detected is Mbc2");
-        let rom_banks = map_rom_into_bank(rom_image)?;
+        let rom_banks = map_rom_into_bank(&rom_image)?;
+        let ram_banks = map_ram_banks(&rom_image, saved_ram);
         Ok(Mbc2{
             rom_banks,
             ram_gate_register: false,
@@ -207,7 +232,8 @@ pub struct RomOnly {
 }
 
 impl Mbc for RomOnly{
-    fn new(rom_image: &[u8]) -> Result<Self, String> {
+    fn dump(&self) -> Option<Vec<u8>> { None }
+    fn new(rom_image: Vec<u8>, saved_ram: Option<Vec<u8>>) -> Result<Self, String> {
         println!("rom detected is romonly");
         let mut bank = [0; ONLY_ROM_SIZE];
         let end = min(ONLY_ROM_SIZE, rom_image.len());
@@ -264,6 +290,9 @@ impl Mbc3 {
 }
 
 impl Mbc for Mbc3 {
+    fn dump(&self) -> Option<Vec<u8>> {
+        self.ram_banks.concat().into()
+    }
     fn read(&self, addr: u16) -> u8 {
         match addr {
             0x0000..0x4000 => self.rom_banks[0][addr as usize],
@@ -301,9 +330,9 @@ impl Mbc for Mbc3 {
         }
         
     }
-    fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized {
-        let rom_banks = map_rom_into_bank(rom_image)?;
-        let ram_banks = map_ram_banks(rom_image)?;
+    fn new(rom_image: Vec<u8>, saved_ram: Option<Vec<u8>>) -> Result<Self, String> where Self: Sized {
+        let rom_banks = map_rom_into_bank(&rom_image)?;
+        let ram_banks = map_ram_banks(&rom_image, saved_ram)?;
 
         Ok(
             Mbc3 {
@@ -332,9 +361,12 @@ pub struct Mbc5 {
 }
 
 impl Mbc for Mbc5 {
-    fn new(rom_image: &[u8]) -> Result<Self, String> where Self: Sized {
-        let rom_banks = map_rom_into_bank(rom_image)?;
-        let ram_banks = map_ram_banks(rom_image)?;
+    fn dump(&self) -> Option<Vec<u8>> {
+        self.ram_banks.concat().into()
+    }
+    fn new(rom_image: Vec<u8>, saved_ram: Option<Vec<u8>>) -> Result<Self, String> where Self: Sized {
+        let rom_banks = map_rom_into_bank(&rom_image)?;
+        let ram_banks = map_ram_banks(&rom_image, saved_ram)?;
 
         Ok(
             Mbc5 {
