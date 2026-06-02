@@ -1,18 +1,26 @@
+use crate::communications::{CpuState, InstructionList, Mode, WatchedAdresses};
 use crate::gui::{
-        AppState, CoreGameDevice, CoreGameOptions, DebuggingDevice, EmulationDevice, SelectionDevice, WatchedAdresses
-    };
+    AppState,
+    CoreGameDevice,
+    CoreGameOptions,
+    DebuggingDevice,
+    EmulationDevice,
+    SelectionDevice
+};
 
-use std::sync::atomic::Ordering::{self, Relaxed};
 
 use std::time::{Instant};
 
 impl EmulationDevice {
     pub fn emulation_view(mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) -> AppState {
         let debut = Instant::now();
-        self.core_game.update_and_size_image(ui);
+        if self.core_game.update_and_size_image(ui).is_err() {
+            eprintln!("Communication is cut : falling back to selection view.");
+            return AppState::SelectionHub(self.into())
+        }
         let duration = debut.elapsed();
         self.core_game.capture_and_send_input(ui);
-        let fps = self.core_game.fps_counter.load(Relaxed);
+        let fps = self.core_game.interface_ct.get_fps().unwrap();
 
         egui::CentralPanel::default()
             .show_inside(ui, |ui| {
@@ -27,30 +35,28 @@ impl EmulationDevice {
                     ui.add_space(10.0);
                 });
                 if ui.button("🐛 Open Debug Panel").clicked() {
-                    AppState::DebuggingHub(self.into())
+                    if let Err(err) = self.core_game.interface_ct.set_mode(Mode::Debug) {
+                        eprintln!("Communication is cut : falling back to selection view.");
+                        AppState::SelectionHub(self.into())
+                    } else {
+                        AppState::DebuggingHub(self.into())
+                    }
                 } else {
                     AppState::EmulationHub(self)
                 }
             })
-            .inner
+            .inner 
     }
 }
 
 impl From<EmulationDevice> for DebuggingDevice {
     fn from(original: EmulationDevice) -> Self {
-        original
-            .core_game
-            .global_is_debug
-            .fetch_xor(true, Ordering::Relaxed);
         Self {
             core_game: original.core_game,
-            next_instructions: Vec::new(),
-            watched_adress: WatchedAdresses {
-                addresses_n_values: Vec::new(),
-            },
-            registers: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            next_instructions: InstructionList::default(),
+            watched_adress: WatchedAdresses::default(),
+            registers: CpuState::default(),
             is_step: false,
-            watched_address_value: 0,
             nb_instruction: 0,
             error_message: None,
             hex_string: String::new(),
@@ -72,31 +78,20 @@ impl From<SelectionDevice> for EmulationDevice {
 
 impl From<DebuggingDevice> for EmulationDevice {
     fn from(original: DebuggingDevice) -> Self {
-        original
-            .core_game
-            .global_is_debug
-            .fetch_xor(true, Ordering::Relaxed);
         Self {
             core_game: original.core_game,
         }
     }
 }
 
+impl From<DebuggingDevice> for SelectionDevice {
+    fn from(value: DebuggingDevice) -> Self {
+        Self::default() 
+    }
+}
 
-pub fn scale_image(pixels: &[u8], width: usize, height: usize, scale: usize) -> Vec<u8> {
-    let scale_w = width * scale;
-    let scale_h = height * scale;
-    let size = scale_h * scale_w;
-
-    (0..size)
-        .map(|index| {
-            let y = index / scale_w;
-            let x = index % scale_w;
-            let orig_y = y / scale;
-            let orig_x = x / scale;
-            let index_to_copy = (orig_y * width + orig_x) * 3;
-            &pixels[index_to_copy..index_to_copy + 3]
-        })
-        .flat_map(|slice| slice.iter().copied())
-        .collect()
+impl From<EmulationDevice> for SelectionDevice {
+    fn from(value: EmulationDevice) -> Self {
+        Self::default()
+    }
 }

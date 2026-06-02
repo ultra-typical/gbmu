@@ -9,18 +9,23 @@ pub enum Color {
     Black,
 }
 
+const WHITE: &[u8; 3] = &[255, 255, 255];
+const LIGHTGRAY: &[u8; 3] = &[192, 192, 192];
+const DARKGRAY: &[u8; 3] = &[96, 96, 96];
+const BLACK:   &[u8; 3] = &[0, 0, 0];
+
 impl Color {
-    pub fn to_rgb(self) -> [u8; 3] {
+    pub fn to_rgb(self) -> &'static [u8; 3] {
         match self {
-            Color::White => [255, 255, 255],
-            Color::LightGray => [192, 192, 192],
-            Color::DarkGray => [96, 96, 96],
-            Color::Black => [0, 0, 0],
+            Color::White => WHITE,
+            Color::LightGray => LIGHTGRAY,
+            Color::DarkGray => DARKGRAY ,
+            Color::Black => BLACK,
         }
     }
 
-    pub fn from_rgb(rgb: [u8; 3]) -> Self {
-        match rgb {
+    pub fn from_rgb(rgb: &[u8; 3]) -> Self {
+        match *rgb {
             [255, 255, 255] => Color::White,
             [192, 192, 192] => Color::LightGray,
             [96, 96, 96] => Color::DarkGray,

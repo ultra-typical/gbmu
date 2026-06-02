@@ -16,6 +16,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
+use crate::communications::CpuState;
 use crate::cpu::registers::{R8, R16, Registers};
 use crate::mmu::mbc::Mbc;
 use crate::mmu::Mmu;
@@ -191,6 +192,22 @@ impl<T: Mbc> Cpu<T> {
                 self.bus.borrow_mut().write_byte(addr, value);
             }
             _ => self.registers.set_r8_value(register, value),
+        }
+    }
+
+    pub fn dump_state(&self) -> CpuState {
+        CpuState {
+            a: self.registers.get_a(),
+            b: self.registers.get_b(),
+            c: self.registers.get_c(),
+            d: self.registers.get_d(),
+            e: self.registers.get_e(),
+            h: self.registers.get_h(),
+            l: self.registers.get_l(),
+            hl: self.registers.get_hl(),
+            sp: self.registers.get_sp(),
+            pc: self.pc,
+
         }
     }
 }

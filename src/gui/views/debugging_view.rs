@@ -1,5 +1,6 @@
 mod display;
 
+use crate::communications::{CpuState, InstructionList, Mode};
 use crate::debugger::debbuger;
 use crate::gui::{AppState, DebuggingDevice, WatchedAdresses};
 
@@ -7,12 +8,13 @@ use eframe::egui::load::SizedTexture;
 
 use display::display_interface;
 
+#[derive(Debug)]
 struct DebuggingDataIn<'a> {
     is_step: bool,
     watched_address: &'a WatchedAdresses,
-    registers: &'a (u8, u8, u8, u8, u8, u8, u8, u16, u16, u16),
+    registers: &'a CpuState,
     nb_instruction: u8,
-    next_instructions: &'a Vec<u16>,
+    next_instructions: &'a InstructionList,
     hex_string: &'a String,
     error_message: Option<&'a String>,
     sized_texture: Option<SizedTexture>,
@@ -24,7 +26,6 @@ struct DebuggingDataOut {
     step_clicked: bool,
     step_mode_clicked: bool,
     refresh_register_clicked: bool,
-    instructions_are_requested: bool,
     nb_instruction_requested: u8,
     hex_string: String,
     register_new_addr: bool,
@@ -33,55 +34,80 @@ struct DebuggingDataOut {
 enum OutState {
     Emulating,
     Debugging,
+    Selection,
 }
 
 impl DebuggingDevice {
-    fn execute_changes(&mut self, data: DebuggingDataOut) -> OutState {
+    fn execute_changes(&mut self, data: DebuggingDataOut) -> Result<OutState, String> {
         if data.close_btn_clicked {
-            return OutState::Emulating;
+            self.core_game.interface_ct.set_mode(Mode::Game)?;
+            return Ok(OutState::Emulating);
         }
 
         if data.step_mode_clicked {
-            self.request_step_mode();
-        }
-
-        self.nb_instruction = data.nb_instruction_requested as usize;
-        if data.step_clicked {
-            self.executed_next_step(1);
-        }
-
-        if data.instructions_are_requested {
-            self.get_next_instructions(data.nb_instruction_requested);
+            if self.is_step {
+                self.core_game.interface_ct.set_mode(Mode::Debug)?;
+            } else {
+                self.core_game.interface_ct.set_mode(Mode::Stop)?;
+            }
+            self.is_step = !self.is_step;
         }
 
         if data.refresh_register_clicked {
-            self.request_registers();
+            self.core_game.interface_ct.get_cpu_state(&mut self.registers)?; 
         }
 
+        if data.step_clicked {
+            self.core_game.interface_ct.execute_next_instructions(4)?;
+        }
+
+        if self.nb_instruction != data.nb_instruction_requested as usize{
+            self.core_game.interface_ct.set_instruction_list_len(data.nb_instruction_requested)?;
+            self.nb_instruction = data.nb_instruction_requested as usize;
+        }
+
+
         self.hex_string = data.hex_string;
-        if let Ok(result) = u16::from_str_radix(self.hex_string.as_ref(), 16) {}
-        OutState::Debugging
+        if data.register_new_addr {
+            self.error_message = match u16::from_str_radix(self.hex_string.as_ref(), 16) {
+                Ok(value) => {self.core_game.interface_ct.watch_adress(value)?; None}
+                Err(err) => {Some(format!("{} is not a valid hex addr", self.hex_string))}
+            }
+        }
+        Ok(OutState::Debugging)
     }
 
     pub fn debug_view(mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) -> AppState {
         self.core_game.capture_and_send_input(ui);
         let debugging_data_in = self.update_and_get_debugging_data(ui);
+        let Ok(debugging_data_in) = debugging_data_in else {
+            eprintln!("Unexpected issue : Communication between threads were cut");
+            return AppState::SelectionHub(self.into())
+        };
         let actions_to_perform = display_interface(ui, _frame, debugging_data_in);
-        println!("{actions_to_perform:?}");
-        let next_state = self.execute_changes(actions_to_perform);
-        self.switch_state(next_state)
+        let state = match self.execute_changes(actions_to_perform) {
+            Ok(state) => state,
+            Err(error) => {
+                eprintln!("Unexpected issue : {error}");
+                OutState::Selection
+            }
+        };
+        self.switch_state(
+            state
+        )
     }
 
-    fn update_and_get_debugging_data(&mut self, ui: &mut egui::Ui) -> DebuggingDataIn<'_> {
-        self.core_game.update_and_size_image(ui);
-        debbuger::update_info_struct(self);
+    fn update_and_get_debugging_data(&mut self, ui: &mut egui::Ui) -> Result<DebuggingDataIn<'_>, String>  {
+        self.core_game.update_and_size_image(ui)?;
+        debbuger::update_info_struct(self)?;
 
         let error_message = if let Some(value) = &self.error_message {
             Some(value)
         } else {
             None
         };
-        DebuggingDataIn {
+
+        Ok(DebuggingDataIn {
             is_step: self.is_step,
             sized_texture: self.core_game.sized_image,
             watched_address: &self.watched_adress,
@@ -90,13 +116,14 @@ impl DebuggingDevice {
             next_instructions: &self.next_instructions,
             error_message,
             hex_string: &self.hex_string,
-        }
+        })
     }
 
     fn switch_state(self, next_state: OutState) -> AppState {
         match next_state {
             OutState::Debugging => AppState::DebuggingHub(self),
             OutState::Emulating => AppState::EmulationHub(self.into()),
+            OutState::Selection => AppState::SelectionHub(self.into()),
         }
     }
 }

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use eframe::egui::{Visuals, Color32, Stroke};
 
 pub fn get_light_theme_visual() -> Visuals {

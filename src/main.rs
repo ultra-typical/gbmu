@@ -1,5 +1,3 @@
-mod app;
-
 mod cli;
 mod cpu;
 mod debugger;
@@ -9,6 +7,7 @@ mod mmu;
 mod ppu;
 mod file;
 mod sound;
+mod communications;
 
 use sound::sound_test;
 use gui::GraphicalApp;

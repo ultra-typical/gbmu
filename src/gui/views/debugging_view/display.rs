@@ -17,11 +17,10 @@ pub fn display_interface(
         step_mode_btn_clkd,
         stp_btn_clkd,
         refresh_register_clicked,
-        instructions_are_requested,
         nb_instruction_requested,
         hex_string,
         register_new_addr,
-    ): (bool, bool, bool, bool, bool, u8, String, bool) = Panel::right("debug_panel")
+    ): (bool, bool, bool, bool, u8, String, bool) = Panel::right("debug_panel")
         .resizable(true)
         .default_size(400.0)
         .min_size(300.0)
@@ -61,7 +60,7 @@ pub fn display_interface(
                         })
                         .inner;
 
-                    let (nb_instruction_requested, instructions_are_requested): (u8, bool) = ui
+                    let nb_instruction_requested: u8 = ui
                         .group(|inner_ui| {
                             inner_ui.label(RichText::new("Next Instructions").strong());
                             get_next_instructions(inner_ui, &data)
@@ -82,7 +81,6 @@ pub fn display_interface(
                         step_mode_button_clicked,
                         step_button_clicked,
                         refresh_register_clicked,
-                        instructions_are_requested,
                         nb_instruction_requested,
                         hex_string,
                         register_new_addr,
@@ -101,7 +99,6 @@ pub fn display_interface(
         step_mode_clicked: step_mode_btn_clkd,
         close_btn_clicked,
         refresh_register_clicked,
-        instructions_are_requested,
         nb_instruction_requested,
         hex_string,
         register_new_addr,
@@ -142,13 +139,15 @@ fn get_registers(ui: &mut Ui, debugging_data: &DebuggingDataIn) -> bool {
             ui.label(RichText::new("Binary").strong());
             ui.end_row();
 
+            println!("{:?}", debugging_data);
+
             let registers_8bit = [
-                ("A", debugging_data.registers.0),
-                ("B", debugging_data.registers.1),
-                ("C", debugging_data.registers.2),
-                ("D", debugging_data.registers.3),
-                ("E", debugging_data.registers.4),
-                ("H", debugging_data.registers.5),
+                ("A", debugging_data.registers.a),
+                ("B", debugging_data.registers.b),
+                ("C", debugging_data.registers.c),
+                ("D", debugging_data.registers.d),
+                ("E", debugging_data.registers.e),
+                ("H", debugging_data.registers.h),
             ];
 
             for (name, value) in registers_8bit.iter() {
@@ -179,10 +178,10 @@ fn get_registers(ui: &mut Ui, debugging_data: &DebuggingDataIn) -> bool {
 
             // 16-bit registers
             let registers_16bit = [
-                ("L", debugging_data.registers.6 as u16),
-                ("HL", debugging_data.registers.7),
-                ("SP", debugging_data.registers.8),
-                ("PC", debugging_data.registers.9),
+                ("L", debugging_data.registers.l as u16),
+                ("HL", debugging_data.registers.hl),
+                ("SP", debugging_data.registers.sp),
+                ("PC", debugging_data.registers.pc),
             ];
 
             for (name, value) in registers_16bit.iter() {
@@ -208,7 +207,7 @@ fn get_registers(ui: &mut Ui, debugging_data: &DebuggingDataIn) -> bool {
     refresh_button_is_clicked
 }
 
-fn get_next_instructions(ui: &mut Ui, data: &DebuggingDataIn) -> (u8, bool) {
+fn get_next_instructions(ui: &mut Ui, data: &DebuggingDataIn) -> u8 {
     // Input section
     let instruction_requested_tuple = ui
         .group(|ui| {
@@ -223,10 +222,7 @@ fn get_next_instructions(ui: &mut Ui, data: &DebuggingDataIn) -> (u8, bool) {
                         .range(0..=255)
                         .prefix("Dec: "),
                 );
-
-                // Fetch button
-                let fetch_btn = ui.add_sized([100.0, 20.0], Button::new("📋 Fetch"));
-                (nb_instructions, fetch_btn.clicked())
+                nb_instructions
             })
             .inner
         })
@@ -360,10 +356,10 @@ fn watch_address(ui: &mut Ui, data: &DebuggingDataIn) -> (String, bool) {
     ui.horizontal(|ui| {
         ui.heading("Watched Addresses");
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if !data.watched_address.addresses_n_values.is_empty() {
+            if !data.watched_address.is_empty() {
                 ui.label(format!(
                     "({})",
-                    data.watched_address.addresses_n_values.len()
+                    data.watched_address.len()
                 ));
             }
         });
@@ -372,7 +368,7 @@ fn watch_address(ui: &mut Ui, data: &DebuggingDataIn) -> (String, bool) {
     ui.add_space(4.0);
 
     // Display watched addresses with better formatting
-    if data.watched_address.addresses_n_values.is_empty() {
+    if data.watched_address.is_empty() {
         ui.label(
             RichText::new("No addresses being watched")
                 .italics()
@@ -397,7 +393,7 @@ fn watch_address(ui: &mut Ui, data: &DebuggingDataIn) -> (String, bool) {
                     ui.separator();
 
                     for (i, (address, value)) in
-                        data.watched_address.addresses_n_values.iter().enumerate()
+                        data.watched_address.iter().enumerate()
                     {
                         ui.horizontal(|ui| {
                             // Index
@@ -437,7 +433,7 @@ fn watch_address(ui: &mut Ui, data: &DebuggingDataIn) -> (String, bool) {
                         });
 
                         // Subtle separator between entries
-                        if i < data.watched_address.addresses_n_values.len() - 1 {
+                        if i < data.watched_address.len() - 1 {
                             ui.add_space(2.0);
                         }
                     }
