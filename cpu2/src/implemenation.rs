@@ -73,73 +73,83 @@ impl Cpu {
 impl fmt::Debug for Cpu {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Cpu")
-            .field("Registers", &self.registers)
             .field("op_index", &self.op_index)
+            .field("r8", &self.r8)
+            .field("flags", &format!("{:08b}", self.flags))
             .field("queue", &self.queue)
             .finish()
     }
 }
 
-impl fmt::Debug for Registers {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Registers")
-            .field("r8", &self.r8)
-            .field("pc", &self.pc)
-            .field("sp", &self.sp)
-            .field("flags", &format!("{:08b}", self.flags))
-            .finish()
-    }
-}
-
-pub trait GetReg<R> {
+pub trait  GetReg {
     type Output;
-    fn get(&self, reg: R) -> Self::Output;
-    fn set(&mut self, reg: R, value: Self::Output);
+    fn get(&self) -> Self::Output;
+    fn set(&mut self, value: Self::Output);
 }
 
-impl GetReg<R8> for Registers {
-    type Output = u8;
-    fn get(&self, reg: R8) -> u8 {
-        self.r8[reg as usize]
-    }
-    fn set(&mut self, reg: R8, value: u8) {
-        self.r8[reg as usize] = value;
-    }
-}
+trait Reg8 { const USIZE: usize; }
 
-impl GetReg<R16> for Registers {
-    type Output = u16;
-    fn get(&self, reg: R16) -> u16 {
-        match reg {
-            R16::AF => (self.r8[R8::A as usize] as u16) << 8 | self.r8[R8::F as usize] as u16,
-            R16::BC => (self.r8[R8::B as usize] as u16) << 8 | self.r8[R8::C as usize] as u16,
-            R16::DE => (self.r8[R8::D as usize] as u16) << 8 | self.r8[R8::E as usize] as u16,
-            R16::HL => (self.r8[R8::H as usize] as u16) << 8 | self.r8[R8::L as usize] as u16,
-            R16::PC => self.pc,
-            R16::SP => self.sp,
+macro_rules! implreg8 {
+    ($name:ident) => {
+        struct $name {}
+        impl Reg8 for $name {
+            const USIZE: usize = R8::$name as usize;
         }
+    };
+}
+
+implreg8!(A);
+implreg8!(B);
+implreg8!(C);
+implreg8!(D);
+implreg8!(E);
+implreg8!(F);
+implreg8!(H);
+implreg8!(L);
+
+macro_rules! implreg16 {
+    ($name:ident) => {
+        struct $name {}
+        impl Reg16 for $name {
+            const USIZE: usize = R16::$name as usize;
+        }
+    };
+}
+
+implreg16!(AF);
+implreg16!(BC);
+implreg16!(DE);
+implreg16!(HL);
+implreg16!(SP);
+implreg16!(PC);
+
+
+impl Cpu{
+    fn get_r8<R:Reg8> (&self) -> u8{
+        self.r8[R::USIZE]
     }
 
-    fn set(&mut self, reg: R16, value: u16) {
-        match reg {
-            R16::AF => {
-                self.r8[R8::A as usize] = (value >> 8) as u8;
-                self.r8[R8::F as usize] = (value & 0xFF) as u8;
-            }
-            R16::BC => {
-                self.r8[R8::B as usize] = (value >> 8) as u8;
-                self.r8[R8::C as usize] = (value & 0xFF) as u8;
-            }
-            R16::DE => {
-                self.r8[R8::D as usize] = (value >> 8) as u8;
-                self.r8[R8::E as usize] = (value & 0xFF) as u8;
-            }
-            R16::HL => {
-                self.r8[R8::H as usize] = (value >> 8) as u8;
-                self.r8[R8::L as usize] = (value & 0xFF) as u8;
-            }
-            R16::PC => self.pc = value,
-            R16::SP => self.sp = value,
-        }
+    fn set_r8<R:Reg8>(&mut self, value: u8) {
+        self.r8[R::USIZE] = value;
+    }
+
+    fn get_r16<R: Reg16>(&self) -> u16 {
+        (self.r8[R::USIZE * 2] as u16) << 8 | self.r8[R::USIZE * 2 + 1] as u16
+    }
+
+    fn set_r16<R: Reg16>(&mut self, value: u16) {
+        self.r8[R::USIZE] = (value >> 8) as u8;
+        self.r8[R::USIZE] = (value & 0xFF) as u8;
     }
 }
+
+
+
+trait Reg16 { const USIZE: usize; }
+
+struct RegAF;
+
+impl Reg16 for RegAF {
+    const USIZE: usize = 0;
+}
+

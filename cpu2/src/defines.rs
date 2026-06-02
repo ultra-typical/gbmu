@@ -37,7 +37,8 @@ pub struct Accumulator {
 
 pub struct Cpu {
     pub queue: &'static [MicroOp],
-    pub registers : Registers,
+    pub r8 : [u8; 12],
+    pub flags: Flags,
     pub instructions_list: Vec<u8>,
     pub op_index: usize,
     pub accumulator : Accumulator,
