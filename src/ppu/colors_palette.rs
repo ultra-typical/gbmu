@@ -1,7 +1,9 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-#[derive(Clone, Debug, Copy, PartialEq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Color {
     White,
     LightGray,

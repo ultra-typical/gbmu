@@ -1,10 +1,12 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use serde::{Deserialize, Serialize};
+
 use crate::ppu::pixel::Pixel;
 use std::collections::VecDeque;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PixelFifo {
     bg: VecDeque<Pixel>,
     y: u8,

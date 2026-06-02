@@ -1,6 +1,8 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use serde::{Deserialize, Serialize};
+
 use crate::mmu::Mmu;
 use crate::mmu::mbc::Mbc;
 use crate::mmu::MemoryRegion;
@@ -14,7 +16,7 @@ const OBP0_ADDR: u16 = 0xFF48; // Object Palette 0
 const OBP1_ADDR: u16 = 0xFF49; // Object Palette 1
 const VRAM: MemoryRegion = MemoryRegion::Vram; // Start of VRAM
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum FetcherState {
     #[default]
     GetTileId = 0,
@@ -23,7 +25,7 @@ pub enum FetcherState {
     PushPixel = 3,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct OamFetcher {
     fetcher_state: FetcherState,
     tile_id: u8,

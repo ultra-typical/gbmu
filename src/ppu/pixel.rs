@@ -1,9 +1,11 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use serde::{Deserialize, Serialize};
+
 use crate::ppu::colors_palette::Color;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Pixel {
     color: Color,
     is_sprite: bool,

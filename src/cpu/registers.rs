@@ -1,6 +1,8 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use serde::{Deserialize, Serialize};
+
 use crate::cpu::conditions::Cond;
 use crate::cpu::flags_registers::FlagsRegister;
 use crate::mmu::mbc::Mbc;
@@ -86,6 +88,8 @@ impl From<u8> for R8 {
         }
     }
 }
+
+#[derive(Serialize, Deserialize)]
 pub struct Registers {
     r8: [u8; 8],
     sp: u16,

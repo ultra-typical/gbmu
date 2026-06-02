@@ -16,6 +16,8 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
+use serde::{Deserialize, Serialize};
+
 use crate::cpu::registers::{R8, R16, Registers};
 use crate::mmu::mbc::Mbc;
 use crate::mmu::Mmu;
@@ -28,6 +30,8 @@ enum StepStatus {
     Halted,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(bound(serialize = "T: Serialize", deserialize = "T: serde::de::DeserializeOwned"))]
 pub struct Cpu<T: Mbc> {
     pub registers: Registers,
     pub pc: u16,

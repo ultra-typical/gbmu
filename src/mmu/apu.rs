@@ -1,4 +1,6 @@
-#[derive(Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Default, Serialize, Deserialize)]
 struct ChannelOne {
     sweep: SweepReg,
     ln_timer_duty_cycle: LnTimerDutyCycleReg,
@@ -7,7 +9,7 @@ struct ChannelOne {
     period_low: PeriodLowReg,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 struct ChannelTwo {
     channel_two_ln_timer_duty_cycle: LnTimerDutyCycleReg,
     channel_two_volume_envelope: VolumeEnvReg,
@@ -15,7 +17,7 @@ struct ChannelTwo {
     channel_two_period_low: PeriodLowReg,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 struct ChannelThree {
     channel_three_dac_enable: WaveDacEnableReg,
     channel_three_ln_timer: WaveLengthTimerReg,
@@ -24,7 +26,7 @@ struct ChannelThree {
     channel_three_period_high_crtl: PeriodHighCtrlReg,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 struct ChannelFour {
     channel_four_length_timer: NoiseLengthTimer,
     channel_four_volume_evelope: VolumeEnvReg,
@@ -32,7 +34,7 @@ struct ChannelFour {
     channel_four_ctrl: ChannelFourCtrlReg,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct Apu {
     audio_master_control: AudioMasterControlReg,
     sound_panning: SoundPanningReg,
@@ -48,7 +50,7 @@ trait Channel {}
 
 macro_rules! define_register {
     ($name:ident) => {
-        #[derive(Default, Debug, Copy, Clone)]
+        #[derive(Default, Debug, Copy, Clone, Deserialize, Serialize)]
         struct $name { byte: u8, }
     };
 }

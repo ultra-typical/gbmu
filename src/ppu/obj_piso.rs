@@ -4,10 +4,11 @@
 // PISO stands for "Parallel In Serial Out"
 // Since it's not a real FIFO in its behavior
 
+use serde::{Deserialize, Serialize};
 use crate::ppu::pixel::Pixel;
 use crate::ppu::colors_palette::Color;
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct ObjPiso {
     pixels: [Pixel; 8],
 }

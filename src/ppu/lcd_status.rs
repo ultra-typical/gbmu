@@ -1,7 +1,9 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum PpuMode {
     HBlank = 0,
     VBlank = 1,
@@ -10,7 +12,7 @@ pub enum PpuMode {
     PixelTransfer = 3,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct LcdStatus {
     lyc_int_select: bool,
     mode_2_int_select: bool,

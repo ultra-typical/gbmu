@@ -7,6 +7,11 @@ use std::sync::Arc;
 
 use std::sync::Mutex;
 
+use serde::Deserialize;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+use serde::ser::SerializeStruct;
+
 use crate::cpu::Cpu;
 use crate::cpu::registers::{R8};
 use crate::gui::KeyInput;
@@ -24,6 +29,43 @@ pub struct GameBoy<T: Mbc> {
     pub ppu: Ppu<T>,
     pub bus: Rc<RefCell<Mmu<T>>>,
     pub image: Arc<Mutex<Vec<u8>>>,
+}
+
+impl<T: Mbc + Serialize> Serialize for GameBoy<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer
+    {
+        let mut state = serializer.serialize_struct("GameBoy", 3)?;
+        state.serialize_field("cpu", &self.cpu)?; 
+        state.serialize_field("ppu", &self.ppu)?;
+        state.serialize_field("bus", &self.bus)?;
+        state.end()
+    }
+}
+
+impl<'de, T: Mbc + DeserializeOwned> Deserialize<'de> for GameBoy<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(bound(deserialize = "T: DeserializeOwned"))]
+        struct GameBoyData<T: Mbc + DeserializeOwned> {
+            cpu: Cpu<T>,
+            ppu: Ppu<T>,
+            bus: Rc<RefCell<Mmu<T>>>,
+        }
+
+        let data = GameBoyData::<T>::deserialize(deserializer)?;
+
+        Ok(GameBoy { 
+            cpu: data.cpu,
+            ppu: data.ppu,
+            bus: data.bus,
+            image: Arc::new(Mutex::new(vec![]))
+        })
+    }
 }
 
 impl<T: Mbc>  GameBoy<T> {

@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Interrupt {
@@ -20,7 +22,7 @@ impl Interrupt {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct InterruptController {
     ienable: u8,
     iflag: u8,

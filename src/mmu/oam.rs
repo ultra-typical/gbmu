@@ -1,6 +1,9 @@
+use serde::{Deserialize, Serialize};
+use serde_big_array::BigArray;
+
 const OAM_BEGINNING: u16 = 0xFE00;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct Sprite {
 	pub y: u8, // Y-position of the sprite
 	pub x: u8, // X-position of the sprite
@@ -32,7 +35,9 @@ impl Sprite {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Oam {
+    #[serde(with = "BigArray")]
 	pub sprites: [Sprite; 40],
 }
 

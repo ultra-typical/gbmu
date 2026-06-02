@@ -16,6 +16,9 @@ use std::sync::Arc;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use serde::Deserialize;
+use serde::Serialize;
+
 use crate::mmu::mbc::Mbc;
 use crate::mmu::MemoryRegion;
 use crate::mmu::Mmu;
@@ -52,6 +55,8 @@ const PIXEL_TRANSFER_DOTS: u32 = 172; // can change between 172 and 289, to hand
 const HBLANK_DOTS: u32 = 204; // can change between 87 and 204, to handle later
 const SCANLINE_DOTS: u32 = 456; // always 456
 
+#[derive(Serialize, Deserialize)]
+#[serde(bound(serialize = "T: Serialize", deserialize = "T: serde::de::DeserializeOwned"))]
 pub struct Ppu<T: Mbc> {
     pub bus: Rc<RefCell<Mmu<T>>>,
     pub dots: u32,

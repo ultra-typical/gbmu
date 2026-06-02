@@ -5,11 +5,13 @@ use crate::gui::{DebugCommandQueries, DebugResponse, KeyInput, LaunchGameData, W
 use crate::mmu::mbc::Mbc;
 use std::sync::atomic::AtomicI16;
 use std::sync::atomic::Ordering::Relaxed;
+use std::fs;
 use std::sync::{
     Arc,
-    atomic::{AtomicBool, Ordering}
+    atomic::{AtomicBool, Ordering},
 };
 use std::time::{Duration, Instant};
+use std::io::Write;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 pub struct GameApp<T: Mbc> {
@@ -69,6 +71,7 @@ impl<T: Mbc> GameApp<T> {
 
     pub fn launch(mut self) -> Result<Option<Vec<u8>>, String>{
         let mut input = KeyInput::default();
+        let mut cycle = 0;
         let debut = Instant::now();
         let mut old_instant_frame_in_ms = debut.elapsed().as_millis();
         loop {
@@ -83,6 +86,10 @@ impl<T: Mbc> GameApp<T> {
                 self.updated_image_boolean.store(true, Ordering::Relaxed);
             }
             get_fps(debut, &mut old_instant_frame_in_ms, &self.fps_counter);
+            if cycle == 1000 {
+                self.save_state().unwrap();
+            }
+            cycle += 1;
         }
         Ok(self.ram_dump())
     }
@@ -216,6 +223,22 @@ impl<T: Mbc> GameApp<T> {
     //     }
     //     rgba_frame
     // }
+    pub fn save_state(&self) -> Result<(), String> {
+        let json = serde_json::to_string_pretty(&self.gameboy).unwrap();
+        let file = fs::File::create("save.json");
+        match file {
+            Ok(mut file) => {
+                let ret = file.write_all(json.as_bytes());
+                let _: () = ret.unwrap();
+                Ok(())
+            }
+            Err(err) => {
+                let err_str = "Error state state : ".to_string() + &err.to_string();
+                println!("{}", err_str);
+                Err(err_str)
+            }
+        }
+    }
 
 }
 

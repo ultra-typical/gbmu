@@ -1,6 +1,8 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+use serde::{Deserialize, Serialize};
+
 use crate::mmu::Mmu;
 use crate::mmu::mbc::Mbc;
 use crate::ppu::lcd_control::LcdControl;
@@ -14,7 +16,7 @@ const BGP_ADDR: u16 = 0xFF47; // Background Palette
 const TILE_DATA_1_START: u16 = 0x8000;
 const TILE_DATA_0_START: u16 = 0x8800;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum FetcherState {
     #[default]
     GetTileId = 0,
@@ -24,7 +26,7 @@ pub enum FetcherState {
     PushPixel = 4,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct PixelFetcher {
     fetcher_state: FetcherState,
     tile_id: u8,
