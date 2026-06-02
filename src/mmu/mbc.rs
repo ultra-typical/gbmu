@@ -59,7 +59,7 @@ fn map_rom_into_bank(rom_image: &[u8]) -> Result<Vec<[u8; ROM_BANK_SIZE]>, Strin
             data
         }).collect();
     let supposed_rom_bank_size = get_rom_bank_size(rom_image)?;
-    println!("rom banks count {}", banks.len());
+    println!("ram banks count {}", banks.len());
     if banks.len() != supposed_rom_bank_size {
         return Err(
             format!("Inconsistent Rom Header : size must be : {}", supposed_rom_bank_size)

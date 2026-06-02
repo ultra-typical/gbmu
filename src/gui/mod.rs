@@ -1,22 +1,20 @@
 #![cfg_attr(test, allow(clippy::all))]
 #![allow(unused_variables)]
-#![allow(dead_code)]
 
 mod common;
 mod views;
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::Ordering::Relaxed;
 use std::time::Duration;
 use std::thread;
 use egui_file_dialog::{FileDialog, Filter};
+use crate::communications::{CpuState, GameCT, InstructionList, InterfaceCT, WatchedAdresses, create_communication_tools};
+use crate::gameboy::GameBoy;
 use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, RomOnly};
 use crate::ppu;
 use eframe::egui::{Key, TextureHandle};
 use eframe::egui::{load::SizedTexture, vec2, ColorImage, TextureOptions};
 use std::collections::HashSet;
-
-use std::sync::atomic::{AtomicI16, Ordering};
 
 use std::time::Instant;
 
@@ -25,14 +23,9 @@ pub struct GraphicalApp {
     app_state: AppState,
 }
 
-use crate::app::GameApp;
 pub mod themes;
 use eframe::egui;
-use std::sync::Mutex;
-use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::task::JoinHandle;
-
-use std::sync::{Arc, atomic::AtomicBool};
 
 const UI_REFRESH_PERIOD_IN_MILLIS: u64 = 30;
 
@@ -70,8 +63,8 @@ pub struct EmulationAppOptions {
 }
 
 pub struct CoreGameOptions {
-    rom_path: String,
-    boot_rom: bool,
+    pub rom_path: String,
+    pub boot_rom: bool,
 }
 
 impl From<EmulationAppOptions> for CoreGameOptions {
@@ -108,7 +101,7 @@ impl GraphicalApp {
 #[derive(Default)]
 pub struct StartingHubDevice {}
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Copy, Clone)]
 pub struct KeyInput{
     pub a_pushed: bool,
     pub b_pushed: bool,
@@ -172,31 +165,58 @@ use std::fs;
 use std::process;
 
 pub enum AnyGameApp {
-    OnlyRom(GameApp<RomOnly>),
-    Mbc1(GameApp<Mbc1>),
-    Mbc2(GameApp<Mbc2>),
-    Mbc3(GameApp<Mbc3>),
+    OnlyRom(GameBoy<RomOnly>),
+    Mbc1(GameBoy<Mbc1>),
+    Mbc2(GameBoy<Mbc2>),
+    Mbc3(GameBoy<Mbc3>),
 }
 
+
+
 impl AnyGameApp {
-    pub fn new(game_data: LaunchGameData) -> Result<Self, String> {
+    pub fn new(game_data: CoreGameOptions) -> Result<Self, String> {
         let rom_data: Vec<u8> = Self::read_rom(&game_data.rom_path);
         let ram_path = game_data.rom_path.to_owned() + ".save";
         let ram_data: Option<Vec<u8>> = Self::read_ram(&ram_path);
         if ram_data.is_some() { println!("Backup detected") };
         let code = rom_data[0x0147];
+        let boot_rom_data = if game_data.boot_rom {
+            let boot_bytes = std::fs::read("boot-roms/dmg.bin").expect("cannot read boot rom");
+            assert!(boot_bytes.len() == 0x100, "boot rom must be 256 bytes");
+
+            let mut boot_rom = [0u8; 0x0100];
+            boot_rom.copy_from_slice(&boot_bytes);
+            Some(boot_rom)
+        } else { None };
+
         match code {
             0x00 | 0x08 | 0x09 => Ok(
-                AnyGameApp::OnlyRom(GameApp::new(rom_data, ram_data, game_data)?)
+                AnyGameApp::OnlyRom(GameBoy::new(
+                    boot_rom_data,
+                    rom_data,
+                    ram_data,
+                )?)
             ),
             0x01..=0x03 => Ok(
-                AnyGameApp::Mbc1(GameApp::new(rom_data,ram_data,  game_data)?)
+                AnyGameApp::Mbc1(GameBoy::new(
+                    boot_rom_data,
+                    rom_data,
+                    ram_data,
+                )?)
             ),
             0x05 | 0x06 => Ok(
-                AnyGameApp::Mbc2(GameApp::new(rom_data,ram_data,  game_data)?)
+                AnyGameApp::Mbc2(GameBoy::new(
+                    boot_rom_data,
+                    rom_data,
+                    ram_data,
+                )?)
             ),
             0x0F..0x13 => Ok(
-                AnyGameApp::Mbc3(GameApp::new(rom_data,ram_data,  game_data)?)
+                AnyGameApp::Mbc3(GameBoy::new(
+                    boot_rom_data,
+                    rom_data,
+                    ram_data,
+                )?)
             ),
             /*
                 0x0B | 0x0C | 0x0D => Ok(todo!()), // MMM01 pas dans le sujet
@@ -227,117 +247,42 @@ impl AnyGameApp {
         }
     }
 
-    pub fn launch(self) -> Result<Option<Vec<u8>>, String>{
+    pub fn launch(self, ct: Box<dyn GameCT>) -> Result<Option<Vec<u8>>, String>{
         match self {
-            AnyGameApp::OnlyRom(g) => g.launch(),
-            AnyGameApp::Mbc1(g)=> g.launch(),
-            AnyGameApp::Mbc2(g)=> g.launch(),
-            AnyGameApp::Mbc3(g)=> g.launch(),
+            AnyGameApp::OnlyRom(g) => g.launch(ct),
+            AnyGameApp::Mbc1(g)=> g.launch(ct),
+            AnyGameApp::Mbc2(g)=> g.launch(ct),
+            AnyGameApp::Mbc3(g)=> g.launch(ct),
         }
     }
 }
 
-pub struct GameBuilder {
-    pub rom_path: String,
-    pub boot_rom: bool,
-    pub input_receiver: Receiver<KeyInput>,
-    pub updated_image_boolean: Arc<AtomicBool>,
-    pub command_query_receiver: Receiver<DebugCommandQueries>,
-    pub debug_response_sender: Sender<DebugResponse>,
-    pub global_is_debug: Arc<AtomicBool>,
-    pub image_to_change: Arc<Mutex<Vec<u8>>>,
-}
-
-impl GameBuilder {
-    pub fn deconstruct(self) -> (String, Arc<AtomicBool>, Receiver<KeyInput>, AnyAppBuilder) {
-        (
-            self.rom_path, 
-            self.updated_image_boolean,
-            self.input_receiver,
-            AnyAppBuilder {
-                boot_rom: self.boot_rom,
-                command_query_receiver: self.command_query_receiver,
-                debug_response_sender: self.debug_response_sender,
-                global_is_debug: self.global_is_debug,
-                image_to_change: self.image_to_change,
-            }
-        )
-    }
-}
-
-pub struct AnyAppBuilder {
-    pub boot_rom: bool,
-    pub command_query_receiver: Receiver<DebugCommandQueries>,
-    pub debug_response_sender: Sender<DebugResponse>,
-    pub global_is_debug: Arc<AtomicBool>,
-    pub image_to_change: Arc<Mutex<Vec<u8>>>,
-}
-
 
 async fn async_launch_game(
-    game_data: LaunchGameData
+    game_data: CoreGameOptions,
+    ct: Box<dyn GameCT>
 ) -> Result<(), String> {
     let rom_path = game_data.rom_path.clone();
     let app = AnyGameApp::new(game_data)?;
-    if let Some(value) = app.launch()? {
-        let str = rom_path.clone() + ".save";
-        println!("{}", str);
-        fs::write(rom_path + ".save", value).unwrap_or_else(
+    if let Some(value) = app.launch(ct)? {
+        let save_path = rom_path.clone() + ".save";
+        eprintln!("attempting to save game ram to {}", save_path);
+        fs::write(save_path, value).unwrap_or_else(
             |err| eprintln!("backup was unsucessfull {:?}", err)
         );
     }
     Ok(())
 }
 
-pub struct LaunchGameData {
-    pub actual_image : Arc<Mutex<Vec<u8>>>,
-    pub rom_path: String,
-    pub boot_rom: bool,
-    pub input_receiver: Receiver<KeyInput>,
-    pub updated_image_boolean: Arc<AtomicBool>,
-    pub command_query_receiver: Receiver<DebugCommandQueries>,
-    pub debug_response_sender: Sender<DebugResponse>,
-    pub global_is_debug: Arc<AtomicBool>,
-    pub ui_is_alive: Arc<AtomicBool>,
-    pub fps_counter: Arc<AtomicI16>,
-}
-
-
-pub enum DebugCommandQueries {
-    SetStepMode,
-    ExecuteInstruction(u8),
-    ExecuteNextInstructions(usize),
-    GetNextInstructions(u8),
-    GetRegisters,
-    WatchAddress(u16),
-    GetAddresses,
-}
-
-pub enum DebugResponse {
-    StepModeSet(bool),
-    InstructionsExecuted(usize),
-    NextInstructions(Vec<u16>),
-    AddressesWatched(WatchedAdresses),
-    Registers(u8, u8, u8, u8, u8, u8, u8, u16, u16, u16),
-}
-
-pub struct WatchedAdresses {
-    pub addresses_n_values: Vec<(u16, u16)>,
-}
+use crate::communications::FRAME_SIZE_IN_U8;
 
 pub struct CoreGameDevice {
     pub handler: JoinHandle<Result<(), String>>,
-    pub input_sender: Sender<KeyInput>,
-    pub updated_image_boolean: Arc<AtomicBool>,
-    pub command_query_sender: Sender<DebugCommandQueries>,
-    pub debug_response_receiver: Receiver<DebugResponse>,
-    pub actual_image: Arc<Mutex<Vec<u8>>>,
+    buffer: [u8; FRAME_SIZE_IN_U8],
     pub sized_image: Option<SizedTexture>,
-    pub global_is_debug: Arc<AtomicBool>,
-    pub fps_counter: Arc<AtomicI16>,
     texture_handler: Option<TextureHandle>,
     key_mapping: KeyMapping,
-    ui_is_alive: Arc<AtomicBool>,
+    pub interface_ct: Box<dyn InterfaceCT>,
 }
 
 impl KeyMapping {
@@ -363,78 +308,52 @@ impl Drop for CoreGameDevice {
 }
 
 impl CoreGameDevice {
-    pub fn update_and_size_image(&mut self, ui: &mut egui::Ui) {
-        if  self.updated_image_boolean.load(Ordering::Relaxed) {
-            
-            let loaded_image;
-            {
-                let image = self.actual_image.lock().unwrap();
-                loaded_image = ColorImage::from_rgb([ppu::WIN_SIZE_X, ppu::WIN_SIZE_Y], &image);
-            }
-            if let Some(th) = &mut self.texture_handler {
-                th.set(loaded_image, TextureOptions::NEAREST);
-            } else {
-                self.texture_handler = Some(ui.ctx().load_texture("gb_frame", loaded_image, TextureOptions::NEAREST));
-            }
-            if let Some(th) = &self.texture_handler {
-                let scaled_size = vec2(ppu::WIN_SIZE_X as f32 * 4., ppu::WIN_SIZE_Y as f32 * 4.);
-                let sized_texture = SizedTexture::new(th.id(), scaled_size);
-                self.sized_image = Some(sized_texture);
-                self.updated_image_boolean.store(false, Ordering::Relaxed);
-            }
+    pub fn update_and_size_image(&mut self, ui: &mut egui::Ui) -> Result<(), String> {
+
+        let Some(()) = self.interface_ct.get_new_image(&mut self.buffer)? else {
+            return Ok(());
+        };
+
+        let loaded_image =  ColorImage::from_rgb([ppu::WIN_SIZE_X, ppu::WIN_SIZE_Y], &self.buffer);       
+        if let Some(th) = &mut self.texture_handler {
+            th.set(loaded_image, TextureOptions::NEAREST);
+        } else {
+            self.texture_handler = Some(ui.ctx().load_texture("gb_frame", loaded_image, TextureOptions::NEAREST));
         }
+
+        if let Some(th) = &self.texture_handler {
+            let scaled_size = vec2(ppu::WIN_SIZE_X as f32 * 4., ppu::WIN_SIZE_Y as f32 * 4.);
+            let sized_texture = SizedTexture::new(th.id(), scaled_size);
+            self.sized_image = Some(sized_texture);
+        }
+        Ok(())
     }
 
     pub fn capture_and_send_input(&self, ui: &mut egui::Ui) {
         let keys_down= ui.ctx().input(|i| { i.keys_down.clone() });
         let input = self.key_mapping.generate_key_input(keys_down);
-        _ = self.input_sender.try_send(input);
+        _ = self.interface_ct.send_input(input);
     }
 
     fn new(options: CoreGameOptions) -> Self {
-        let (input_sender, input_receiver) = channel::<KeyInput>(1);
-        let updated_image_boolean = Arc::new(AtomicBool::new(false));
-        let (command_query_sender, command_query_receiver) = channel::<DebugCommandQueries>(1);
-        let (debug_response_sender, debug_response_receiver) = channel::<DebugResponse>(10);
-        let global_is_debug = Arc::new(AtomicBool::new(false));
-        let actual_image = Arc::new(Mutex::new(vec![0; 160 * 144 * 3]));
-        let ui_is_alive = Arc::new(AtomicBool::new(false));
-        let texture_handler = None;
-        let fps_counter = Arc::new(AtomicI16::new(0_i16));
+        let (game_ct, interface_ct) = create_communication_tools();
+
         Self {
-            input_sender,
-            command_query_sender,
-            debug_response_receiver,
+            interface_ct,
             handler: tokio::spawn(async_launch_game(
-                LaunchGameData {
-                    rom_path: options.rom_path,
-                    boot_rom: options.boot_rom,
-                    input_receiver,
-                    updated_image_boolean: updated_image_boolean.clone(),
-                    command_query_receiver,
-                    debug_response_sender,
-                    global_is_debug: global_is_debug.clone(),
-                    ui_is_alive: ui_is_alive.clone(),
-                    actual_image: actual_image.clone(),
-                    fps_counter: fps_counter.clone()
-                }
+                options,
+                game_ct,
             )),
-            texture_handler,
-            updated_image_boolean,
-            actual_image,
-            global_is_debug,
+            buffer: [0; FRAME_SIZE_IN_U8],
+            texture_handler: None,
             sized_image: None,
             key_mapping: KeyMapping::default(),
-            ui_is_alive,
-            fps_counter,
         }
     }
 }
 
 pub struct SelectionDevice {
     path: String,
-    files: Vec<String>, 
-    selected_file: Option<usize>,
     file_dialog: FileDialog,
     picked_file: Option<PathBuf>,
 }
@@ -443,8 +362,6 @@ impl Default for SelectionDevice {
     fn default() -> Self {
         Self {
             path: String::from("./"),
-            files: Vec::<String>::default(),
-            selected_file: None,
             picked_file: None,
             file_dialog: FileDialog::new()
                 .default_size([600.0, 400.0])
@@ -475,17 +392,17 @@ pub struct EmulationDevice {
     pub core_game: CoreGameDevice,
 }
 
+
 pub struct DebuggingDevice {
     pub core_game: CoreGameDevice,
-    /*
+/*
     Info stored for the GUI to use them;
     These are the responses from the sending/receiving operation
-    */
-    pub next_instructions: Vec<u16>,
+*/
+    pub next_instructions: InstructionList,
     pub watched_adress: WatchedAdresses,
-    pub registers: (u8, u8, u8, u8, u8, u8, u8, u16, u16, u16),
+    pub registers: CpuState,
     pub is_step: bool,
-    pub watched_address_value: u16,
     pub nb_instruction: usize,
 
     pub error_message: Option<String>,
@@ -494,10 +411,4 @@ pub struct DebuggingDevice {
 
 impl Default for AppState {
     fn default() -> Self { Self::StartingHub(Default::default()) }
-}
-
-impl LaunchGameData {
-    fn get_fps(&self) -> i16 {
-        self.fps_counter.load(Relaxed)
-    }
 }
