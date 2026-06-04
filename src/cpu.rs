@@ -338,21 +338,22 @@ mod tests {
         // If halted==true and an interrupt is pending but IME==false,
         // CPU should wake (halted→false) but *not* service the interrupt.
         //
+        let mut rom = vec![0u8; 0x8000];
+        rom[0x0300] = 0x00;
 
-        let mut cpu = Cpu::<RomOnly>::default();
+        let bus = Mmu::<RomOnly>::new(rom, None).expect("Failed to create Bus");
+        let bus: Rc<RefCell<Mmu<RomOnly>>> = bus.into();
+        let mut cpu = Cpu::<RomOnly>::new(bus.clone());
+
+        cpu.pc = 0x0300;
+        cpu.registers.set_sp(0xFFFE);
+        cpu.halted = true;
+        cpu.ime = false; // Master-enable off
         {
             let mut mmu = cpu.bus.borrow_mut();
             mmu.write_byte(0xFF0F, Interrupt::Timer as u8);
             mmu.write_byte(0xFFFF, Interrupt::Timer as u8);
-            mmu.write_byte(0x300, 0x00);
         }
-        // Make a pending interrupt: Timer bit in IF and IE
-        // Also put a dummy opcode (0x00 = NOP) at PC so we can see it execute.
-        cpu.pc = 0x300;
-        cpu.registers.set_sp(0xFFFE);
-        cpu.halted = true;
-        cpu.ime = false; // Master-enable off
-
         cpu.step();
 
         // Halt should clear, but with IME=0 and a pending interrupt the halt-bug fires:
