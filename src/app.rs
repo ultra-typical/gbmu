@@ -1,5 +1,6 @@
 #![allow(unreachable_code)]
-
+#![allow(dead_code)]
+#![allow(unused_imports)]
 use crate::cpu::{Cpu, CpuDTO};
 use crate::gameboy::GameBoy;
 use crate::gui::{DebugCommandQueries, DebugResponse, KeyInput, LaunchGameData, WatchedAdresses};
@@ -245,6 +246,8 @@ impl<T: Mbc> GameApp<T> {
     //     }
     //     rgba_frame
     // }
+
+
     pub fn save_state(&self) {
         struct StringByComponents {
             path_file: String, error_file: String, json_content: String, error_json: String
