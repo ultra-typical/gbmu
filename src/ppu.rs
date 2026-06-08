@@ -66,6 +66,7 @@ pub struct GbaPpu {
     // Pending interrupts to be drained by MMU after tick
     pub pending_vblank: bool,
     pub pending_stat: bool,
+    window_rendered_this_line: bool,
 }
 
 pub struct CgbPpu {
@@ -111,6 +112,7 @@ impl GbaPpu {
             wx: 0x00,
             pending_vblank: false,
             pending_stat: false,
+            window_rendered_this_line: false,
         }
     }
 
@@ -404,13 +406,14 @@ impl GbaPpu {
         self.is_wx_glitch_happened = false;
         self.is_first_scanline_after_lcd_on = false;
         self.stall_dots = 0;
+        self.window_rendered_this_line = false;
     }
 
     fn advance_to_next_scanline(&mut self) {
         let wy = self.wy;
         let wx = self.wx;
 
-        if self.read_lcdc().is_window_enabled() && self.ly >= wy && wx <= 166 {
+        if self.window_rendered_this_line {
             self.wly += 1;
         }
 
@@ -483,6 +486,9 @@ impl GbaPpu {
     fn reset_when_ppu_disabled(&mut self) {
         self.ly = 0;
         self.internal_ly = 0;
+        self.wly = 0;
+        self.reset_for_new_scanline();
+        self.wy_equal_ly_condition_met = false;
 
         self.dots = 0;
         self.update_ppu_mode(PpuMode::HBlank);
