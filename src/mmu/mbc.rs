@@ -291,7 +291,7 @@ impl Rtc {
             0x0B => (registers.day_counter & 0xFF) as u8,
             0x0C => {
                 let mut dh = 0u8;
-                if registers.day_counter & 0b1_0000_0000 != 0 { dh |= 0b0001_0000; }
+                if registers.day_counter & 0b1_0000_0000 != 0 { dh |= 1; }
                 if registers.halted { dh |= 0b0100_0000; }
                 if registers.day_carry { dh |= 0b1000_0000; }
 
@@ -418,6 +418,10 @@ impl Mbc for Mbc3 {
                 self.latch_clock_data = new_bit;
             },
             0xA000..0xC000 => {
+                if !self.ram_timer_enable {
+                    return;
+                }
+
                 match self.ram_rtc_select {
                     0x00..0x08 => {
                         let bank = self.ram_rtc_select as usize;
@@ -445,15 +449,17 @@ impl Mbc for Mbc3 {
         let rom_banks = map_rom_into_bank(&rom_image)?;
         let ram_banks = map_ram_banks(&rom_image, saved_ram)?;
 
+        println!("mbc 3");
+
         Ok(
             Mbc3 {
+                rtc: Rtc::new(),
                 rom_banks,
                 ram_banks,
-                rtc: Rtc::new(),
+                latch_clock_data: false,
                 ram_timer_enable: false,
                 rom_bank_nb: 0,
                 ram_rtc_select: 0,
-
             }
         )
     }

@@ -29,7 +29,7 @@ impl GbmuFile {
         #[allow(clippy::field_reassign_with_default)]
         match File::open(&path) {
             Ok(file) => {
-                println!("Reading existing file!");
+
                 let mut gbmu: GbmuFile = serde_json::from_reader(file)
                     .unwrap_or_else(|e| {
                         eprintln!("Warning: Could not parse config, starting fresh: {e}");
