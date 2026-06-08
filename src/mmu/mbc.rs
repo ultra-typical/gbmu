@@ -333,15 +333,15 @@ impl Rtc {
         let new_seconds = total_seconds % 60;
         let carry_minutes = total_seconds / 60;
 
-        let total_minutes = self.base.minutes as u64 + carry_minutes as u64;
+        let total_minutes = self.base.minutes as u64 + carry_minutes;
         let new_minutes = total_minutes % 60;
         let carry_hours = total_minutes / 60;
 
-        let total_hours = self.base.hours as u64 + carry_hours as u64;
+        let total_hours = self.base.hours as u64 + carry_hours;
         let new_hours = total_hours % 24;
         let carry_days = total_hours / 24;
 
-        let total_days = self.base.day_counter as u64 + carry_days as u64;
+        let total_days = self.base.day_counter as u64 + carry_days;
         let new_days = total_days % 512;
 
         let new_day_carry = self.base.day_carry || total_days >= 512;
@@ -382,12 +382,9 @@ impl Mbc for Mbc3 {
 
                 let selector = self.ram_rtc_select as usize;
                 match selector {
-                    0x00..0x08 => {
-                        if selector < self.ram_banks.len() {
+                    0x00..0x08
+                        if selector < self.ram_banks.len() => {
                             self.ram_banks[selector][(addr - 0xA000) as usize]
-                        } else {
-                            0xFF
-                        }
                     },
                     0x08..0x0D => {
                         self.rtc.read_registers(selector as u8)
