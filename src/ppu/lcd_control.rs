@@ -1,5 +1,4 @@
 #![allow(unused_variables)]
-#![allow(dead_code)]
 
 use std::ops::Range;
 
@@ -31,38 +30,6 @@ pub struct LcdControl {
 }
 
 impl LcdControl {
-    pub fn enable_ppu(&mut self, enable: bool) {
-        self.ppu_enable = enable;
-    }
-
-    pub fn select_window_tile_map(&mut self, use_map1: bool) {
-        self.window_tile_map_area = use_map1;
-    }
-
-    pub fn enable_window(&mut self, enable: bool) {
-        self.window_enable = enable;
-    }
-
-    pub fn select_bg_window_tile_data(&mut self, use_data1: bool) {
-        self.bg_window_tile_data_area = use_data1;
-    }
-
-    pub fn select_bg_tile_map(&mut self, use_map1: bool) {
-        self.bg_tile_map_area = use_map1;
-    }
-
-    pub fn set_obj_size_8x16(&mut self, is_8x16: bool) {
-        self.obj_size_8x16 = is_8x16;
-    }
-
-    pub fn enable_obj(&mut self, enable: bool) {
-        self.obj_enable = enable;
-    }
-
-    pub fn enable_bg_window(&mut self, enable: bool) {
-        self.bg_window_enable = enable;
-    }
-
     pub fn is_ppu_enabled(&self) -> bool {
         self.ppu_enable
     }
@@ -123,16 +90,5 @@ impl LcdControl {
         self.obj_size_8x16 = value & OBJ_SIZE_MASK != 0;
         self.obj_enable = value & OBJ_ENABLE_MASK != 0;
         self.bg_window_enable = value & BG_WINDOW_ENABLE_MASK != 0;
-    }
-
-    pub fn to_byte(&self) -> u8 {
-        self.ppu_enable as u8 * PPU_ENABLE_MASK +
-        self.window_tile_map_area  as u8 * WINDOW_TILE_MAP_MASK +
-        self.window_enable  as u8 * WINDOW_ENABLE_MASK +
-        self.bg_window_tile_data_area  as u8 * BG_WINDOW_TILE_DATA_MASK +
-        self.bg_tile_map_area  as u8 * BG_TILE_MAP_MASK +
-        self.obj_size_8x16  as u8 * OBJ_SIZE_MASK +
-        self.obj_enable as u8 * OBJ_ENABLE_MASK +
-        self.bg_window_enable as u8 * BG_WINDOW_ENABLE_MASK
     }
 } 

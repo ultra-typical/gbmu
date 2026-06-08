@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 use std::cmp::min;
 
 use chrono::{Local, DateTime};
@@ -456,6 +457,7 @@ impl Mbc for Mbc3 {
     }
 }
 
+#[allow(unused)]
 pub struct Mbc5 {
     ram_gate_enable: bool,
     rom_bank_register: u16,

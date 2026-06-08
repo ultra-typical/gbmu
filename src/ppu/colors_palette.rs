@@ -1,5 +1,4 @@
 #![allow(unused_variables)]
-#![allow(dead_code)]
 
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub enum Color {
@@ -21,16 +20,6 @@ impl Color {
             Color::LightGray => LIGHTGRAY,
             Color::DarkGray => DARKGRAY ,
             Color::Black => BLACK,
-        }
-    }
-
-    pub fn from_rgb(rgb: &[u8; 3]) -> Self {
-        match *rgb {
-            [255, 255, 255] => Color::White,
-            [192, 192, 192] => Color::LightGray,
-            [96, 96, 96] => Color::DarkGray,
-            [0, 0, 0] => Color::Black,
-            _ => unreachable!(),
         }
     }
 

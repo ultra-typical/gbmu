@@ -1,6 +1,3 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 // PISO stands for "Parallel In Serial Out"
 // Since it's not a real FIFO in its behavior
 
@@ -13,12 +10,6 @@ pub struct ObjPiso {
 }
 
 impl ObjPiso {
-    pub fn new() -> Self {
-        ObjPiso {
-            pixels: [Pixel::default(); 8],
-        }
-    }
-
     #[allow(clippy::too_many_arguments)]
     pub fn merge(
         &mut self,
@@ -27,7 +18,6 @@ impl ObjPiso {
         sprite_x: u8,
         x_flip: bool,
         palette: u8,
-        oam_index: u8,
         priority: bool,
         scanline_x: usize,
     ) {
@@ -68,7 +58,6 @@ impl ObjPiso {
                     Color::from_index(color_pixel),
                     color_index,
                     priority,
-                    oam_index
                 );
             }
         }
@@ -102,13 +91,12 @@ mod tests {
             Color::from_index(color_index),
             color_index,
             false,
-            0,
         )
     }
 
     #[test]
     fn merge_replaces_transparent_pixel() {
-        let mut piso = ObjPiso::new();
+        let mut piso = ObjPiso::default();
 
         // sprite x = 8 -> aligned on FIFO[0]
         piso.merge(
@@ -117,7 +105,6 @@ mod tests {
             8,
             false,
             0b1110_0100,
-            0,
             false,
             0,
         );
@@ -127,7 +114,7 @@ mod tests {
 
     #[test]
     fn merge_does_not_replace_existing_pixel() {
-        let mut piso = ObjPiso::new();
+        let mut piso = ObjPiso::default();
 
         piso.pixels[0] = make_pixel(2);
 
@@ -138,7 +125,6 @@ mod tests {
             8,
             false,
             0b1110_0100,
-            1,
             false,
             0,
         );
@@ -148,7 +134,7 @@ mod tests {
 
     #[test]
     fn merge_ignores_pixels_left_overscan() {
-        let mut piso = ObjPiso::new();
+        let mut piso = ObjPiso::default();
 
         // sprite_x = 5 -> some pixels will have pos < 0
         piso.merge(
@@ -157,7 +143,6 @@ mod tests {
             5,
             false,
             0b1110_0100,
-            0,
             false,
             0,
         );
@@ -174,7 +159,7 @@ mod tests {
 
     #[test]
     fn merge_ignores_transparent_pixels() {
-        let mut piso = ObjPiso::new();
+        let mut piso = ObjPiso::default();
 
         // tile data = 0 -> all pixels transparents
         piso.merge(
@@ -183,7 +168,6 @@ mod tests {
             8,
             false,
             0b1110_0100,
-            0,
             false,
             0,
         );
@@ -195,7 +179,7 @@ mod tests {
 
     #[test]
     fn shift_out_shifts_correctly() {
-        let mut piso = ObjPiso::new();
+        let mut piso = ObjPiso::default();
 
         for i in 0..8 {
             piso.pixels[i] = make_pixel((i % 4) as u8);
@@ -215,7 +199,7 @@ mod tests {
 
     #[test]
     fn reset_clears_fifo() {
-        let mut piso = ObjPiso::new();
+        let mut piso = ObjPiso::default();
 
         piso.pixels[3] = make_pixel(2);
 

@@ -1,5 +1,3 @@
-#![allow(unused_variables)]
-
 pub mod colors_palette;
 mod lcd_control;
 mod lcd_status;
@@ -207,7 +205,7 @@ impl<T: Mbc> Ppu<T> {
         }
     }
 
-    fn push_pixel_to_screen(&mut self, ct: &mut Box<dyn GameCT>, use_window: bool) {
+    fn push_pixel_to_screen(&mut self, ct: &mut Box<dyn GameCT>) {
         if let Some(bg_pixel) = self.bg_fifo.pop() {
             if self.pixels_to_discard > 0 {
                 self.pixels_to_discard -= 1;
@@ -284,14 +282,12 @@ impl<T: Mbc> Ppu<T> {
         if self.fetching_sprite {
             if let Some(index) = self.current_sprite_to_fetch 
                 && let Some(sprite) = self.visible_sprites[index] {
-                let lcdc = self.read_lcdc();
 
                 self.fetching_sprite = !self.oam_fetcher.tick(
                     &self.bus,
                     &sprite,
                     &mut self.obj_piso,
                     self.ly,
-                    &lcdc,
                     height,
                     self.x,
                 );
@@ -309,14 +305,9 @@ impl<T: Mbc> Ppu<T> {
         else {
             if !self.read_lcdc().is_obj_enabled() { return; }
 
-            let lcdc = self.read_lcdc();
-
             for (index, sprite_opt) in self.visible_sprites.iter_mut().enumerate() {
                 if let Some(sprite) = sprite_opt 
                     && sprite.x as usize <= self.x + 8 {
-                    let spritex = sprite.x;
-                    let selfx = self.x;
-
                     self.current_sprite_to_fetch = Some(index);
                     self.pixel_fetcher.reset_to_state_1();
 
@@ -325,7 +316,6 @@ impl<T: Mbc> Ppu<T> {
                         sprite,
                         &mut self.obj_piso,
                         self.ly,
-                        &lcdc,
                         height,
                         self.x,
                     );
@@ -357,7 +347,7 @@ impl<T: Mbc> Ppu<T> {
                     self.stall_dots -= 1;
                 } else {
                     self.handle_window_switch(use_window);
-                    self.push_pixel_to_screen(ct, use_window);
+                    self.push_pixel_to_screen(ct);
                 }
             }
         }

@@ -1,6 +1,3 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 use crate::mmu::Mmu;
 use crate::mmu::mbc::Mbc;
 use crate::ppu::lcd_control::LcdControl;
@@ -224,10 +221,6 @@ mod tests {
 
     fn setup_bus() -> Rc<RefCell<Mmu<RomOnly>>> {
         Rc::new(RefCell::new(Mmu::<RomOnly>::default()))
-    }
-
-    fn write(bus: Rc<RefCell<Mmu<RomOnly>>>, addr: u16, val: u8) {
-        bus.borrow_mut().write_byte(addr, val);
     }
 
     fn setup_fetcher() -> (PixelFetcher, PixelFifo, LcdControl) {

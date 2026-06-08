@@ -1,5 +1,4 @@
 #![allow(unused_variables)]
-#![allow(dead_code)]
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
 pub enum PpuMode {
@@ -42,10 +41,6 @@ impl LcdStatus {
 
     pub fn set_lyc_equals_ly(&mut self, equals: bool) {
         self.lyc_equals_ly = equals;
-    }
-
-    pub fn get_lyc_equals_ly(&self) -> bool {
-        self.lyc_equals_ly
     }
 
     pub fn struct_to_byte(&self) -> u8 {

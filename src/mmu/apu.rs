@@ -1,3 +1,6 @@
+#![allow(unused_variables, dead_code)]
+
+
 #[derive(Default)]
 struct ChannelOne {
     sweep: SweepReg,

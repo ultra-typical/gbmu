@@ -1,6 +1,3 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{RwLock, RwLockReadGuard};
@@ -18,6 +15,7 @@ use crate::mmu::mbc::Mbc;
 use crate::mmu::oam::Oam;
 use crate::mmu::apu::Apu;
 
+#[allow(unused)]
 #[derive(PartialEq, Eq, Debug)]
 pub enum MemoryRegion {
     Mbc,                // 0x000-0x7FFF: read-only
@@ -80,6 +78,7 @@ impl<T: Mbc> From<Mmu<T>> for Rc<RefCell<Mmu<T>>> {
     }
 }
 
+#[allow(unused)]
 pub struct Mmu<T: Mbc> {
     data: [u8; 0x10000], // 0xFFFF (65535) + 1 = 0x10000 (65536)
     cart: T,

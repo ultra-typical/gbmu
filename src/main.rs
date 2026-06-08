@@ -1,6 +1,5 @@
 mod cli;
 mod cpu;
-mod debugger;
 mod gameboy;
 mod gui;
 mod mmu;

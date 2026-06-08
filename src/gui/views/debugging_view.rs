@@ -1,7 +1,6 @@
 mod display;
 
 use crate::communications::{CpuState, InstructionList, Mode};
-use crate::debugger::debbuger;
 use crate::gui::{AppState, DebuggingDevice, WatchedAdresses};
 
 use eframe::egui::load::SizedTexture;
@@ -38,6 +37,12 @@ enum OutState {
 }
 
 impl DebuggingDevice {
+    pub fn update_info_struct(&mut self) -> Result<(), String>{
+        self.core_game.interface_ct.get_next_instructions(&mut self.next_instructions)?;
+        self.core_game.interface_ct.get_watched_adresses(&mut self.watched_adress)?;
+        self.core_game.interface_ct.get_cpu_state(&mut self.registers)
+    }
+
     fn execute_changes(&mut self, data: DebuggingDataOut) -> Result<OutState, String> {
         if data.close_btn_clicked {
             self.core_game.interface_ct.set_mode(Mode::Game)?;
@@ -99,7 +104,7 @@ impl DebuggingDevice {
 
     fn update_and_get_debugging_data(&mut self, ui: &mut egui::Ui) -> Result<DebuggingDataIn<'_>, String>  {
         self.core_game.update_and_size_image(ui)?;
-        debbuger::update_info_struct(self)?;
+        self.update_info_struct()?;
 
         let error_message = if let Some(value) = &self.error_message {
             Some(value)
