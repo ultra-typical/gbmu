@@ -178,7 +178,7 @@ impl AnyGameApp {
         let rom_data: Vec<u8> = Self::read_rom(&game_data.rom_path);
         let ram_path = game_data.rom_path.to_owned() + ".save";
         let ram_data: Option<Vec<u8>> = Self::read_ram(&ram_path);
-        if ram_data.is_some() { println!("Backup detected") } else { println!(" No backup found")};
+        if ram_data.is_some() { println!("Backup detected") };
         let code = rom_data[0x0147];
         let boot_rom_data = if game_data.boot_rom {
             let boot_bytes = std::fs::read("boot-roms/dmg.bin").expect("cannot read boot rom");

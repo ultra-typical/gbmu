@@ -147,7 +147,7 @@ impl Mbc for Mbc1 {
 
     fn write(&mut self, addr: u16, val: u8) {
         match addr {
-            0x0000..0x2000 => self.ram_gate_register = (val & 0x0F) == 0b1010,
+            0x0000..0x2000 => self.ram_gate_register = (val & 0b1111) == 0b1010,
             0x2000..0x4000 => self.bank_register_1 = val & 0b11111,
             0x4000..0x6000 => self.bank_register_2 = val & 0b11,
             0x6000..0x8000 => self.mode_register = (val & 0b1) == 0b1,
@@ -197,7 +197,7 @@ impl Mbc for Mbc2 {
         match addr {
             0x0000..0x4000 => {
                 if addr & 0b1_0000_0000 == 0b1_0000_0000 {
-                    self.ram_gate_register = (val & 0x0F) == 0b1010
+                    self.ram_gate_register = (val & 0b1111) == 0b1010
                 } else {
                     let new_value = val & 0b1111;
                     self.rom_bank_register = (new_value == 0) as u8 + new_value;
@@ -398,7 +398,7 @@ impl Mbc for Mbc3 {
 
     fn write(&mut self, addr: u16, val: u8) {
         match addr {
-            0x0000..0x2000 => self.ram_timer_enable = (val & 0x0F) == 0b1010,
+            0x0000..0x2000 => self.ram_timer_enable = (val & 0b1111) == 0b1010,
             0x2000..0x4000 => {
                 let masked_val = val & 0b0111_1111;
 
@@ -420,7 +420,7 @@ impl Mbc for Mbc3 {
                 }
 
                 match self.ram_rtc_select {
-                    0x00..0x08 => {
+                   0x00..0x08 => {
                         let bank = self.ram_rtc_select as usize;
                         if bank < self.ram_banks.len() {
                             self.ram_banks[bank][(addr - 0xA000) as usize] = val;
@@ -431,12 +431,6 @@ impl Mbc for Mbc3 {
                     },
                     _ => {}
                 }
-                
-                // self.ram_banks[
-                //     self.ram_rtc_select as usize
-                // ][
-                //     (addr - 0xA000) as usize
-                // ] = val;
             }
             _ => unreachable!(),
         }
