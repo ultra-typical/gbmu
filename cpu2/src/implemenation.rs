@@ -87,6 +87,8 @@ implreg8!(F);
 implreg8!(H);
 implreg8!(L);
 implreg8!(S);
+implreg8!(PC_P);
+implreg8!(PC_C);
 implreg8!(P);
 implreg8!(W);
 implreg8!(Z);
@@ -122,7 +124,7 @@ impl Cpu {
     }
 
     pub fn set_r16<R: Reg16>(&mut self, value: u16) {
-        self.r8[R::USIZE] = (value >> 8) as u8;
-        self.r8[R::USIZE] = (value & 0xFF) as u8;
+        self.r8[R::USIZE * 2] = (value >> 8) as u8;
+        self.r8[R::USIZE * 2 + 1] = (value & 0xFF) as u8;
     }
 }

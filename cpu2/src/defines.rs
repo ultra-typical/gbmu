@@ -9,7 +9,7 @@ pub enum Flag {
 
 #[derive(Debug, Clone)]
 pub struct Instruction {
-    pub opcode: u8,
+    pub opcode: u16,
     pub micro_ops: &'static [MicroOp],
 }
 
@@ -41,7 +41,8 @@ pub mod r8 {
     pub const L: usize = 7;
     pub const S: usize = 8;
     pub const P: usize = 9;
-    //PC -> 10, 11
+    pub const PC_P: usize = 10;
+    pub const PC_C: usize = 11;
     pub const W: usize = 12;
     pub const Z: usize = 13;
 }

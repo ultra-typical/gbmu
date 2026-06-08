@@ -2,6 +2,10 @@ use crate::defines::Instruction;
 use crate::defines::MicroOp;
 use crate::implemenation::*;
 use crate::instructions;
+use crate::instructions::cond::CondC;
+use crate::instructions::cond::CondNC;
+use crate::instructions::cond::CondNZ;
+use crate::instructions::cond::CondZ;
 
 //We build that shit so that we can just define in INSTRUCTIONS what instructions are implemented
 //But it'll eventually get deleted once everything is done since we won't need to build an array
@@ -10,7 +14,11 @@ pub static DISPATCH: [Option<&'static [MicroOp]>; 256] = build_dispatch();
 pub static INSTRUCTIONS: &[Instruction] = &[
     Instruction {
         opcode: 0x00,
-        micro_ops: &[],
+        micro_ops: &[instructions::other::noop],
+    },
+    Instruction {
+        opcode: 0x08, //TaBONNE GROSSE DARONNE LA PUTE,
+        micro_ops: &[instructions::other::noop],
     },
     Instruction {
         opcode: 0x80,
@@ -69,7 +77,121 @@ pub static INSTRUCTIONS: &[Instruction] = &[
         opcode: 0x89,
         micro_ops: &[instructions::add::add_r8_r8_with_carry::<A, C>],
     },
-    //ADC D
+    //Sub A, B
+    Instruction {
+        opcode: 0x90,
+        micro_ops: &[instructions::sub::sub_r8_r8::<A, B>],
+    },
+    //Sub A, C
+    Instruction {
+        opcode: 0x91,
+        micro_ops: &[instructions::sub::sub_r8_r8::<A, C>],
+    },
+    //Sub A, D
+    Instruction {
+        opcode: 0x92,
+        micro_ops: &[instructions::sub::sub_r8_r8::<A, D>],
+    },
+    //Sub A, E
+    Instruction {
+        opcode: 0x93,
+        micro_ops: &[instructions::sub::sub_r8_r8::<A, D>],
+    },
+    //Sub A, H
+    Instruction {
+        opcode: 0x94,
+        micro_ops: &[instructions::sub::sub_r8_r8::<A, H>],
+    },
+    //Sub A, L
+    Instruction {
+        opcode: 0x95,
+        micro_ops: &[instructions::sub::sub_r8_r8::<A, L>],
+    },
+    //Sub A, HL
+    Instruction {
+        opcode: 0x96,
+        micro_ops: &[
+            instructions::load::read_memory::<HL, Z>,
+            instructions::sub::sub_r8_r8::<A, Z>,
+        ],
+    },
+    //Sub A, A
+    Instruction {
+        opcode: 0x97,
+        micro_ops: &[instructions::sub::sub_r8_r8::<A, A>],
+    },
+    //SUB n
+    Instruction {
+        opcode: 0xD6,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::sub::sub_r8_r8::<A, Z>,
+        ],
+    },
+    //                              SBC
+    //SBC A, B
+    Instruction {
+        opcode: 0x97,
+        micro_ops: &[instructions::sub::sub_r8_r8_with_carry::<A, B>],
+    },
+    //SBC A, C
+    Instruction {
+        opcode: 0x98,
+        micro_ops: &[instructions::sub::sub_r8_r8_with_carry::<A, C>],
+    },
+    //SBC A, D
+    Instruction {
+        opcode: 0x99,
+        micro_ops: &[instructions::sub::sub_r8_r8_with_carry::<A, D>],
+    },
+    //SBC A, E
+    Instruction {
+        opcode: 0x9A,
+        micro_ops: &[instructions::sub::sub_r8_r8_with_carry::<A, D>],
+    },
+    //SBC A, H
+    Instruction {
+        opcode: 0x9B,
+        micro_ops: &[instructions::sub::sub_r8_r8_with_carry::<A, H>],
+    },
+    //SBC A, L
+    Instruction {
+        opcode: 0x9C,
+        micro_ops: &[instructions::sub::sub_r8_r8_with_carry::<A, L>],
+    },
+    //SBC A, HL
+    Instruction {
+        opcode: 0x9E,
+        micro_ops: &[
+            instructions::load::read_memory::<HL, Z>,
+            instructions::sub::sub_r8_r8_with_carry::<A, Z>,
+        ],
+    },
+    //SCB A, A
+    Instruction {
+        opcode: 0x9F,
+        micro_ops: &[instructions::sub::sub_r8_r8::<A, A>],
+    },
+    //SBC n
+    Instruction {
+        opcode: 0xDE,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::sub::sub_r8_r8_with_carry::<A, Z>,
+        ],
+    },
+    //                      ADC
+    // ADC B
+    Instruction {
+        opcode: 0x88,
+        micro_ops: &[instructions::add::add_r8_r8_with_carry::<A, B>],
+    },
+    // ADC C
+    Instruction {
+        opcode: 0x89,
+        micro_ops: &[instructions::add::add_r8_r8_with_carry::<A, C>],
+    },
+    // ADC D
     Instruction {
         opcode: 0x8A,
         micro_ops: &[instructions::add::add_r8_r8_with_carry::<A, D>],
@@ -110,6 +232,310 @@ pub static INSTRUCTIONS: &[Instruction] = &[
             instructions::add::add_r8_r8_with_carry::<A, Z>,
         ],
     },
+    //                  CP
+    //CP A, B
+    Instruction {
+        opcode: 0xB8,
+        micro_ops: &[instructions::cp::cp_r8_r8::<A, B>],
+    },
+    //CP A, C
+    Instruction {
+        opcode: 0xB9,
+        micro_ops: &[instructions::cp::cp_r8_r8::<A, C>],
+    },
+    //CP A, D
+    Instruction {
+        opcode: 0xBA,
+        micro_ops: &[instructions::cp::cp_r8_r8::<A, D>],
+    },
+    //CP A, E
+    Instruction {
+        opcode: 0xBB,
+        micro_ops: &[instructions::cp::cp_r8_r8::<A, D>],
+    },
+    //CP A, H
+    Instruction {
+        opcode: 0xBC,
+        micro_ops: &[instructions::cp::cp_r8_r8::<A, H>],
+    },
+    //CP A, L
+    Instruction {
+        opcode: 0xBD,
+        micro_ops: &[instructions::cp::cp_r8_r8::<A, L>],
+    },
+    //CP A, HL
+    Instruction {
+        opcode: 0xBE,
+        micro_ops: &[
+            instructions::load::read_memory::<HL, Z>,
+            instructions::cp::cp_r8_r8::<A, Z>,
+        ],
+    },
+    //CP A, A
+    Instruction {
+        opcode: 0xBF,
+        micro_ops: &[instructions::cp::cp_r8_r8::<A, A>],
+    },
+    //CP n
+    Instruction {
+        opcode: 0xFE,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::cp::cp_r8_r8::<A, Z>,
+        ],
+    },
+    //                      INC
+    //INC B
+    Instruction {
+        opcode: 0x04,
+        micro_ops: &[instructions::inc_dec::inc_r8::<B>],
+    },
+    //INC, C
+    Instruction {
+        opcode: 0x0C,
+        micro_ops: &[instructions::inc_dec::inc_r8::<C>],
+    },
+    //INC, D
+    Instruction {
+        opcode: 0x14,
+        micro_ops: &[instructions::inc_dec::inc_r8::<D>],
+    },
+    //INC, E
+    Instruction {
+        opcode: 0x1C,
+        micro_ops: &[instructions::inc_dec::inc_r8::<E>],
+    },
+    //INC, H
+    Instruction {
+        opcode: 0x24,
+        micro_ops: &[instructions::inc_dec::inc_r8::<H>],
+    },
+    //INC, L
+    Instruction {
+        opcode: 0x2C,
+        micro_ops: &[instructions::inc_dec::inc_r8::<L>],
+    },
+    //INC, HL
+    Instruction {
+        opcode: 0x34,
+        micro_ops: &[
+            instructions::load::read_memory::<HL, Z>,
+            instructions::inc_dec::inc_addr::<HL, Z>,
+            instructions::other::noop,
+        ],
+    },
+    //INC A, A
+    Instruction {
+        opcode: 0x3C,
+        micro_ops: &[instructions::inc_dec::inc_r8::<A>],
+    },
+    //                      DEC
+    //DEC B
+    Instruction {
+        opcode: 0x05,
+        micro_ops: &[instructions::inc_dec::dec_r8::<B>],
+    },
+    //DEC, C
+    Instruction {
+        opcode: 0x0D,
+        micro_ops: &[instructions::inc_dec::dec_r8::<C>],
+    },
+    //DEC, D
+    Instruction {
+        opcode: 0x15,
+        micro_ops: &[instructions::inc_dec::dec_r8::<D>],
+    },
+    //DEC, E
+    Instruction {
+        opcode: 0x1D,
+        micro_ops: &[instructions::inc_dec::dec_r8::<E>],
+    },
+    //DEC, H
+    Instruction {
+        opcode: 0x25,
+        micro_ops: &[instructions::inc_dec::dec_r8::<H>],
+    },
+    //DEC, L
+    Instruction {
+        opcode: 0x2D,
+        micro_ops: &[instructions::inc_dec::dec_r8::<L>],
+    },
+    //DEC, HL
+    Instruction {
+        opcode: 0x35,
+        micro_ops: &[
+            instructions::load::read_memory::<HL, Z>,
+            instructions::inc_dec::dec_addr::<HL, Z>,
+            instructions::other::noop,
+        ],
+    },
+    //DEC A, A
+    Instruction {
+        opcode: 0x3D,
+        micro_ops: &[instructions::inc_dec::dec_r8::<A>],
+    },
+    //                      AND
+    //AND A, B
+    Instruction {
+        opcode: 0xA0,
+        micro_ops: &[instructions::and_or_xor::and_r8_r8::<A, B>],
+    },
+    //AND A, C
+    Instruction {
+        opcode: 0xA1,
+        micro_ops: &[instructions::and_or_xor::and_r8_r8::<A, C>],
+    },
+    //AND A, D
+    Instruction {
+        opcode: 0xA2,
+        micro_ops: &[instructions::and_or_xor::and_r8_r8::<A, D>],
+    },
+    //AND A, E
+    Instruction {
+        opcode: 0xA3,
+        micro_ops: &[instructions::and_or_xor::and_r8_r8::<A, D>],
+    },
+    //AND A, H
+    Instruction {
+        opcode: 0xA4,
+        micro_ops: &[instructions::and_or_xor::and_r8_r8::<A, H>],
+    },
+    //AND A, L
+    Instruction {
+        opcode: 0xA5,
+        micro_ops: &[instructions::and_or_xor::and_r8_r8::<A, L>],
+    },
+    //AND A, HL
+    Instruction {
+        opcode: 0xA6,
+        micro_ops: &[
+            instructions::load::read_memory::<HL, Z>,
+            instructions::and_or_xor::and_r8_r8::<A, Z>,
+        ],
+    },
+    //AND A, A
+    Instruction {
+        opcode: 0xA7,
+        micro_ops: &[instructions::and_or_xor::and_r8_r8::<A, A>],
+    },
+    //AND n
+    Instruction {
+        opcode: 0xE6,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::and_or_xor::and_r8_r8::<A, Z>,
+        ],
+    },
+    //                      OR
+    //OR A, B
+    Instruction {
+        opcode: 0xB0,
+        micro_ops: &[instructions::and_or_xor::or_r8_r8::<A, B>],
+    },
+    //OR A, C
+    Instruction {
+        opcode: 0xB1,
+        micro_ops: &[instructions::and_or_xor::or_r8_r8::<A, C>],
+    },
+    //OR A, D
+    Instruction {
+        opcode: 0xB2,
+        micro_ops: &[instructions::and_or_xor::or_r8_r8::<A, D>],
+    },
+    //OR A, E
+    Instruction {
+        opcode: 0xB3,
+        micro_ops: &[instructions::and_or_xor::or_r8_r8::<A, D>],
+    },
+    //OR A, H
+    Instruction {
+        opcode: 0xB4,
+        micro_ops: &[instructions::and_or_xor::or_r8_r8::<A, H>],
+    },
+    //OR A, L
+    Instruction {
+        opcode: 0xB5,
+        micro_ops: &[instructions::and_or_xor::or_r8_r8::<A, L>],
+    },
+    //OR A, HL
+    Instruction {
+        opcode: 0xB6,
+        micro_ops: &[
+            instructions::load::read_memory::<HL, Z>,
+            instructions::and_or_xor::or_r8_r8::<A, Z>,
+        ],
+    },
+    //OR A, A
+    Instruction {
+        opcode: 0xB7,
+        micro_ops: &[instructions::and_or_xor::or_r8_r8::<A, A>],
+    },
+    //OR n
+    Instruction {
+        opcode: 0xF6,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::and_or_xor::xor_r8_r8::<A, Z>,
+        ],
+    },
+    //                      XOR
+    //XOR A, B
+    Instruction {
+        opcode: 0xA8,
+        micro_ops: &[instructions::and_or_xor::xor_r8_r8::<A, B>],
+    },
+    //XOR A, C
+    Instruction {
+        opcode: 0xA9,
+        micro_ops: &[instructions::and_or_xor::xor_r8_r8::<A, C>],
+    },
+    //XOR A, D
+    Instruction {
+        opcode: 0xAA,
+        micro_ops: &[instructions::and_or_xor::xor_r8_r8::<A, D>],
+    },
+    //XOR A, E
+    Instruction {
+        opcode: 0xAB,
+        micro_ops: &[instructions::and_or_xor::xor_r8_r8::<A, D>],
+    },
+    //XOR A, H
+    Instruction {
+        opcode: 0xAC,
+        micro_ops: &[instructions::and_or_xor::xor_r8_r8::<A, H>],
+    },
+    //XOR A, L
+    Instruction {
+        opcode: 0xAD,
+        micro_ops: &[instructions::and_or_xor::xor_r8_r8::<A, L>],
+    },
+    //XOR A, HL
+    Instruction {
+        opcode: 0xAE,
+        micro_ops: &[
+            instructions::load::read_memory::<HL, Z>,
+            instructions::and_or_xor::xor_r8_r8::<A, Z>,
+        ],
+    },
+    //XOR A, A
+    Instruction {
+        opcode: 0xAF,
+        micro_ops: &[instructions::and_or_xor::xor_r8_r8::<A, A>],
+    },
+    //XOR n
+    Instruction {
+        opcode: 0xEE,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::cp::cp_r8_r8::<A, Z>,
+        ],
+    },
+    // CCF
+    Instruction {
+        opcode: 0x3F,
+        micro_ops: &[instructions::other::ccf],
+    },
+    //                      LD
     //LD A, (BC)
     Instruction {
         opcode: 0x0a,
@@ -658,6 +1084,421 @@ pub static INSTRUCTIONS: &[Instruction] = &[
     Instruction {
         opcode: 0x7f,
         micro_ops: &[instructions::load::load_r8_r8::<A, A>],
+    },
+    Instruction {
+        opcode: 0x3F,
+        micro_ops: &[instructions::other::ccf],
+    },
+    Instruction {
+        opcode: 0x37,
+        micro_ops: &[instructions::other::scf],
+    },
+    Instruction {
+        opcode: 0x27,
+        micro_ops: &[instructions::other::daa],
+    },
+    Instruction {
+        opcode: 0x2F,
+        micro_ops: &[instructions::other::cpl],
+    },
+    Instruction {
+        opcode: 0x03,
+        micro_ops: &[
+            instructions::inc_dec::inc_r16::<BC>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0x13,
+        micro_ops: &[
+            instructions::inc_dec::inc_r16::<DE>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0x23,
+        micro_ops: &[
+            instructions::inc_dec::inc_r16::<HL>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0x33,
+        micro_ops: &[
+            instructions::inc_dec::inc_r16::<SP>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0x08,
+        micro_ops: &[
+            instructions::inc_dec::dec_r16::<BC>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0x18,
+        micro_ops: &[
+            instructions::inc_dec::dec_r16::<DE>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0x28,
+        micro_ops: &[
+            instructions::inc_dec::dec_r16::<HL>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0x38,
+        micro_ops: &[
+            instructions::inc_dec::dec_r16::<SP>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0x09,
+        micro_ops: &[
+            instructions::add::add_r8_r8_no_zero_flag::<C, L>,
+            instructions::add::add_r8_r8_with_carry_and_no_zero_flag::<B, H>,
+        ],
+    },
+    Instruction {
+        opcode: 0x19,
+        micro_ops: &[
+            instructions::add::add_r8_r8_no_zero_flag::<E, L>,
+            instructions::add::add_r8_r8_with_carry_and_no_zero_flag::<D, H>,
+        ],
+    },
+    Instruction {
+        opcode: 0x29,
+        micro_ops: &[
+            instructions::add::add_r8_r8_no_zero_flag::<L, L>,
+            instructions::add::add_r8_r8_with_carry_and_no_zero_flag::<H, H>,
+        ],
+    },
+    Instruction {
+        opcode: 0x39,
+        micro_ops: &[
+            instructions::add::add_r8_r8_no_zero_flag::<P, L>,
+            instructions::add::add_r8_r8_with_carry_and_no_zero_flag::<S, H>,
+        ],
+    },
+    Instruction {
+        opcode: 0xE8,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::add::add_hl_sp_e_low,
+            instructions::add::add_hl_sp_e_high,
+            instructions::load::load_r16_r16::<SP, WZ>,
+        ],
+    },
+    Instruction {
+        opcode: 0x07,
+        micro_ops: &[instructions::other::rlca],
+    },
+    Instruction {
+        opcode: 0x0F,
+        micro_ops: &[instructions::other::rrca],
+    },
+    Instruction {
+        opcode: 0x17,
+        micro_ops: &[instructions::other::rla],
+    },
+    Instruction {
+        opcode: 0x1F,
+        micro_ops: &[instructions::other::rra],
+    },
+    Instruction {
+        opcode: 0x20,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::cond::check_cond::<CondNZ>,
+            instructions::cond::relative_jump,
+        ],
+    },
+    Instruction {
+        opcode: 0x30,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::cond::check_cond::<CondNC>,
+            instructions::cond::relative_jump,
+        ],
+    },
+    Instruction {
+        opcode: 0x28,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::cond::check_cond::<CondZ>,
+            instructions::cond::relative_jump,
+        ],
+    },
+    Instruction {
+        opcode: 0x38,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::cond::check_cond::<CondC>,
+            instructions::cond::relative_jump,
+        ],
+    },
+    Instruction {
+        opcode: 0xCD,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::load::read_memory_incr::<PC, W>,
+            instructions::inc_dec::dec_r16::<SP>,
+            instructions::load::write_memory_decr::<SP, PC_P>,
+            instructions::load::write_memory_reassign_pc::<SP, PC_C>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xD4,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::load::read_memory_incr::<PC, W>,
+            instructions::inc_dec::dec_r16::<SP>,
+            instructions::cond::check_cond::<CondNZ>,
+            instructions::load::write_memory_decr::<SP, PC_P>,
+            instructions::load::write_memory_reassign_pc::<SP, PC_C>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xC4,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::load::read_memory_incr::<PC, W>,
+            instructions::inc_dec::dec_r16::<SP>,
+            instructions::cond::check_cond::<CondNC>,
+            instructions::load::write_memory_decr::<SP, PC_P>,
+            instructions::load::write_memory_reassign_pc::<SP, PC_C>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xDC,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::load::read_memory_incr::<PC, W>,
+            instructions::inc_dec::dec_r16::<SP>,
+            instructions::cond::check_cond::<CondC>,
+            instructions::load::write_memory_decr::<SP, PC_P>,
+            instructions::load::write_memory_reassign_pc::<SP, PC_C>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xCC,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::load::read_memory_incr::<PC, W>,
+            instructions::inc_dec::dec_r16::<SP>,
+            instructions::cond::check_cond::<CondZ>,
+            instructions::load::write_memory_decr::<SP, PC_P>,
+            instructions::load::write_memory_reassign_pc::<SP, PC_C>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xC3,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::load::read_memory_incr::<PC, W>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xE9,
+        micro_ops: &[instructions::load::load_r16_r16::<PC, HL>],
+    },
+    Instruction {
+        opcode: 0xC2,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::load::read_memory_incr::<PC, W>,
+            instructions::cond::check_cond::<CondNZ>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xD2,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::load::read_memory_incr::<PC, W>,
+            instructions::cond::check_cond::<CondNC>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xCA,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::load::read_memory_incr::<PC, W>,
+            instructions::cond::check_cond::<CondZ>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xDA,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::load::read_memory_incr::<PC, W>,
+            instructions::cond::check_cond::<CondC>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0x18,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<PC, Z>,
+            instructions::cond::relative_jump,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xC9,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<SP, Z>,
+            instructions::load::read_memory_incr::<SP, W>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xC0,
+        micro_ops: &[
+            instructions::cond::check_cond::<CondNZ>,
+            instructions::load::read_memory_incr::<SP, Z>,
+            instructions::load::read_memory_incr::<SP, W>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xD0,
+        micro_ops: &[
+            instructions::cond::check_cond::<CondNC>,
+            instructions::load::read_memory_incr::<SP, Z>,
+            instructions::load::read_memory_incr::<SP, W>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xC8,
+        micro_ops: &[
+            instructions::cond::check_cond::<CondZ>,
+            instructions::load::read_memory_incr::<SP, Z>,
+            instructions::load::read_memory_incr::<SP, W>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xD0,
+        micro_ops: &[
+            instructions::cond::check_cond::<CondC>,
+            instructions::load::read_memory_incr::<SP, Z>,
+            instructions::load::read_memory_incr::<SP, W>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xD9,
+        micro_ops: &[
+            instructions::load::read_memory_incr::<SP, Z>,
+            instructions::load::read_memory_incr::<SP, W>,
+            instructions::load::load_r16_r16_and_ime::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xCF,
+        micro_ops: &[
+            instructions::load::write_memory_decr::<SP, PC_P>,
+            instructions::load::write_memory_rst_1::<SP, PC_C>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xC7,
+        micro_ops: &[
+            instructions::load::write_memory_decr::<SP, PC_P>,
+            instructions::load::write_memory_rst_0::<SP, PC_C>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xD7,
+        micro_ops: &[
+            instructions::load::write_memory_decr::<SP, PC_P>,
+            instructions::load::write_memory_rst_2::<SP, PC_C>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xDF,
+        micro_ops: &[
+            instructions::load::write_memory_decr::<SP, PC_P>,
+            instructions::load::write_memory_rst_3::<SP, PC_C>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xE7,
+        micro_ops: &[
+            instructions::load::write_memory_decr::<SP, PC_P>,
+            instructions::load::write_memory_rst_4::<SP, PC_C>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xEF,
+        micro_ops: &[
+            instructions::load::write_memory_decr::<SP, PC_P>,
+            instructions::load::write_memory_rst_5::<SP, PC_C>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xF7,
+        micro_ops: &[
+            instructions::load::write_memory_decr::<SP, PC_P>,
+            instructions::load::write_memory_rst_6::<SP, PC_C>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xFF,
+        micro_ops: &[
+            instructions::load::write_memory_decr::<SP, PC_P>,
+            instructions::load::write_memory_rst_7::<SP, PC_C>,
+            instructions::load::load_r16_r16::<PC, WZ>,
+            instructions::other::noop,
+        ],
+    },
+    Instruction {
+        opcode: 0xF3,
+        micro_ops: &[instructions::other::set_ime_0],
+    },
+    Instruction {
+        opcode: 0xFB,
+        micro_ops: &[instructions::other::set_ime_1],
     },
 ];
 
