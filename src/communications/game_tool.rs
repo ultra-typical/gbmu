@@ -64,7 +64,7 @@ impl GameCT for GameCommunicationTool {
         match self.input_receiver.has_changed() {
             Ok(true) => {*input_ref = *self.input_receiver.borrow_and_update(); Ok(())}
             Ok(false) => {Ok(())}
-            Err(_) => {Err("Unexpected error during input update".to_string())}
+            Err(err) => {Err(format!("Unexpected error during input update {err}"))}
         }
     }
 

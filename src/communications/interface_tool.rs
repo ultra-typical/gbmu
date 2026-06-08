@@ -102,6 +102,7 @@ impl InterfaceCT for InterfaceCommunicationTool {
             image_copy.into_iter().enumerate().for_each(|(index, color)| {
                 buffer[index * 3..index * 3 + 3].copy_from_slice(color.to_rgb());
             });
+            self.image_has_changed.store(false,Ordering::Relaxed);
             Ok(Some(()))
         }
     }

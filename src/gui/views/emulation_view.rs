@@ -66,7 +66,7 @@ impl From<EmulationDevice> for DebuggingDevice {
 
 impl From<SelectionDevice> for EmulationDevice {
     fn from(original: SelectionDevice) -> Self {
-       let rom_path = original.path;
+        let rom_path = original.path;
         let options = CoreGameOptions {
             rom_path,
             boot_rom: true,

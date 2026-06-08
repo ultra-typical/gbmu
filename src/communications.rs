@@ -2,6 +2,8 @@
 
 mod game_tool;
 mod interface_tool;
+#[cfg(test)]
+mod tests;
 
 use std::{sync::{Arc, Mutex, atomic::{AtomicBool, AtomicIsize}}};
 use tokio::sync::watch;
@@ -33,7 +35,7 @@ impl Deref for InstructionList {
 }
 
 
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Clone, Copy, Debug, PartialEq)]
 pub struct CpuState {
     pub a: u8,
     pub b: u8,

@@ -101,7 +101,7 @@ impl GraphicalApp {
 #[derive(Default)]
 pub struct StartingHubDevice {}
 
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone, PartialEq)]
 pub struct KeyInput{
     pub a_pushed: bool,
     pub b_pushed: bool,
