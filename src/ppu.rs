@@ -69,7 +69,6 @@ pub struct Ppu<T: Mbc> {
     is_first_scanline_after_lcd_on: bool, // for the LCD on/off quirk. If first scanline since the ppu is on, the cycle is shorter.
     stat_interrupt_line: bool,
     stall_dots: u8, // to handle the sprite penalty in mode pixel transfer
-    scx_for_line: u8, // scx has to be read at the beginning of the line only
     scx_latched_this_line: bool, // used for first line discard pixels
 }
 
@@ -102,7 +101,6 @@ impl<T: Mbc> Ppu<T> {
             is_first_scanline_after_lcd_on: false,
             stat_interrupt_line: false,
             stall_dots: 0,
-            scx_for_line: 0,
             scx_latched_this_line: false,
         }
     }
@@ -258,7 +256,7 @@ impl<T: Mbc> Ppu<T> {
 
     fn step_pixel_fetcher(&mut self, use_window: bool) {
         let scy = self.read_scy();
-        let scx = self.scx_for_line;
+        let scx = self.read_scx();
 
         let tile_pixels = self.pixel_fetcher.tick(&self.bus,
             &self.bg_fifo,
@@ -347,8 +345,7 @@ impl<T: Mbc> Ppu<T> {
 
     fn mode_pixel_transfer(&mut self, ct: &mut Box<dyn GameCT>) -> bool {
         if !self.scx_latched_this_line {
-            self.scx_for_line = self.read_scx();
-            self.pixels_to_discard = self.scx_for_line % 8;
+            self.pixels_to_discard = self.read_scx() % 8;
             self.scx_latched_this_line = true;
         }
 
