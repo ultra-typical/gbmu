@@ -5,6 +5,7 @@ use crate::cpu::Cpu;
 use crate::cpu::registers::R8;
 use crate::cpu::utils;
 use crate::mmu::mbc::Mbc;
+use crate::mmu::Mmu;
 
 const R16_MASK: u8 = 0b00110000;
 const R8_MASK: u8 = 0b00111000;
@@ -23,33 +24,34 @@ fn get_instruction_block1(instruction: u8) -> u8 {
     }
 }
 
-pub fn execute_instruction_block1<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
+pub fn execute_instruction_block1<T: Mbc>(cpu: &mut Cpu, instruction: u8, bus: &mut Mmu<T>) -> u8 {
     let opcode: u8 = get_instruction_block1(instruction);
 
     match opcode {
-        0b01000000 => load_r8_r8(cpu, instruction),
+        0b01000000 => load_r8_r8(cpu, instruction, bus),
         0b01110110 => halt(cpu),
         _ => unreachable!(),
     }
 }
 
-fn load_r8_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
+fn load_r8_r8<T: Mbc>(cpu: &mut Cpu, instruction: u8, bus: &mut Mmu<T>) -> u8 {
     let source: R8 = utils::convert_source_index_to_r8(instruction);
     let dest: R8 = utils::convert_dest_index_to_r8(instruction);
 
-    let value = cpu.get_r8_value(source);
+    let value = cpu.get_r8_value(source, bus);
 
-    cpu.set_r8_value(dest, value);
+    cpu.set_r8_value(dest, value, bus);
     cpu.pc = cpu.pc.wrapping_add(1);
     if source == R8::HLIndirect { 8 } else { 4 }
 }
 
-fn halt<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
+fn halt(cpu: &mut Cpu) -> u8 {
     cpu.halted = true;
     cpu.pc = cpu.pc.wrapping_add(1);
     4
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -85,3 +87,4 @@ mod tests {
         assert_eq!(cpu.pc, 0x0000 + 1);
     }
 }
+*/

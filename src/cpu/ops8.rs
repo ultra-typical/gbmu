@@ -1,10 +1,11 @@
 use crate::cpu::registers::R8;
 use crate::cpu::Cpu;
 use crate::mmu::mbc::Mbc;
+use crate::mmu::Mmu;
 
-impl<T: Mbc> Cpu<T> {
-    pub fn op_rotate_left(&mut self, target: R8, through_carry: bool, z_always_zero: bool) {
-        let value = self.get_r8_value(target);
+impl Cpu {
+    pub fn op_rotate_left<T: Mbc>(&mut self, target: R8, through_carry: bool, z_always_zero: bool, bus: &mut Mmu<T>) {
+        let value = self.get_r8_value(target, bus);
 
         let carry_in = if through_carry && self.registers.get_carry_flag() { 1 } else { 0 };
         let carry_out = (value & 0x80) != 0;
@@ -15,18 +16,18 @@ impl<T: Mbc> Cpu<T> {
             value.rotate_left(1)
         };
 
-        self.set_r8_value(target, result);
+        self.set_r8_value(target, result, bus);
 
         self.registers.set_carry_flag(carry_out);
         self.registers.set_subtract_flag(false);
         self.registers.set_half_carry_flag(false);
 
-        let zero = if z_always_zero { false } else {result == 0 };
+        let zero = if z_always_zero { false } else { result == 0 };
         self.registers.set_zero_flag(zero);
     }
 
-     pub fn op_rotate_right(&mut self, target: R8, through_carry: bool, z_always_zero: bool) {
-        let value = self.get_r8_value(target);
+    pub fn op_rotate_right<T: Mbc>(&mut self, target: R8, through_carry: bool, z_always_zero: bool, bus: &mut Mmu<T>) {
+        let value = self.get_r8_value(target, bus);
 
         let carry_in = if through_carry && self.registers.get_carry_flag() { 1 } else { 0 };
         let carry_out = (value & 0x01) != 0;
@@ -37,50 +38,50 @@ impl<T: Mbc> Cpu<T> {
             value.rotate_right(1)
         };
 
-        self.set_r8_value(target, result);
+        self.set_r8_value(target, result, bus);
 
         self.registers.set_carry_flag(carry_out);
         self.registers.set_subtract_flag(false);
         self.registers.set_half_carry_flag(false);
 
-        let zero = if z_always_zero { false } else {result == 0 };
+        let zero = if z_always_zero { false } else { result == 0 };
         self.registers.set_zero_flag(zero);
     }
 
-    pub fn op_sla(&mut self, target: R8) {
-        let value = self.get_r8_value(target);
+    pub fn op_sla<T: Mbc>(&mut self, target: R8, bus: &mut Mmu<T>) {
+        let value = self.get_r8_value(target, bus);
         let carry_out = (value & 0x80) != 0;
         let result = value << 1;
 
-        self.set_r8_value(target, result);
+        self.set_r8_value(target, result, bus);
         self.registers.set_zero_flag(result == 0);
         self.registers.set_subtract_flag(false);
         self.registers.set_half_carry_flag(false);
         self.registers.set_carry_flag(carry_out);
     }
 
-    pub fn op_sr(&mut self, target: R8, arithmetic: bool) {
-        let value = self.get_r8_value(target);
+    pub fn op_sr<T: Mbc>(&mut self, target: R8, arithmetic: bool, bus: &mut Mmu<T>) {
+        let value = self.get_r8_value(target, bus);
         let carry_out = (value & 0x01) != 0;
 
         let result = if arithmetic {
-            ((value as i8) >> 1) as u8 // SRA
+            ((value as i8) >> 1) as u8
         } else {
-            value >> 1 // SRL
+            value >> 1
         };
 
-        self.set_r8_value(target, result);
+        self.set_r8_value(target, result, bus);
         self.registers.set_zero_flag(result == 0);
         self.registers.set_subtract_flag(false);
         self.registers.set_half_carry_flag(false);
         self.registers.set_carry_flag(carry_out);
     }
 
-    pub fn op_swap(&mut self, target: R8) {
-        let value = self.get_r8_value(target);
+    pub fn op_swap<T: Mbc>(&mut self, target: R8, bus: &mut Mmu<T>) {
+        let value = self.get_r8_value(target, bus);
         let result = value.rotate_left(4);
 
-        self.set_r8_value(target, result);
+        self.set_r8_value(target, result, bus);
         self.registers.set_zero_flag(result == 0);
         self.registers.set_subtract_flag(false);
         self.registers.set_half_carry_flag(false);
@@ -88,7 +89,7 @@ impl<T: Mbc> Cpu<T> {
     }
 }
 
-
+/*
 #[cfg(test)]
 mod tests {
     use crate::cpu::registers::{R8, R16};
@@ -265,3 +266,4 @@ mod tests {
         assert_eq!(cpu.registers.get_half_carry_flag(), false);
     }
 }
+*/

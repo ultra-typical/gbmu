@@ -189,35 +189,49 @@ impl AnyGameApp {
             Some(boot_rom)
         } else { None };
 
+        println!("new AnyGameApp");
+
         match code {
-            0x00 | 0x08 | 0x09 => Ok(
-                AnyGameApp::OnlyRom(GameBoy::new(
-                    boot_rom_data,
-                    rom_data,
-                    ram_data,
-                )?)
-            ),
-            0x01..=0x03 => Ok(
-                AnyGameApp::Mbc1(GameBoy::new(
-                    boot_rom_data,
-                    rom_data,
-                    ram_data,
-                )?)
-            ),
-            0x05 | 0x06 => Ok(
-                AnyGameApp::Mbc2(GameBoy::new(
-                    boot_rom_data,
-                    rom_data,
-                    ram_data,
-                )?)
-            ),
-            0x0F..=0x13 => Ok(
-                AnyGameApp::Mbc3(GameBoy::new(
-                    boot_rom_data,
-                    rom_data,
-                    ram_data,
-                )?)
-            ),
+            0x00 | 0x08 | 0x09 =>  {
+                println!("OnlyRom detected");
+                Ok(
+                    AnyGameApp::OnlyRom(GameBoy::new(
+                        boot_rom_data,
+                        rom_data,
+                        ram_data,
+                    )?)
+                )
+            }
+            0x01..=0x03 => {
+                println!("Mbc1 detected");
+                Ok(
+                    AnyGameApp::Mbc1(GameBoy::new(
+                        boot_rom_data,
+                        rom_data,
+                        ram_data,
+                    )?)
+                )
+            }
+            0x05 | 0x06 => {
+                println!("Mbc2 detected");
+                Ok(
+                    AnyGameApp::Mbc2(GameBoy::new(
+                        boot_rom_data,
+                        rom_data,
+                        ram_data,
+                    )?)
+                )
+            }
+            0x0F..=0x13 => {
+                println!("Mbc3 detected");
+                Ok(
+                    AnyGameApp::Mbc3(GameBoy::new(
+                        boot_rom_data,
+                        rom_data,
+                        ram_data,
+                    )?)
+                )
+            }
             /*
                 0x0B | 0x0C | 0x0D => Ok(todo!()), // MMM01 pas dans le sujet
                 0x19 | 0x1A | 0x1B | 0x1C | 0x1D | 0x1E => Ok(todo!()), // Mbc5

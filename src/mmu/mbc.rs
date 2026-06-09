@@ -96,8 +96,9 @@ impl Mbc for Mbc1 {
     fn dump(&self) -> Option<Vec<u8>> {
         self.ram_banks.concat().into()
     }
+
     fn new(rom_image: Vec<u8>, saved_ram: Option<Vec<u8>>) -> Result<Self, String> {
-        println!("rom detected is Mbc1");
+        println!("new Mbc1");
         let banks = map_rom_into_bank(&rom_image)?;
         let ram_banks = map_ram_banks(&rom_image, saved_ram)?;
         if ram_banks.len() > 4 {
@@ -216,7 +217,7 @@ impl Mbc for Mbc2 {
     }
 
     fn new(rom_image: Vec<u8>, saved_ram: Option<Vec<u8>>) -> Result<Self, String> where Self: Sized {
-        println!("rom detected is Mbc2");
+        println!("New Mbc2");
         let rom_banks = map_rom_into_bank(&rom_image)?;
         let ram_banks = map_ram_banks(&rom_image, saved_ram);
         Ok(Mbc2{
@@ -229,14 +230,14 @@ impl Mbc for Mbc2 {
 }
 
 pub struct RomOnly {
-    bank: [u8; ONLY_ROM_SIZE],
+    bank: Box<[u8; ONLY_ROM_SIZE]>,
 }
 
 impl Mbc for RomOnly{
     fn dump(&self) -> Option<Vec<u8>> { None }
     fn new(rom_image: Vec<u8>, saved_ram: Option<Vec<u8>>) -> Result<Self, String> {
-        println!("rom detected is romonly");
-        let mut bank = [0; ONLY_ROM_SIZE];
+        println!("New Romonly");
+        let mut bank = Box::new([0; ONLY_ROM_SIZE]);
         let end = min(ONLY_ROM_SIZE, rom_image.len());
         bank[..end].copy_from_slice(&rom_image[..end]);
         Ok(RomOnly {
@@ -275,6 +276,7 @@ struct Rtc {
 
 impl Rtc {
     fn new() -> Self {
+        println!("New Rtc");
         Rtc {
             base: RtcRegisters::default(),
             base_timestamp: Local::now(),
@@ -441,7 +443,7 @@ impl Mbc for Mbc3 {
         let rom_banks = map_rom_into_bank(&rom_image)?;
         let ram_banks = map_ram_banks(&rom_image, saved_ram)?;
 
-        println!("mbc 3");
+        println!("New Mbc3");
 
         Ok(
             Mbc3 {
@@ -473,6 +475,7 @@ impl Mbc for Mbc5 {
         self.ram_banks.concat().into()
     }
     fn new(rom_image: Vec<u8>, saved_ram: Option<Vec<u8>>) -> Result<Self, String> where Self: Sized {
+        println!("New Mbc5");
         let rom_banks = map_rom_into_bank(&rom_image)?;
         let ram_banks = map_ram_banks(&rom_image, saved_ram)?;
 

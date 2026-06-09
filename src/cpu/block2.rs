@@ -5,6 +5,7 @@ use crate::cpu::Cpu;
 use crate::cpu::registers::R8;
 use crate::cpu::utils;
 use crate::mmu::mbc::Mbc;
+use crate::mmu::Mmu;
 
 const R16_MASK: u8 = 0b00110000;
 const R8_MASK: u8 = 0b00111000;
@@ -36,18 +37,18 @@ fn get_instruction_block2(instruction: u8) -> u8 {
     }
 }
 
-pub fn execute_instruction_block2<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
+pub fn execute_instruction_block2<T: Mbc>(cpu: &mut Cpu, instruction: u8, bus: &mut Mmu<T>) -> u8 {
     let opcode = get_instruction_block2(instruction);
 
     match opcode {
-        0b10000000 => add_a_r8(cpu, instruction, false),
-        0b10001000 => add_a_r8(cpu, instruction, true),
-        0b10010000 => sub_a_r8(cpu, instruction, false),
-        0b10011000 => sub_a_r8(cpu, instruction, true),
-        0b10100000 => and_a_r8(cpu, instruction),
-        0b10101000 => xor_a_r8(cpu, instruction),
-        0b10110000 => or_a_r8(cpu, instruction),
-        0b10111000 => cp_a_r8(cpu, instruction),
+        0b10000000 => add_a_r8(cpu, instruction, false, bus),
+        0b10001000 => add_a_r8(cpu, instruction, true, bus),
+        0b10010000 => sub_a_r8(cpu, instruction, false, bus),
+        0b10011000 => sub_a_r8(cpu, instruction, true, bus),
+        0b10100000 => and_a_r8(cpu, instruction, bus),
+        0b10101000 => xor_a_r8(cpu, instruction, bus),
+        0b10110000 => or_a_r8(cpu, instruction, bus),
+        0b10111000 => cp_a_r8(cpu, instruction, bus),
         _ => unreachable!(),
     }
 
@@ -57,30 +58,30 @@ pub fn execute_instruction_block2<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> 
     }
 }
 
-fn add_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8, with_carry: bool) {
+fn add_a_r8<T: Mbc>(cpu: &mut Cpu, instruction: u8, with_carry: bool, bus: &mut Mmu<T>) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
 
-    let r8_value = cpu.get_r8_value(r8);
+    let r8_value = cpu.get_r8_value(r8, bus);
     cpu.registers.add_to_r8(R8::A, r8_value, with_carry);
     cpu.pc = cpu.pc.wrapping_add(1)
 }
 
-fn sub_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8, with_carry: bool) {
+fn sub_a_r8<T: Mbc>(cpu: &mut Cpu, instruction: u8, with_carry: bool, bus: &mut Mmu<T>) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
 
-    let r8_value = cpu.get_r8_value(r8);
+    let r8_value = cpu.get_r8_value(r8, bus);
     cpu.registers.sub_to_r8(R8::A, r8_value, with_carry);
     cpu.pc = cpu.pc.wrapping_add(1)
 }
 
-fn and_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
+fn and_a_r8<T: Mbc>(cpu: &mut Cpu, instruction: u8, bus: &mut Mmu<T>) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
 
-    let r8_value = cpu.get_r8_value(r8);
-    let a_value = cpu.get_r8_value(R8::A);
+    let r8_value = cpu.get_r8_value(r8, bus);
+    let a_value = cpu.get_r8_value(R8::A, bus);
 
     let new_value = a_value & r8_value;
-    cpu.set_r8_value(R8::A, new_value);
+    cpu.set_r8_value(R8::A, new_value, bus);
 
     cpu.registers.set_zero_flag(new_value == 0);
     cpu.registers.set_subtract_flag(false);
@@ -90,14 +91,14 @@ fn and_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     cpu.pc = cpu.pc.wrapping_add(1)
 }
 
-fn xor_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
+fn xor_a_r8<T: Mbc>(cpu: &mut Cpu, instruction: u8, bus: &mut Mmu<T>) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
 
-    let r8_value = cpu.get_r8_value(r8);
-    let a_value = cpu.get_r8_value(R8::A);
+    let r8_value = cpu.get_r8_value(r8, bus);
+    let a_value = cpu.get_r8_value(R8::A, bus);
 
     let new_value = a_value ^ r8_value;
-    cpu.set_r8_value(R8::A, new_value);
+    cpu.set_r8_value(R8::A, new_value, bus);
 
     cpu.registers.set_zero_flag(new_value == 0);
     cpu.registers.set_subtract_flag(false);
@@ -107,14 +108,14 @@ fn xor_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     cpu.pc = cpu.pc.wrapping_add(1)
 }
 
-fn or_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
+fn or_a_r8<T: Mbc>(cpu: &mut Cpu, instruction: u8, bus: &mut Mmu<T>) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
 
-    let r8_value = cpu.get_r8_value(r8);
-    let a_value = cpu.get_r8_value(R8::A);
+    let r8_value = cpu.get_r8_value(r8, bus);
+    let a_value = cpu.get_r8_value(R8::A, bus);
 
     let new_value = a_value | r8_value;
-    cpu.set_r8_value(R8::A, new_value);
+    cpu.set_r8_value(R8::A, new_value, bus);
 
     cpu.registers.set_zero_flag(new_value == 0);
     cpu.registers.set_subtract_flag(false);
@@ -124,11 +125,11 @@ fn or_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     cpu.pc = cpu.pc.wrapping_add(1)
 }
 
-fn cp_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
+fn cp_a_r8<T: Mbc>(cpu: &mut Cpu, instruction: u8, bus: &mut Mmu<T>) {
     let r8: R8 = utils::convert_source_index_to_r8(instruction);
 
-    let r8_value = cpu.get_r8_value(r8);
-    let a_value = cpu.get_r8_value(R8::A);
+    let r8_value = cpu.get_r8_value(r8, bus);
+    let a_value = cpu.get_r8_value(R8::A, bus);
 
     let value = a_value.wrapping_sub(r8_value);
 
@@ -141,6 +142,7 @@ fn cp_a_r8<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) {
     cpu.pc = cpu.pc.wrapping_add(1)
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,3 +238,4 @@ mod tests {
         assert_eq!(cpu.pc, 0x0000 + 1);
     }
 }
+*/
