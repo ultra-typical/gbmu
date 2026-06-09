@@ -1,8 +1,6 @@
 #![allow(unused_variables)]
 
-use std::cell::RefCell;
 use std::collections::HashSet;
-use std::rc::Rc;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -14,13 +12,11 @@ use crate::cpu::registers::{R8};
 use crate::gui::KeyInput;
 use crate::mmu::mbc::Mbc;
 use crate::mmu::Mmu;
-use crate::ppu::Ppu;
 
 const FRAME_CYCLES: u32 = 70224;
 pub struct GameBoy<T: Mbc> {
-    pub cpu: Cpu<T>,
-    pub ppu: Ppu<T>,
-    pub bus: Rc<RefCell<Mmu<T>>>,
+    pub cpu: Cpu,
+    pub bus: Mmu<T>,
 
     step_to_execute: usize,
     should_get_fps: bool,
@@ -34,12 +30,10 @@ pub struct GameBoy<T: Mbc> {
 type GBMode<T> = fn(&mut GameBoy<T>, &KeyInput, &mut Box<dyn GameCT>);
 
 impl<T: Mbc>  GameBoy<T> {
-
-
     fn send_watched_adress(&self, ct: &mut Box<dyn GameCT>) {
         ct.send_watched_adresses(
             WatchedAdresses(self.watched_address.iter().map(
-                    |addr| (*addr, self.bus.borrow_mut().read_byte(*addr))
+                    |addr| (*addr, self.bus.read_byte(*addr))
                 ).collect::<Vec<(u16, u8)>>())
         )
     }
@@ -55,13 +49,13 @@ impl<T: Mbc>  GameBoy<T> {
             InstructionList((0..self.instructions_to_send).map(
                     |index: u16| self.cpu.pc as usize + index as usize
                 ).map(
-                    |addr: usize|  self.bus.borrow_mut().read_byte(addr as u16) as u16
+                    |addr: usize|  self.bus.read_byte(addr as u16) as u16
                 ).collect())
         );
     }
 
     pub fn ram_dump(self) -> Option<Vec<u8>> {
-        self.bus.borrow_mut().ram_dump()
+        self.bus.ram_dump()
     }
 
     pub fn new(
@@ -69,22 +63,20 @@ impl<T: Mbc>  GameBoy<T> {
         rom_data: Vec<u8>,
         ram_data: Option<Vec<u8>>,
     ) -> Result<GameBoy<T>, String> {
-        let bus_ref = Rc::new(RefCell::new(Mmu::<T>::new(rom_data, ram_data)?));
+        println!("new gameboy");
+        let mut bus = Mmu::<T>::new(rom_data, ram_data)?;
 
         let with_boot_rom = if let Some(boot_rom) = boot_rom_data {
-            let mut mmu = bus_ref.borrow_mut();
-            mmu.load_boot_rom(boot_rom);
+            bus.load_boot_rom(boot_rom);
             true
         } else {
             false
         };
 
-        let cpu = Cpu::<T>::new(bus_ref.clone());
-        let ppu = Ppu::<T>::new(bus_ref.clone());
+        let cpu = Cpu::new();
         let mut gb = GameBoy {
             cpu,
-            bus: bus_ref,
-            ppu,
+            bus,
 
             step_to_execute: 0,
             should_get_fps: true,
@@ -143,7 +135,7 @@ impl<T: Mbc>  GameBoy<T> {
             },
             Request::Execute(instructions) => {
                 for instruction in instructions {
-                    self.cpu.debug_step(instruction);
+                    self.cpu.debug_step(instruction, &mut self.bus);
                 }
             },
             Request::RenderFrame(frame) => {
@@ -167,58 +159,56 @@ impl<T: Mbc>  GameBoy<T> {
     }
 
     pub fn simulate_boot_rom_effect(&mut self) {
-        self.cpu.set_r8_value(R8::A, 0x01);
-        self.cpu.set_r8_value(R8::B, 0xFF);
-        self.cpu.set_r8_value(R8::C, 0x13);
-        self.cpu.set_r8_value(R8::D, 0x00);
-        self.cpu.set_r8_value(R8::E, 0xC1);
-        self.cpu.set_r8_value(R8::H, 0x84);
-        self.cpu.set_r8_value(R8::L, 0x03);
+        self.cpu.registers.set_r8_value(R8::A, 0x01);
+        self.cpu.registers.set_r8_value(R8::B, 0xFF);
+        self.cpu.registers.set_r8_value(R8::C, 0x13);
+        self.cpu.registers.set_r8_value(R8::D, 0x00);
+        self.cpu.registers.set_r8_value(R8::E, 0xC1);
+        self.cpu.registers.set_r8_value(R8::H, 0x84);
+        self.cpu.registers.set_r8_value(R8::L, 0x03);
         self.cpu.pc = 0x0100;
         self.cpu.registers.set_sp(0xFFFE);
 
-        let mut bus = self.bus.borrow_mut();
-
-        bus.write_byte(0xFF00, 0xCF);
-        bus.write_byte(0xFF01, 0x00);
-        bus.write_byte(0xFF02, 0x7E);
-        bus.write_byte(0xFF04, 0x18);
-        bus.write_byte(0xFF05, 0x00);
-        bus.write_byte(0xFF06, 0x00);
-        bus.write_byte(0xFF07, 0xF8);
-        bus.write_byte(0xFF0F, 0xE1);
-        bus.write_byte(0xFF10, 0x80);
-        bus.write_byte(0xFF11, 0xBF);
-        bus.write_byte(0xFF12, 0xF3);
-        bus.write_byte(0xFF13, 0xFF);
-        bus.write_byte(0xFF14, 0xBF);
-        bus.write_byte(0xFF16, 0x3F);
-        bus.write_byte(0xFF17, 0x00);
-        bus.write_byte(0xFF18, 0xFF);
-        bus.write_byte(0xFF19, 0xBF);
-        bus.write_byte(0xFF1A, 0x7F);
-        bus.write_byte(0xFF1B, 0xFF);
-        bus.write_byte(0xFF1C, 0x9F);
-        bus.write_byte(0xFF1D, 0xFF);
-        bus.write_byte(0xFF1E, 0xBF);
-        bus.write_byte(0xFF20, 0xFF);
-        bus.write_byte(0xFF21, 0x00);
-        bus.write_byte(0xFF22, 0x00);
-        bus.write_byte(0xFF23, 0xBF);
-        bus.write_byte(0xFF24, 0x77);
-        bus.write_byte(0xFF25, 0xF3);
-        bus.write_byte(0xFF26, 0xF1);
-        bus.write_byte(0xFF40, 0x91);
-        bus.write_byte(0xFF41, 0x81);
-        bus.write_byte(0xFF42, 0x00);
-        bus.write_byte(0xFF43, 0x00);
-        bus.write_byte(0xFF44, 0x91);
-        bus.write_byte(0xFF45, 0x00);
-        bus.write_byte(0xFF46, 0xFF);
-        bus.write_byte(0xFF47, 0xFC);
-        bus.write_byte(0xFF4A, 0x00);
-        bus.write_byte(0xFF4B, 0x00);
-        bus.write_byte(0xFFFF, 0x00);
+        self.bus.write_byte(0xFF00, 0xCF);
+        self.bus.write_byte(0xFF01, 0x00);
+        self.bus.write_byte(0xFF02, 0x7E);
+        self.bus.write_byte(0xFF04, 0x18);
+        self.bus.write_byte(0xFF05, 0x00);
+        self.bus.write_byte(0xFF06, 0x00);
+        self.bus.write_byte(0xFF07, 0xF8);
+        self.bus.write_byte(0xFF0F, 0xE1);
+        self.bus.write_byte(0xFF10, 0x80);
+        self.bus.write_byte(0xFF11, 0xBF);
+        self.bus.write_byte(0xFF12, 0xF3);
+        self.bus.write_byte(0xFF13, 0xFF);
+        self.bus.write_byte(0xFF14, 0xBF);
+        self.bus.write_byte(0xFF16, 0x3F);
+        self.bus.write_byte(0xFF17, 0x00);
+        self.bus.write_byte(0xFF18, 0xFF);
+        self.bus.write_byte(0xFF19, 0xBF);
+        self.bus.write_byte(0xFF1A, 0x7F);
+        self.bus.write_byte(0xFF1B, 0xFF);
+        self.bus.write_byte(0xFF1C, 0x9F);
+        self.bus.write_byte(0xFF1D, 0xFF);
+        self.bus.write_byte(0xFF1E, 0xBF);
+        self.bus.write_byte(0xFF20, 0xFF);
+        self.bus.write_byte(0xFF21, 0x00);
+        self.bus.write_byte(0xFF22, 0x00);
+        self.bus.write_byte(0xFF23, 0xBF);
+        self.bus.write_byte(0xFF24, 0x77);
+        self.bus.write_byte(0xFF25, 0xF3);
+        self.bus.write_byte(0xFF26, 0xF1);
+        self.bus.write_byte(0xFF40, 0x91);
+        self.bus.write_byte(0xFF41, 0x81);
+        self.bus.write_byte(0xFF42, 0x00);
+        self.bus.write_byte(0xFF43, 0x00);
+        self.bus.write_byte(0xFF44, 0x91);
+        self.bus.write_byte(0xFF45, 0x00);
+        self.bus.write_byte(0xFF46, 0xFF);
+        self.bus.write_byte(0xFF47, 0xFC);
+        self.bus.write_byte(0xFF4A, 0x00);
+        self.bus.write_byte(0xFF4B, 0x00);
+        self.bus.write_byte(0xFFFF, 0x00);
     }
 
 
@@ -235,23 +225,20 @@ impl<T: Mbc>  GameBoy<T> {
         if key_input.b_pushed       { buttons &= 0b1111_1101; }
         if key_input.a_pushed       { buttons &= 0b1111_1110; }
 
-
-        let mut bus = self.bus.borrow_mut();
-        bus.update_keys(dpad, buttons);
+        self.bus.update_keys(dpad, buttons)
     }
 
     pub fn tick_gb(&mut self, key_input: &KeyInput, ct: &mut Box<dyn GameCT>) {
         self.manage_input(key_input);
-        self.bus.borrow_mut().tick_timers();
+        self.bus.tick_timers();
         if self.cycles_elapsed.is_multiple_of(4) {
-            let mut bus = self.bus.borrow_mut();
-            if bus.dma_index != 0xFF {
-                bus.tick_dma();
+            if self.bus.dma_index != 0xFF {
+                self.bus.tick_dma();
             }
             self.cycles_elapsed = 0;
         }
-        self.cpu.tick();
-        self.ppu.tick(ct);
+        self.cpu.tick(&mut self.bus);
+        self.bus.tick_ppu(ct);
     }
 
 

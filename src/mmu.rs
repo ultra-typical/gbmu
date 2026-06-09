@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::{RwLock, RwLockReadGuard};
 
 pub mod interrupt;
@@ -14,6 +12,8 @@ use crate::mmu::interrupt::InterruptController;
 use crate::mmu::mbc::Mbc;
 use crate::mmu::oam::Oam;
 use crate::mmu::apu::Apu;
+use crate::communications::GameCT;
+use crate::ppu::Ppu;
 
 #[allow(unused)]
 #[derive(PartialEq, Eq, Debug)]
@@ -72,20 +72,15 @@ impl MemoryRegion {
     }
 }
 
-impl<T: Mbc> From<Mmu<T>> for Rc<RefCell<Mmu<T>>> {
-    fn from(val: Mmu<T>) -> Self {
-        Rc::new(RefCell::new(val))
-    }
-}
-
 #[allow(unused)]
 pub struct Mmu<T: Mbc> {
-    data: [u8; 0x10000], // 0xFFFF (65535) + 1 = 0x10000 (65536)
+    data: Box<[u8; 0x10000]>, // 0xFFFF (65535) + 1 = 0x10000 (65536)
     cart: T,
     interrupts: InterruptController,
     timers: Timers,
     oam: RwLock<Oam>,
     apu: Apu,
+    pub ppu: Ppu,
     boot_enable: bool,
     boot_rom: [u8; 0x0100],
     dpad_state: u8, // for joypad
@@ -101,20 +96,22 @@ impl<T: Mbc> Mmu<T> {
     }
 
     pub fn new(rom_data: Vec<u8>, ram_data: Option<Vec<u8>>) -> Result<Self, String> {
-       Ok(Mmu {
+        println!("New Mmu");
+        Ok(Mmu {
             apu: Apu::default(),
-            data: [0xFF; 0x10000],
+            data: Box::new([0xFF; 0x10000]),
             cart: T::new(rom_data, ram_data)?,
             interrupts: InterruptController::new(),
             timers: Timers::default(),
             oam: RwLock::new(Oam::default()),
+            ppu: Ppu::new(),
             boot_enable: false,
             boot_rom: [0xFF; 0x0100],
             dpad_state: 0x0F,
             button_state: 0x0F,
-            accessed_oam_ram: 0xFF, // 0xFF means we're not in OAM search mode
+            accessed_oam_ram: 0xFF,
             dma_source: 0x0,
-            dma_index: 0xFF, // 0xFF means a DMA isn't happening
+            dma_index: 0xFF,
         })
     }
 
@@ -158,6 +155,8 @@ impl<T: Mbc> Mmu<T> {
                     }
 
                     0b1100_0000 | selection | result
+                } else if matches!(addr, 0xFF40..=0xFF4B) && addr != 0xFF46 {
+                    self.ppu.read_register(addr)
                 } else {
                     self.data[addr as usize]
                 }
@@ -200,13 +199,8 @@ impl<T: Mbc> Mmu<T> {
                     self.data[0xFF00] = 0b1100_0000 | selection_bits | current_inputs;
 
                     self.update_joypad_register();
-                } else if addr == 0xFF41 { // STAT register
-                    let current_val = self.data[0xFF41_usize];
-
-                    // We keep 0-2 (PPU), we take 3-6 of CPU (val), bit 7 is always 1
-                    self.data[addr as usize] = (val & 0b0111_1000) | (current_val & 0b0000_0111) | 0x80;
-                } else if addr == 0xFF44 {
-                    // Do nothing, read-only
+                } else if matches!(addr, 0xFF40..=0xFF4B) && addr != 0xFF46 {
+                    self.ppu.write_register(addr, val);
                 } else if addr == 0xFF46 {
                     self.data[addr as usize] = val;
                     self.dma_index = 0;
@@ -282,12 +276,18 @@ impl<T: Mbc> Mmu<T> {
         self.update_joypad_register();
     }
 
-    pub fn set_stat_byte_from_ppu(&mut self, val: u8) {
-        self.data[0xFF41] = val;
-    }
-
-    pub fn set_ly_from_ppu(&mut self, val: u8) {
-        self.data[0xFF44] = val;
+    pub fn tick_ppu(&mut self, ct: &mut Box<dyn GameCT>) {
+        let mut ppu = std::mem::replace(&mut self.ppu, Ppu::new());
+        ppu.tick(self, ct);
+        if ppu.pending_vblank {
+            self.interrupts_request(Interrupt::VBlank);
+            ppu.pending_vblank = false;
+        }
+        if ppu.pending_stat {
+            self.interrupts_request(Interrupt::LcdStat);
+            ppu.pending_stat = false;
+        }
+        self.ppu = ppu;
     }
 
     pub fn set_accessed_oam_row(&mut self, val: u8) {

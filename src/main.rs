@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 mod cli;
 mod cpu;
 mod gameboy;

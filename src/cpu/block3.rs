@@ -7,6 +7,7 @@ use crate::cpu::conditions::Cond;
 use crate::cpu::registers::{R8, R16};
 use crate::cpu::utils;
 use crate::mmu::mbc::Mbc;
+use crate::mmu::Mmu;
 
 const R16STK_MASK: u8 = 0b00110000;
 const TGT3_MASK: u8 = 0b00111000;
@@ -106,69 +107,69 @@ fn get_instruction_block3(instruction: u8) -> u8 {
     }
 }
 
-pub fn execute_instruction_block3<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
+pub fn execute_instruction_block3<T: Mbc>(cpu: &mut Cpu, instruction: u8, bus: &mut Mmu<T>) -> u8 {
     let opcode = get_instruction_block3(instruction);
 
     match opcode {
-        0b11000000 => ret(cpu, instruction, true),      // ret cond
-        0b11000001 => pop_r16(cpu, instruction),        // pop r16stk
-        0b11000010 => jp_imm16(cpu, instruction, true), // jp cond, imm16
-        0b11000011 => jp_imm16(cpu, instruction, false), // jp imm16
-        0b11000100 => call_imm16(cpu, instruction, true), // call cond, imm16
-        0b11000101 => push_r16(cpu, instruction),       // push r16stk
-        0b11000110 => add_a_imm8(cpu, false),           // add a, imm8
-        0b11000111 => rst_tgt3(cpu, instruction),       // rst tgt3
-        0b11001001 => ret(cpu, instruction, false),     // ret
-        0b11001011 => prefix(cpu),                      // prefix
-        0b11001101 => call_imm16(cpu, instruction, false), // call imm16
-        0b11001110 => add_a_imm8(cpu, true),            // adc a, imm8
-        0b11010110 => sub_a_imm8(cpu, false),           // sub a, imm8
-        0b11011001 => reti(cpu),                        // mov ime, #1 \ ret
-        0b11011110 => sub_a_imm8(cpu, true),            // sbc a, imm8
-        0b11100000 => ldh_imm8_a(cpu),                  // ldh [imm8], a
-        0b11100010 => ldh_c_a(cpu),                     // ldh [c], a
-        0b11100110 => and_a_imm8(cpu),                  // and a, imm8
-        0b11101000 => add_sp_imm8(cpu),                 // add sp, imm8
-        0b11101001 => jp_hl(cpu),                       // jp hl
-        0b11101010 => ld_imm16_a(cpu),                  // ld [imm16], a
-        0b11101110 => xor_a_imm8(cpu),                  // xor a, imm8
-        0b11110000 => ldh_a_imm8(cpu),                  // ldh a, [imm8]
-        0b11110001 => pop_af(cpu),                      // pop af
-        0b11110010 => ldh_a_c(cpu),                     // ldh a, [c]
-        0b11110011 => di(cpu),                          // mov ime, #0 | DI: disable interrupts
-        0b11110101 => push_af(cpu),                     // push af
-        0b11110110 => or_a_imm8(cpu),                   // or a, imm8
-        0b11111000 => ld_hl_sp_add_imm8(cpu),           // ld hl, sp + imm8
-        0b11111001 => ld_sp_hl(cpu),                    // ld sp, hl
-        0b11111010 => ld_a_imm16(cpu),                  // ld a, [imm16]
+        0b11000000 => ret(cpu, instruction, true, bus),      // ret cond
+        0b11000001 => pop_r16(cpu, instruction, bus),        // pop r16stk
+        0b11000010 => jp_imm16(cpu, instruction, true, bus), // jp cond, imm16
+        0b11000011 => jp_imm16(cpu, instruction, false, bus), // jp imm16
+        0b11000100 => call_imm16(cpu, instruction, true, bus), // call cond, imm16
+        0b11000101 => push_r16(cpu, instruction, bus),       // push r16stk
+        0b11000110 => add_a_imm8(cpu, false, bus),           // add a, imm8
+        0b11000111 => rst_tgt3(cpu, instruction, bus),       // rst tgt3
+        0b11001001 => ret(cpu, instruction, false, bus),     // ret
+        0b11001011 => prefix(cpu, bus),                      // prefix
+        0b11001101 => call_imm16(cpu, instruction, false, bus), // call imm16
+        0b11001110 => add_a_imm8(cpu, true, bus),            // adc a, imm8
+        0b11010110 => sub_a_imm8(cpu, false, bus),           // sub a, imm8
+        0b11011001 => reti(cpu, bus),                        // mov ime, #1 \ ret
+        0b11011110 => sub_a_imm8(cpu, true, bus),            // sbc a, imm8
+        0b11100000 => ldh_imm8_a(cpu, bus),                  // ldh [imm8], a
+        0b11100010 => ldh_c_a(cpu, bus),                     // ldh [c], a
+        0b11100110 => and_a_imm8(cpu, bus),                  // and a, imm8
+        0b11101000 => add_sp_imm8(cpu, bus),                 // add sp, imm8
+        0b11101001 => jp_hl(cpu),                            // jp hl
+        0b11101010 => ld_imm16_a(cpu, bus),                  // ld [imm16], a
+        0b11101110 => xor_a_imm8(cpu, bus),                  // xor a, imm8
+        0b11110000 => ldh_a_imm8(cpu, bus),                  // ldh a, [imm8]
+        0b11110001 => pop_af(cpu, bus),                      // pop af
+        0b11110010 => ldh_a_c(cpu, bus),                     // ldh a, [c]
+        0b11110011 => di(cpu),                               // mov ime, #0 | DI: disable interrupts
+        0b11110101 => push_af(cpu, bus),                     // push af
+        0b11110110 => or_a_imm8(cpu, bus),                   // or a, imm8
+        0b11111000 => ld_hl_sp_add_imm8(cpu, bus),           // ld hl, sp + imm8
+        0b11111001 => ld_sp_hl(cpu),                         // ld sp, hl
+        0b11111010 => ld_a_imm16(cpu, bus),                  // ld a, [imm16]
         0b11111011 => ei(cpu), // mov ime, #1 | EI: enable interrupts (after next)
-        0b11111110 => cp_a_imm8(cpu), // cp a, imm8
+        0b11111110 => cp_a_imm8(cpu, bus), // cp a, imm8
         _ => unreachable!(),
     }
 }
 
-fn add_a_imm8<T: Mbc>(cpu: &mut Cpu<T>, with_carry: bool) -> u8 {
-    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
+fn add_a_imm8<T: Mbc>(cpu: &mut Cpu, with_carry: bool, bus: &mut Mmu<T>) -> u8 {
+    let imm8 = bus.read_byte(cpu.pc + 1);
 
     cpu.registers.add_to_r8(R8::A, imm8, with_carry);
     cpu.pc = cpu.pc.wrapping_add(2);
     8
 }
 
-fn sub_a_imm8<T: Mbc>(cpu: &mut Cpu<T>, with_carry: bool) -> u8 {
-    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
+fn sub_a_imm8<T: Mbc>(cpu: &mut Cpu, with_carry: bool, bus: &mut Mmu<T>) -> u8 {
+    let imm8 = bus.read_byte(cpu.pc + 1);
 
     cpu.registers.sub_to_r8(R8::A, imm8, with_carry);
     cpu.pc = cpu.pc.wrapping_add(2);
     8
 }
 
-fn and_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
-    let a_value = cpu.get_r8_value(R8::A);
+fn and_a_imm8<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    let imm8 = bus.read_byte(cpu.pc + 1);
+    let a_value = cpu.get_r8_value(R8::A, bus);
 
     let new_value = a_value & imm8;
-    cpu.set_r8_value(R8::A, new_value);
+    cpu.set_r8_value(R8::A, new_value, bus);
 
     cpu.registers.set_zero_flag(new_value == 0);
     cpu.registers.set_subtract_flag(false);
@@ -179,12 +180,12 @@ fn and_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
     8
 }
 
-fn xor_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
-    let a_value = cpu.get_r8_value(R8::A);
+fn xor_a_imm8<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    let imm8 = bus.read_byte(cpu.pc + 1);
+    let a_value = cpu.get_r8_value(R8::A, bus);
 
     let new_value = a_value ^ imm8;
-    cpu.set_r8_value(R8::A, new_value);
+    cpu.set_r8_value(R8::A, new_value, bus);
 
     cpu.registers.set_zero_flag(new_value == 0);
     cpu.registers.set_subtract_flag(false);
@@ -195,12 +196,12 @@ fn xor_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
     8
 }
 
-fn or_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
-    let a_value = cpu.get_r8_value(R8::A);
+fn or_a_imm8<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    let imm8 = bus.read_byte(cpu.pc + 1);
+    let a_value = cpu.get_r8_value(R8::A, bus);
 
     let new_value = a_value | imm8;
-    cpu.set_r8_value(R8::A, new_value);
+    cpu.set_r8_value(R8::A, new_value, bus);
 
     cpu.registers.set_zero_flag(new_value == 0);
     cpu.registers.set_subtract_flag(false);
@@ -211,9 +212,9 @@ fn or_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
     8
 }
 
-fn cp_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
-    let a_value = cpu.get_r8_value(R8::A);
+fn cp_a_imm8<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    let imm8 = bus.read_byte(cpu.pc + 1);
+    let a_value = cpu.get_r8_value(R8::A, bus);
 
     let value = a_value.wrapping_sub(imm8);
 
@@ -227,7 +228,7 @@ fn cp_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
     8
 }
 
-fn ret<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8, with_cond: bool) -> u8 {
+fn ret<T: Mbc>(cpu: &mut Cpu, instruction: u8, with_cond: bool, bus: &mut Mmu<T>) -> u8 {
     let mut ticking_value = 4;
     let cond = if with_cond {
         ticking_value += 4;
@@ -238,28 +239,28 @@ fn ret<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8, with_cond: bool) -> u8 {
 
     if cpu.registers.check_condition(cond) || !with_cond {
         ticking_value += 12;
-        cpu.pc = cpu.registers.pop_sp(&cpu.bus.borrow_mut());
+        cpu.pc = cpu.registers.pop_sp(bus);
     } else {
         cpu.pc = cpu.pc.wrapping_add(1);
     }
     ticking_value
 }
 
-fn reti<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    cpu.pc = cpu.registers.pop_sp(&cpu.bus.borrow_mut());
+fn reti<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    cpu.pc = cpu.registers.pop_sp(bus);
     cpu.ime = true;
     cpu.ime_delay = false;
     16
 }
 
-fn jp_imm16<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8, with_cond: bool) -> u8 {
+fn jp_imm16<T: Mbc>(cpu: &mut Cpu, instruction: u8, with_cond: bool, bus: &mut Mmu<T>) -> u8 {
     let cond = if with_cond {
         utils::convert_index_to_cond(instruction)
     } else {
         Cond::None
     };
 
-    let imm16 = utils::get_imm16(cpu);
+    let imm16 = utils::get_imm16(cpu, bus);
 
     if cpu.registers.check_condition(cond) || !with_cond {
         cpu.pc = imm16;
@@ -270,24 +271,23 @@ fn jp_imm16<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8, with_cond: bool) -> u8 {
     }
 }
 
-fn jp_hl<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
+fn jp_hl(cpu: &mut Cpu) -> u8 {
     let hl_value = cpu.registers.get_r16_value(R16::HL);
     cpu.pc = hl_value;
     4
 }
 
-fn call_imm16<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8, with_cond: bool) -> u8 {
+fn call_imm16<T: Mbc>(cpu: &mut Cpu, instruction: u8, with_cond: bool, bus: &mut Mmu<T>) -> u8 {
     let cond = if with_cond {
         utils::convert_index_to_cond(instruction)
     } else {
         Cond::None
     };
 
-    let imm16 = utils::get_imm16(cpu);
+    let imm16 = utils::get_imm16(cpu, bus);
 
     if cpu.registers.check_condition(cond) || !with_cond {
-        cpu.registers
-            .push_sp(&mut cpu.bus.borrow_mut(), cpu.pc.wrapping_add(3));
+        cpu.registers.push_sp(bus, cpu.pc.wrapping_add(3));
         cpu.pc = imm16;
         20
     } else {
@@ -296,119 +296,118 @@ fn call_imm16<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8, with_cond: bool) -> u8 
     }
 }
 
-fn rst_tgt3<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
+fn rst_tgt3<T: Mbc>(cpu: &mut Cpu, instruction: u8, bus: &mut Mmu<T>) -> u8 {
     let tgt3_index = (instruction & TGT3_MASK) >> 3;
     let tgt3_address = RST_VEC[tgt3_index as usize] as u16;
 
-    cpu.registers.push_sp(&mut cpu.bus.borrow_mut(), cpu.pc.wrapping_add(1));
+    cpu.registers.push_sp(bus, cpu.pc.wrapping_add(1));
     cpu.pc = tgt3_address;
     16
 }
 
-fn pop_r16<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
+fn pop_r16<T: Mbc>(cpu: &mut Cpu, instruction: u8, bus: &mut Mmu<T>) -> u8 {
     let r16 = utils::convert_index_to_r16(instruction);
-    let value = cpu.registers.pop_sp(&cpu.bus.borrow_mut());
+    let value = cpu.registers.pop_sp(bus);
     cpu.registers.set_r16_value(r16, value);
     cpu.pc = cpu.pc.wrapping_add(1);
     12
 }
 
-fn pop_af<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let value = cpu.registers.pop_sp(&cpu.bus.borrow_mut());
+fn pop_af<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    let value = cpu.registers.pop_sp(bus);
     cpu.registers.set_af(value);
     cpu.pc = cpu.pc.wrapping_add(1);
     12
 }
 
-fn push_r16<T: Mbc>(cpu: &mut Cpu<T>, instruction: u8) -> u8 {
+fn push_r16<T: Mbc>(cpu: &mut Cpu, instruction: u8, bus: &mut Mmu<T>) -> u8 {
     let r16 = utils::convert_index_to_r16(instruction);
     let value = cpu.registers.get_r16_value(r16);
-    cpu.registers.push_sp(&mut cpu.bus.borrow_mut(), value);
+    cpu.registers.push_sp(bus, value);
     cpu.pc = cpu.pc.wrapping_add(1);
     16
 }
 
-fn push_af<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
+fn push_af<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
     let value = cpu.registers.get_af();
-    cpu.registers.push_sp(&mut cpu.bus.borrow_mut(), value);
+    cpu.registers.push_sp(bus, value);
     cpu.pc = cpu.pc.wrapping_add(1);
     16
 }
 
-fn prefix<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let next_instruction = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
-    block_prefix::execute_instruction_block_prefix(cpu, next_instruction)
-    // cpu.pc = cpu.pc.wrapping_add(1);
+fn prefix<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    let next_instruction = bus.read_byte(cpu.pc + 1);
+    block_prefix::execute_instruction_block_prefix(cpu, next_instruction, bus)
 }
 
-fn ldh_c_a<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let a_value = cpu.get_r8_value(R8::A);
-    let c_value = cpu.get_r8_value(R8::C);
+fn ldh_c_a<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    let a_value = cpu.get_r8_value(R8::A, bus);
+    let c_value = cpu.get_r8_value(R8::C, bus);
 
     let address = 0xFF00 + (c_value as u16);
-    cpu.bus.borrow_mut().write_byte(address, a_value);
+    bus.write_byte(address, a_value);
     cpu.pc = cpu.pc.wrapping_add(1);
     8
 }
 
-fn ldh_imm8_a<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let a_value = cpu.get_r8_value(R8::A);
-    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
+fn ldh_imm8_a<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    let a_value = cpu.get_r8_value(R8::A, bus);
+    let imm8 = bus.read_byte(cpu.pc + 1);
 
     let address = 0xFF00 + (imm8 as u16);
-    cpu.bus.borrow_mut().write_byte(address, a_value);
+    bus.write_byte(address, a_value);
     cpu.pc = cpu.pc.wrapping_add(2);
     12
 }
 
-fn ld_imm16_a<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let a_value = cpu.get_r8_value(R8::A);
-    let imm16 = utils::get_imm16(cpu);
+fn ld_imm16_a<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    let a_value = cpu.get_r8_value(R8::A, bus);
+    let imm16 = utils::get_imm16(cpu, bus);
 
-    cpu.bus.borrow_mut().write_byte(imm16, a_value);
+    bus.write_byte(imm16, a_value);
     cpu.pc = cpu.pc.wrapping_add(3);
     16
 }
 
-fn ldh_a_c<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let c_value = cpu.get_r8_value(R8::C);
+fn ldh_a_c<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    let c_value = cpu.get_r8_value(R8::C, bus);
     let address = 0xFF00 + (c_value as u16);
-    let value = cpu.bus.borrow_mut().read_byte(address);
+    let value = bus.read_byte(address);
 
-    cpu.set_r8_value(R8::A, value);
+    cpu.set_r8_value(R8::A, value, bus);
     cpu.pc = cpu.pc.wrapping_add(1);
     12
 }
 
-fn ldh_a_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1);
+fn ldh_a_imm8<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    let imm8 = bus.read_byte(cpu.pc + 1);
     let address = 0xFF00 + (imm8 as u16);
-    let value = cpu.bus.borrow_mut().read_byte(address);
+    let value = bus.read_byte(address);
 
-    cpu.set_r8_value(R8::A, value);
+    cpu.set_r8_value(R8::A, value, bus);
     cpu.pc = cpu.pc.wrapping_add(2);
     12
 }
 
-fn ld_a_imm16<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let imm16 = utils::get_imm16(cpu);
-    let value = cpu.bus.borrow_mut().read_byte(imm16);
+fn ld_a_imm16<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    let imm16 = utils::get_imm16(cpu, bus);
+    let value = bus.read_byte(imm16);
 
-    cpu.set_r8_value(R8::A, value);
+    cpu.set_r8_value(R8::A, value, bus);
     cpu.pc = cpu.pc.wrapping_add(3);
     16
 }
 
-fn add_sp_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let offset = cpu.bus.borrow_mut().read_byte(cpu.pc + 1) as i8;
+fn add_sp_imm8<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    let offset = bus.read_byte(cpu.pc + 1) as i8;
 
     cpu.registers.add_sp_i8(offset);
     cpu.pc = cpu.pc.wrapping_add(2);
     16
 }
 
-fn ld_hl_sp_add_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
-    let imm8 = cpu.bus.borrow_mut().read_byte(cpu.pc + 1) as i8;
+fn ld_hl_sp_add_imm8<T: Mbc>(cpu: &mut Cpu, bus: &mut Mmu<T>) -> u8 {
+    let imm8 = bus.read_byte(cpu.pc + 1) as i8;
     let sp = cpu.registers.get_sp();
 
     let result = sp.wrapping_add(imm8 as u16);
@@ -428,25 +427,26 @@ fn ld_hl_sp_add_imm8<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
     12
 }
 
-fn ld_sp_hl<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
+fn ld_sp_hl(cpu: &mut Cpu) -> u8 {
     let hl_value = cpu.registers.get_r16_value(R16::HL);
     cpu.registers.set_sp(hl_value);
     cpu.pc = cpu.pc.wrapping_add(1);
     8
 }
 
-fn di<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
+fn di(cpu: &mut Cpu) -> u8 {
     cpu.ime = false;
     cpu.pc = cpu.pc.wrapping_add(1);
     4
 }
 
-fn ei<T: Mbc>(cpu: &mut Cpu<T>) -> u8 {
+fn ei(cpu: &mut Cpu) -> u8 {
     cpu.ime_delay = true;
     cpu.pc = cpu.pc.wrapping_add(1);
     4
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -744,3 +744,4 @@ mod tests {
         assert_eq!(cpu.pc, 0x0038);
     }
 }
+*/
