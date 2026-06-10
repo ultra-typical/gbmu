@@ -67,14 +67,6 @@ impl Cpu {
         }
     }
 
-    pub fn tick<M: MemoryMapper>(&mut self, bus: &mut M) {
-        if self.tick_to_wait > 0 {
-            self.tick_to_wait -= 1;
-        } else {
-            self.tick_to_wait = self.step(bus);
-        }
-    }
-
     fn handle_halt_state<M: MemoryMapper>(&mut self, bus: &mut M) -> StepStatus {
         if self.halted {
             let iflag = bus.read_interrupt_flag();
@@ -133,7 +125,7 @@ impl Cpu {
         }
     }
 
-    pub fn step<M: MemoryMapper>(&mut self, bus: &mut M) -> u8 {
+    pub fn machine_cycle<M: MemoryMapper>(&mut self, bus: &mut M) -> u8 {
         if self.handle_halt_state(bus) == StepStatus::Halted {
             return 4;
         }
