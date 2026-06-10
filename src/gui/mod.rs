@@ -10,7 +10,7 @@ use std::thread;
 use egui_file_dialog::{FileDialog, Filter};
 use crate::communications::{CpuState, GameCT, InstructionList, InterfaceCT, WatchedAdresses, create_communication_tools};
 use crate::gameboy::GameBoy;
-use crate::mmu::GbaMmu;
+use crate::mmu::DmgMmu;
 use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, RomOnly};
 use crate::mmu::timers::GbaTimers;
 use crate::ppu::{self, GbaPpu};
@@ -67,13 +67,13 @@ pub struct EmulationAppOptions {
 #[derive(PartialEq, Debug)]
 pub enum GbType {
     Cgb,
-    Gba
+    Dmg
 }
 
 impl GbType {
     fn supported_types(code: u8) -> Vec<GbType> {
         match code {
-            0x80 => vec![GbType::Cgb, GbType::Gba],
+            0x80 => vec![GbType::Cgb, GbType::Dmg],
             _ => vec![GbType::Cgb],
         }
     }
@@ -276,7 +276,7 @@ impl AnyGameApp {
 
                 }
             }
-            GbType::Gba => todo!()
+            GbType::Dmg => todo!()
         }
 
     }
@@ -302,13 +302,13 @@ impl AnyGameApp {
 
     pub fn launch(self, ct: Box<dyn GameCT>) -> Result<Option<Vec<u8>>, String>{
         match self {
-            AnyGameApp::GbaOnlyRom(g) => g.launch(ct),
+            AnyGameApp::DmgOnlyRom(g) => g.launch(ct),
             AnyGameApp::CgbOnlyRom(g) => g.launch(ct),
-            AnyGameApp::GbaMbc1(g) => g.launch(ct),
+            AnyGameApp::DmgMbc1(g) => g.launch(ct),
             AnyGameApp::CgbMbc1(g) => g.launch(ct),
-            AnyGameApp::GbaMbc2(g) => g.launch(ct),
+            AnyGameApp::DmgMbc2(g) => g.launch(ct),
             AnyGameApp::CgbMbc2(g) => g.launch(ct),
-            AnyGameApp::GbaMbc3(g) => g.launch(ct),
+            AnyGameApp::DmgMbc3(g) => g.launch(ct),
             AnyGameApp::CgbMbc3(g) => g.launch(ct),
         }
     }

@@ -1,5 +1,5 @@
 #[derive(Default)]
-pub struct GbaTimers {
+pub struct DmgTimers {
     div: u16,
     tima: u8,
     tma: u8,
@@ -139,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_default() {
-        let timer = GbaTimers::default();
+        let timer = DmgTimers::default();
         assert_eq!(timer.div, 0);
         assert_eq!(timer.tima, 0);
         assert_eq!(timer.tma, 0);
@@ -148,7 +148,7 @@ mod tests {
 
     #[test]
     fn test_div_is_ticking_once_by_tick() {
-        let mut timer = GbaTimers::default();
+        let mut timer = DmgTimers::default();
 
         for _ in 0..20 {
             timer.tick();
@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_read_div_exposed_register_ticks_once_every_overflow() {
-        let mut timer = GbaTimers::default();
+        let mut timer = DmgTimers::default();
 
         let tick_value = timer.read(DIV_ADDR);
         assert_eq!(tick_value, 0);
@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     fn test_div_reset_when_written_to() {
-        let mut timer = GbaTimers::default();
+        let mut timer = DmgTimers::default();
 
         timer.tick();
         assert_ne!(timer.div, 0);
@@ -183,7 +183,7 @@ mod tests {
     #[test]
     fn test_other_than_div_register_has_read_and_write_possible() {
         let vec = vec![TIMA_ADDR, TMA_ADDR, TAC_ADDR];
-        let mut timers = GbaTimers::default();
+        let mut timers = DmgTimers::default();
         let value = 42;
 
         for addr in &vec {
@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     fn test_tac_disable_tima_ticking() {
-        let mut timers = GbaTimers::default();
+        let mut timers = DmgTimers::default();
 
         for _ in 0..66000 {
             timers.tick();
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn test_tima_tick_at_good_pace_bit_3() {
-        let mut timers = GbaTimers::default();
+        let mut timers = DmgTimers::default();
 
         timers.write(TAC_ADDR, 0b101);
         for _ in 0..15 {
@@ -229,7 +229,7 @@ mod tests {
 
     #[test]
     fn test_tima_tick_at_good_pace_bit_5() {
-        let mut timers = GbaTimers::default();
+        let mut timers = DmgTimers::default();
 
         timers.write(TAC_ADDR, 0b110);
         for _ in 0..63 {
@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_tima_tick_at_good_pace_bit_7() {
-        let mut timers = GbaTimers::default();
+        let mut timers = DmgTimers::default();
 
         timers.write(TAC_ADDR, 0b111);
         for _ in 0..255 {
@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_tima_tick_at_good_pace_bit_9() {
-        let mut timers = GbaTimers::default();
+        let mut timers = DmgTimers::default();
 
         timers.write(TAC_ADDR, 0b100);
         for _ in 0..1023 {
@@ -268,7 +268,7 @@ mod tests {
 
     #[test]
     fn test_timer_tick_overflowing_returns_true() {
-        let mut timers = GbaTimers {
+        let mut timers = DmgTimers {
             tima: 0xFF,
             ..Default::default()
         };
@@ -281,7 +281,7 @@ mod tests {
 
     #[test]
     fn test_timer_overflowing_reset_tima_to_tma() {
-        let mut timers = GbaTimers {
+        let mut timers = DmgTimers {
             tima: 0xFF,
             tma: 0x53,
             ..Default::default()

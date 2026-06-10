@@ -645,7 +645,7 @@ mod tests {
     use crate::ppu::GbaPpu;
     use super::*;
 
-    use super::{MemoryRegion, GbaMmu};
+    use super::{MemoryRegion, DmgMmu};
 
     fn default_dmg_mmu_from(rom: Vec<u8>) -> GbaMmu<RomOnly, GbaTimers, GbaPpu>{
         GbaMmu::<RomOnly, GbaTimers, GbaPpu>::new(None, rom, None).unwrap()
