@@ -1,6 +1,7 @@
 #![allow(unused_variables)]
 
 use std::collections::HashSet;
+use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -14,6 +15,7 @@ use crate::mmu::mbc::Mbc;
 use crate::mmu::Mmu;
 
 const FRAME_CYCLES: u32 = 70224;
+const GAME_REFRESH_PERIOD_IN_MILLIS: u64 = 15900; //8000 pour 120 fps
 pub struct GameBoy<T: Mbc> {
     pub cpu: Cpu,
     pub bus: Mmu<T>,
@@ -102,8 +104,10 @@ impl<T: Mbc>  GameBoy<T> {
     pub fn launch(mut self, mut ct: Box<dyn GameCT>) -> Result<Option<Vec<u8>>, String>{
         let mut input = KeyInput::default();
         let mut before = Instant::now();
+        let mut debut: Instant;
         let mut mode: GBMode<T> = Self::game_mode;
         loop {
+            debut = Instant::now();
             ct.poll_requests()
                 .into_iter()
                 .for_each(|request| {
@@ -118,6 +122,11 @@ impl<T: Mbc>  GameBoy<T> {
             mode(&mut self, &input, &mut ct);
             if self.should_get_fps {
                 ct.update_fps(Self::calculate_fps(&mut before))?;
+            }
+            let wanted_duration = Duration::from_micros(GAME_REFRESH_PERIOD_IN_MILLIS);
+            let duration_elapsed = debut.elapsed();
+            if wanted_duration > duration_elapsed {
+                thread::sleep(wanted_duration - duration_elapsed);
             }
         }
         Ok(self.ram_dump())
