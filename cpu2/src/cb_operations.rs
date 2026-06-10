@@ -1207,3 +1207,548 @@ const fn build_dispatch() -> [Option<&'static [MicroOp]>; 256] {
     }
     table
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::defines::{Cpu, Flag, r8};
+    use crate::flags::FlagsOps;
+    use crate::implemenation::{A, B, C, D, E, H, L, HL};
+
+    fn cpu_cb(cb_opcode: u8) -> Cpu {
+        let mut list = vec![0xCB, cb_opcode];
+        list.resize(32, 0x00);
+        let mut regs = [0u8; 14];
+        regs[r8::PcP] = 2;
+        Cpu {
+            queue: CB_DISPATCH[cb_opcode as usize].expect("unknown CB opcode"),
+            r8: regs,
+            flags: 0,
+            instructions_list: list,
+            op_index: 0,
+            bus: [0; 0x10000],
+        }
+    }
+
+    // === RLC (0x00-0x07): rotate left circular, bit7 → carry, wraps to bit0 ===
+
+    #[test]
+    fn rlc_b_0x00() {
+        let mut c = cpu_cb(0x00);
+        c.set_r8::<B>(0x81);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0x03);
+        assert!(c.flags.get_flag(Flag::Carry));
+        assert!(!c.flags.get_flag(Flag::Zero));
+        assert!(!c.flags.get_flag(Flag::Subtract));
+        assert!(!c.flags.get_flag(Flag::HalfCarry));
+    }
+
+    #[test]
+    fn rlc_b_zero_0x00() {
+        let mut c = cpu_cb(0x00);
+        c.set_r8::<B>(0x00);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0x00);
+        assert!(!c.flags.get_flag(Flag::Carry));
+        assert!(c.flags.get_flag(Flag::Zero));
+    }
+
+    #[test]
+    fn rlc_c_0x01() {
+        let mut c = cpu_cb(0x01);
+        c.set_r8::<C>(0x40);
+        c.tick();
+        assert_eq!(c.get_r8::<C>(), 0x80);
+        assert!(!c.flags.get_flag(Flag::Carry));
+    }
+
+    #[test]
+    fn rlc_d_0x02() {
+        let mut c = cpu_cb(0x02);
+        c.set_r8::<D>(0x40);
+        c.tick();
+        assert_eq!(c.get_r8::<D>(), 0x80);
+    }
+
+    #[test]
+    fn rlc_e_0x03() {
+        let mut c = cpu_cb(0x03);
+        c.set_r8::<E>(0x01);
+        c.tick();
+        assert_eq!(c.get_r8::<E>(), 0x02);
+    }
+
+    #[test]
+    fn rlc_h_0x04() {
+        let mut c = cpu_cb(0x04);
+        c.set_r8::<H>(0x01);
+        c.tick();
+        assert_eq!(c.get_r8::<H>(), 0x02);
+    }
+
+    #[test]
+    fn rlc_l_0x05() {
+        let mut c = cpu_cb(0x05);
+        c.set_r8::<L>(0x81);
+        c.tick();
+        assert_eq!(c.get_r8::<L>(), 0x03);
+        assert!(c.flags.get_flag(Flag::Carry));
+    }
+
+    #[test]
+    fn rlc_hl_0x06() {
+        let mut c = cpu_cb(0x06);
+        c.set_r16::<HL>(0x2000);
+        c.bus[0x2000] = 0x81;
+        c.tick();
+        c.tick();
+        c.tick();
+        assert_eq!(c.bus[0x2000], 0x03);
+        assert!(c.flags.get_flag(Flag::Carry));
+        assert!(!c.flags.get_flag(Flag::Zero));
+    }
+
+    #[test]
+    fn rlc_a_0x07() {
+        let mut c = cpu_cb(0x07);
+        c.set_r8::<A>(0x81);
+        c.tick();
+        assert_eq!(c.get_r8::<A>(), 0x03);
+        assert!(c.flags.get_flag(Flag::Carry));
+    }
+
+    // === RRC (0x08-0x0F): rotate right circular, bit0 → carry, wraps to bit7 ===
+
+    #[test]
+    fn rrc_b_0x08() {
+        let mut c = cpu_cb(0x08);
+        c.set_r8::<B>(0x81);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0xC0);
+        assert!(c.flags.get_flag(Flag::Carry));
+        assert!(!c.flags.get_flag(Flag::Zero));
+    }
+
+    #[test]
+    fn rrc_b_zero_0x08() {
+        let mut c = cpu_cb(0x08);
+        c.set_r8::<B>(0x00);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0x00);
+        assert!(!c.flags.get_flag(Flag::Carry));
+        assert!(c.flags.get_flag(Flag::Zero));
+    }
+
+    #[test]
+    fn rrc_l_0x0d() {
+        let mut c = cpu_cb(0x0D);
+        c.set_r8::<L>(0x81);
+        c.tick();
+        assert_eq!(c.get_r8::<L>(), 0xC0);
+        assert!(c.flags.get_flag(Flag::Carry));
+    }
+
+    #[test]
+    fn rrc_hl_0x0e() {
+        let mut c = cpu_cb(0x0E);
+        c.set_r16::<HL>(0x2000);
+        c.bus[0x2000] = 0x81;
+        c.tick();
+        c.tick();
+        c.tick();
+        assert_eq!(c.bus[0x2000], 0xC0);
+        assert!(c.flags.get_flag(Flag::Carry));
+    }
+
+    // === RL (0x10-0x17): rotate left through carry, bit7 → carry, old_carry → bit0 ===
+
+    #[test]
+    fn rl_b_carry_out_0x10() {
+        let mut c = cpu_cb(0x10);
+        c.set_r8::<B>(0x80);
+        c.flags.set_flag(Flag::Carry, false);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0x00);
+        assert!(c.flags.get_flag(Flag::Carry));
+        assert!(c.flags.get_flag(Flag::Zero));
+    }
+
+    #[test]
+    fn rl_b_carry_in_0x10() {
+        let mut c = cpu_cb(0x10);
+        c.set_r8::<B>(0x01);
+        c.flags.set_flag(Flag::Carry, true);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0x03);
+        assert!(!c.flags.get_flag(Flag::Carry));
+    }
+
+    #[test]
+    fn rl_l_0x15() {
+        let mut c = cpu_cb(0x15);
+        c.set_r8::<L>(0x01);
+        c.flags.set_flag(Flag::Carry, false);
+        c.tick();
+        assert_eq!(c.get_r8::<L>(), 0x02);
+        assert!(!c.flags.get_flag(Flag::Carry));
+    }
+
+    #[test]
+    fn rl_hl_0x16() {
+        let mut c = cpu_cb(0x16);
+        c.set_r16::<HL>(0x2000);
+        c.bus[0x2000] = 0x80;
+        c.flags.set_flag(Flag::Carry, false);
+        c.tick();
+        c.tick();
+        c.tick();
+        assert_eq!(c.bus[0x2000], 0x00);
+        assert!(c.flags.get_flag(Flag::Carry));
+        assert!(c.flags.get_flag(Flag::Zero));
+    }
+
+    // === RR (0x18-0x1F): rotate right through carry, bit0 → carry, old_carry → bit7 ===
+
+    #[test]
+    fn rr_b_carry_out_0x18() {
+        let mut c = cpu_cb(0x18);
+        c.set_r8::<B>(0x01);
+        c.flags.set_flag(Flag::Carry, false);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0x00);
+        assert!(c.flags.get_flag(Flag::Carry));
+        assert!(c.flags.get_flag(Flag::Zero));
+    }
+
+    #[test]
+    fn rr_b_carry_in_0x18() {
+        let mut c = cpu_cb(0x18);
+        c.set_r8::<B>(0x80);
+        c.flags.set_flag(Flag::Carry, true);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0xC0);
+        assert!(!c.flags.get_flag(Flag::Carry));
+    }
+
+    #[test]
+    fn rr_l_0x1d() {
+        let mut c = cpu_cb(0x1D);
+        c.set_r8::<L>(0x02);
+        c.flags.set_flag(Flag::Carry, false);
+        c.tick();
+        assert_eq!(c.get_r8::<L>(), 0x01);
+        assert!(!c.flags.get_flag(Flag::Carry));
+    }
+
+    #[test]
+    fn rr_hl_0x1e() {
+        let mut c = cpu_cb(0x1E);
+        c.set_r16::<HL>(0x2000);
+        c.bus[0x2000] = 0x01;
+        c.flags.set_flag(Flag::Carry, false);
+        c.tick();
+        c.tick();
+        c.tick();
+        assert_eq!(c.bus[0x2000], 0x00);
+        assert!(c.flags.get_flag(Flag::Carry));
+        assert!(c.flags.get_flag(Flag::Zero));
+    }
+
+    // === SLA (0x20-0x27): shift left arithmetic, bit7 → carry, bit0 = 0 ===
+
+    #[test]
+    fn sla_b_0x20() {
+        let mut c = cpu_cb(0x20);
+        c.set_r8::<B>(0x81);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0x02);
+        assert!(c.flags.get_flag(Flag::Carry));
+        assert!(!c.flags.get_flag(Flag::Zero));
+    }
+
+    #[test]
+    fn sla_l_0x25() {
+        let mut c = cpu_cb(0x25);
+        c.set_r8::<L>(0x40);
+        c.tick();
+        assert_eq!(c.get_r8::<L>(), 0x80);
+        assert!(!c.flags.get_flag(Flag::Carry));
+    }
+
+    #[test]
+    fn sla_hl_0x26() {
+        let mut c = cpu_cb(0x26);
+        c.set_r16::<HL>(0x2000);
+        c.bus[0x2000] = 0x80;
+        c.tick();
+        c.tick();
+        c.tick();
+        assert_eq!(c.bus[0x2000], 0x00);
+        assert!(c.flags.get_flag(Flag::Carry));
+        assert!(c.flags.get_flag(Flag::Zero));
+    }
+
+    // === SRA (0x28-0x2F): shift right arithmetic, bit0 → carry, bit7 preserved ===
+
+    #[test]
+    fn sra_b_0x28() {
+        let mut c = cpu_cb(0x28);
+        c.set_r8::<B>(0x81);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0xC0);
+        assert!(c.flags.get_flag(Flag::Carry));
+    }
+
+    #[test]
+    fn sra_l_0x2d() {
+        let mut c = cpu_cb(0x2D);
+        c.set_r8::<L>(0x80);
+        c.tick();
+        assert_eq!(c.get_r8::<L>(), 0xC0);
+        assert!(!c.flags.get_flag(Flag::Carry));
+    }
+
+    #[test]
+    fn sra_hl_0x2e() {
+        let mut c = cpu_cb(0x2E);
+        c.set_r16::<HL>(0x2000);
+        c.bus[0x2000] = 0x82;
+        c.tick();
+        c.tick();
+        c.tick();
+        assert_eq!(c.bus[0x2000], 0xC1);
+        assert!(!c.flags.get_flag(Flag::Carry));
+    }
+
+    // === SWAP (0x30-0x37): swap upper and lower nibbles ===
+
+    #[test]
+    fn swap_b_0x30() {
+        let mut c = cpu_cb(0x30);
+        c.set_r8::<B>(0xAB);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0xBA);
+        assert!(!c.flags.get_flag(Flag::Zero));
+        assert!(!c.flags.get_flag(Flag::Carry));
+    }
+
+    #[test]
+    fn swap_b_zero_0x30() {
+        let mut c = cpu_cb(0x30);
+        c.set_r8::<B>(0x00);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0x00);
+        assert!(c.flags.get_flag(Flag::Zero));
+    }
+
+    #[test]
+    fn swap_l_0x35() {
+        let mut c = cpu_cb(0x35);
+        c.set_r8::<L>(0x12);
+        c.tick();
+        assert_eq!(c.get_r8::<L>(), 0x21);
+        assert!(!c.flags.get_flag(Flag::Zero));
+    }
+
+    #[test]
+    fn swap_hl_0x36() {
+        let mut c = cpu_cb(0x36);
+        c.set_r16::<HL>(0x2000);
+        c.bus[0x2000] = 0x34;
+        c.tick();
+        c.tick();
+        c.tick();
+        assert_eq!(c.bus[0x2000], 0x43);
+        assert!(!c.flags.get_flag(Flag::Zero));
+    }
+
+    // === SRL (0x38-0x3F): shift right logical, bit0 → carry, bit7 = 0 ===
+
+    #[test]
+    fn srl_b_0x38() {
+        let mut c = cpu_cb(0x38);
+        c.set_r8::<B>(0x81);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0x40);
+        assert!(c.flags.get_flag(Flag::Carry));
+        assert!(!c.flags.get_flag(Flag::Zero));
+    }
+
+    #[test]
+    fn srl_l_0x3d() {
+        let mut c = cpu_cb(0x3D);
+        c.set_r8::<L>(0x02);
+        c.tick();
+        assert_eq!(c.get_r8::<L>(), 0x01);
+        assert!(!c.flags.get_flag(Flag::Carry));
+    }
+
+    #[test]
+    fn srl_hl_0x3e() {
+        let mut c = cpu_cb(0x3E);
+        c.set_r16::<HL>(0x2000);
+        c.bus[0x2000] = 0x80;
+        c.tick();
+        c.tick();
+        c.tick();
+        assert_eq!(c.bus[0x2000], 0x40);
+        assert!(!c.flags.get_flag(Flag::Carry));
+        assert!(!c.flags.get_flag(Flag::Zero));
+    }
+
+    // === BIT (0x40-0x7F): test bit n, sets Z/H, clears N, does not modify register ===
+
+    #[test]
+    fn bit_0_b_set_0x40() {
+        let mut c = cpu_cb(0x40);
+        c.set_r8::<B>(0x01);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0x01);
+        assert!(!c.flags.get_flag(Flag::Zero));
+        assert!(c.flags.get_flag(Flag::HalfCarry));
+        assert!(!c.flags.get_flag(Flag::Subtract));
+    }
+
+    #[test]
+    fn bit_0_b_clear_0x40() {
+        let mut c = cpu_cb(0x40);
+        c.set_r8::<B>(0x00);
+        c.tick();
+        assert!(c.flags.get_flag(Flag::Zero));
+        assert!(c.flags.get_flag(Flag::HalfCarry));
+    }
+
+    #[test]
+    fn bit_0_l_0x45() {
+        let mut c = cpu_cb(0x45);
+        c.set_r8::<L>(0x01);
+        c.tick();
+        assert_eq!(c.get_r8::<L>(), 0x01);
+        assert!(!c.flags.get_flag(Flag::Zero));
+    }
+
+    #[test]
+    fn bit_0_hl_0x46() {
+        let mut c = cpu_cb(0x46);
+        c.set_r16::<HL>(0x2000);
+        c.bus[0x2000] = 0x01;
+        c.tick();
+        c.tick();
+        assert_eq!(c.bus[0x2000], 0x01);
+        assert!(!c.flags.get_flag(Flag::Zero));
+        assert!(c.flags.get_flag(Flag::HalfCarry));
+    }
+
+    #[test]
+    fn bit_7_b_set_0x78() {
+        let mut c = cpu_cb(0x78);
+        c.set_r8::<B>(0x80);
+        c.tick();
+        assert!(!c.flags.get_flag(Flag::Zero));
+    }
+
+    #[test]
+    fn bit_7_b_clear_0x78() {
+        let mut c = cpu_cb(0x78);
+        c.set_r8::<B>(0x7F);
+        c.tick();
+        assert!(c.flags.get_flag(Flag::Zero));
+    }
+
+    // === RES (0x80-0xBF): clear bit n, no flags modified ===
+
+    #[test]
+    fn res_0_b_0x80() {
+        let mut c = cpu_cb(0x80);
+        c.set_r8::<B>(0xFF);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0xFE);
+    }
+
+    #[test]
+    fn res_0_l_0x85() {
+        let mut c = cpu_cb(0x85);
+        c.set_r8::<L>(0xFF);
+        c.tick();
+        assert_eq!(c.get_r8::<L>(), 0xFE);
+    }
+
+    #[test]
+    fn res_0_hl_0x86() {
+        let mut c = cpu_cb(0x86);
+        c.set_r16::<HL>(0x2000);
+        c.bus[0x2000] = 0xFF;
+        c.tick();
+        c.tick();
+        c.tick();
+        assert_eq!(c.bus[0x2000], 0xFE);
+    }
+
+    #[test]
+    fn res_7_a_0xbf() {
+        let mut c = cpu_cb(0xBF);
+        c.set_r8::<A>(0xFF);
+        c.tick();
+        assert_eq!(c.get_r8::<A>(), 0x7F);
+    }
+
+    #[test]
+    fn res_3_hl_0x9e() {
+        let mut c = cpu_cb(0x9E);
+        c.set_r16::<HL>(0x2000);
+        c.bus[0x2000] = 0xFF;
+        c.tick();
+        c.tick();
+        c.tick();
+        assert_eq!(c.bus[0x2000], 0xF7);
+    }
+
+    // === SET (0xC0-0xFF): set bit n, no flags modified ===
+
+    #[test]
+    fn set_0_b_0xc0() {
+        let mut c = cpu_cb(0xC0);
+        c.set_r8::<B>(0x00);
+        c.tick();
+        assert_eq!(c.get_r8::<B>(), 0x01);
+    }
+
+    #[test]
+    fn set_0_l_0xc5() {
+        let mut c = cpu_cb(0xC5);
+        c.set_r8::<L>(0x00);
+        c.tick();
+        assert_eq!(c.get_r8::<L>(), 0x01);
+    }
+
+    #[test]
+    fn set_0_hl_0xc6() {
+        let mut c = cpu_cb(0xC6);
+        c.set_r16::<HL>(0x2000);
+        c.bus[0x2000] = 0x00;
+        c.tick();
+        c.tick();
+        c.tick();
+        assert_eq!(c.bus[0x2000], 0x01);
+    }
+
+    #[test]
+    fn set_7_a_0xff() {
+        let mut c = cpu_cb(0xFF);
+        c.set_r8::<A>(0x00);
+        c.tick();
+        assert_eq!(c.get_r8::<A>(), 0x80);
+    }
+
+    #[test]
+    fn set_3_hl_0xde() {
+        let mut c = cpu_cb(0xDE);
+        c.set_r16::<HL>(0x2000);
+        c.bus[0x2000] = 0x00;
+        c.tick();
+        c.tick();
+        c.tick();
+        assert_eq!(c.bus[0x2000], 0x08);
+    }
+}

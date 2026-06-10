@@ -88,3 +88,173 @@ pub fn write_memory_rst<const B: u16, Addr: Reg16, Dest: Reg8>(cpu: &mut Cpu) {
     cpu.set_r16::<SP>(B);
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::defines::{Cpu, Flag};
+    use crate::flags::FlagsOps;
+    use crate::implemenation::{A, B, C, H, L, HL, PC, SP, WZ, Z};
+
+    fn cpu() -> Cpu {
+        Cpu {
+            queue: &[],
+            r8: [0; 14],
+            flags: 0,
+            instructions_list: vec![],
+            op_index: 0,
+            bus: [0; 0x10000],
+        }
+    }
+
+    #[test]
+    fn load_r8_r8_copies_value() {
+        let mut c = cpu();
+        c.set_r8::<B>(42);
+        load_r8_r8::<A, B>(&mut c);
+        assert_eq!(c.get_r8::<A>(), 42);
+        assert_eq!(c.get_r8::<B>(), 42);
+    }
+
+    #[test]
+    fn read_memory_loads_from_bus() {
+        let mut c = cpu();
+        c.bus[0x1234] = 99;
+        c.set_r16::<HL>(0x1234);
+        read_memory::<HL, A>(&mut c);
+        assert_eq!(c.get_r8::<A>(), 99);
+    }
+
+    #[test]
+    fn write_memory_stores_to_bus() {
+        let mut c = cpu();
+        c.set_r8::<A>(77);
+        c.set_r16::<HL>(0x2000);
+        write_memory::<HL, A>(&mut c);
+        assert_eq!(c.bus[0x2000], 77);
+    }
+
+    #[test]
+    fn read_memory_0xff_reads_from_high_page() {
+        let mut c = cpu();
+        c.set_r8::<C>(0x40);
+        c.bus[0xFF40] = 0xAB;
+        read_memory_0xff::<C, A>(&mut c);
+        assert_eq!(c.get_r8::<A>(), 0xAB);
+    }
+
+    #[test]
+    fn write_memory_0xff_writes_to_high_page() {
+        let mut c = cpu();
+        c.set_r8::<A>(0xCD);
+        c.set_r8::<C>(0x40);
+        write_memory_0xff::<C, A>(&mut c);
+        assert_eq!(c.bus[0xFF40], 0xCD);
+    }
+
+    #[test]
+    fn read_memory_incr_increments_addr() {
+        let mut c = cpu();
+        c.bus[0x8000] = 0x42;
+        c.set_r16::<HL>(0x8000);
+        read_memory_incr::<HL, A>(&mut c);
+        assert_eq!(c.get_r8::<A>(), 0x42);
+        assert_eq!(c.get_r16::<HL>(), 0x8001);
+    }
+
+    #[test]
+    fn write_memory_incr_increments_addr() {
+        let mut c = cpu();
+        c.set_r8::<A>(0x55);
+        c.set_r16::<HL>(0xC000);
+        write_memory_incr::<HL, A>(&mut c);
+        assert_eq!(c.bus[0xC000], 0x55);
+        assert_eq!(c.get_r16::<HL>(), 0xC001);
+    }
+
+    #[test]
+    fn read_memory_decr_decrements_addr() {
+        let mut c = cpu();
+        c.bus[0x8001] = 0x33;
+        c.set_r16::<HL>(0x8001);
+        read_memory_decr::<HL, A>(&mut c);
+        assert_eq!(c.get_r8::<A>(), 0x33);
+        assert_eq!(c.get_r16::<HL>(), 0x8000);
+    }
+
+    #[test]
+    fn write_memory_decr_decrements_addr() {
+        let mut c = cpu();
+        c.set_r8::<A>(0x11);
+        c.set_r16::<HL>(0xC001);
+        write_memory_decr::<HL, A>(&mut c);
+        assert_eq!(c.bus[0xC001], 0x11);
+        assert_eq!(c.get_r16::<HL>(), 0xC000);
+    }
+
+    #[test]
+    fn load_r16_r16_copies_pair() {
+        let mut c = cpu();
+        c.set_r16::<SP>(0x1234);
+        load_r16_r16::<HL, SP>(&mut c);
+        assert_eq!(c.get_r16::<HL>(), 0x1234);
+    }
+
+    #[test]
+    fn ld_hl_sp_e_low_basic() {
+        use crate::implemenation::P;
+        let mut c = cpu();
+        c.set_r8::<P>(0x50);
+        c.set_r8::<Z>(0x10);
+        ld_hl_sp_e_low(&mut c);
+        assert_eq!(c.get_r8::<L>(), 0x60);
+        assert!(!c.flags.get_flag(Flag::Zero));
+        assert!(!c.flags.get_flag(Flag::Subtract));
+        assert!(!c.flags.get_flag(Flag::HalfCarry));
+        assert!(!c.flags.get_flag(Flag::Carry));
+    }
+
+    #[test]
+    fn ld_hl_sp_e_low_carry() {
+        use crate::implemenation::P;
+        let mut c = cpu();
+        c.set_r8::<P>(0xFF);
+        c.set_r8::<Z>(0x01);
+        ld_hl_sp_e_low(&mut c);
+        assert_eq!(c.get_r8::<L>(), 0x00);
+        assert!(c.flags.get_flag(Flag::Carry));
+    }
+
+    #[test]
+    fn ld_hl_sp_e_high_no_carry() {
+        use crate::implemenation::S;
+        let mut c = cpu();
+        c.set_r8::<S>(0x30);
+        c.set_r8::<Z>(0x10);
+        c.flags.set_flag(Flag::Carry, false);
+        ld_hl_sp_e_high(&mut c);
+        assert_eq!(c.get_r8::<H>(), 0x30);
+    }
+
+    #[test]
+    fn ld_hl_sp_e_high_with_carry() {
+        use crate::implemenation::S;
+        let mut c = cpu();
+        c.set_r8::<S>(0x30);
+        c.set_r8::<Z>(0x10);
+        c.flags.set_flag(Flag::Carry, true);
+        ld_hl_sp_e_high(&mut c);
+        assert_eq!(c.get_r8::<H>(), 0x31);
+    }
+
+    #[test]
+    fn write_memory_reassign_pc_updates_pc() {
+        let mut c = cpu();
+        c.set_r16::<WZ>(0x0150);
+        c.set_r8::<A>(0x42);
+        c.set_r16::<SP>(0xFFFE);
+        write_memory_reassign_pc::<SP, A>(&mut c);
+        assert_eq!(c.bus[0xFFFE], 0x42);
+        assert_eq!(c.get_r16::<PC>(), 0x0150);
+    }
+}
+
