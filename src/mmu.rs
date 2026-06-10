@@ -242,7 +242,14 @@ pub trait MemoryMapper {
         self.update_data(0xFF00, val);
     }
 
-    fn tick_timers(&mut self);
+    fn tick_timers(&mut self) {
+        if self.get_timer().tick() {
+            let interrupt_flags_addr = MemoryRegion::InterruptFlag.to_address();
+            let mut interrupt_flags = self.read_byte(interrupt_flags_addr);
+            interrupt_flags |= 0b100;
+            self.write_byte(interrupt_flags_addr, interrupt_flags);
+        }
+    }
 
     fn update_keys(&mut self, dpad: u8, buttons: u8) {
         self.set_dpad_state(dpad);
@@ -395,14 +402,6 @@ impl<C: Mbc, T: TimingComponent, P: Ppu<GbaMmu<C, T, P>>> MemoryMapper for GbaMm
         self.accessed_oam_ram += val;
     }
 
-    fn tick_timers(&mut self) {
-        if self.timers.tick() {
-            let interrupt_flags_addr = MemoryRegion::InterruptFlag.to_address();
-            let mut interrupt_flags = self.read_byte(interrupt_flags_addr);
-            interrupt_flags |= 0b100;
-            self.write_byte(interrupt_flags_addr, interrupt_flags);
-        }
-    }
 
     fn get_ppu(&mut self) -> &mut dyn Ppu<GbaMmu<C, T, P>> { &mut self.ppu }
 }
