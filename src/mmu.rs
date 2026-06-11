@@ -5,6 +5,7 @@ pub mod mbc;
 pub mod timers;
 pub mod oam;
 pub mod apu;
+mod vram;
 
 use crate::mmu::interrupt::Interrupt;
 use crate::mmu::interrupt::InterruptController;
@@ -14,6 +15,7 @@ use crate::mmu::apu::Apu;
 use crate::communications::GameCT;
 use crate::ppu::Ppu;
 use crate::mmu::timers::TimingComponent;
+use crate::mmu::vram::{CgbVram, DmgVram, Vram};
 
 #[allow(unused)]
 #[derive(PartialEq, Eq, Debug)]
@@ -79,6 +81,8 @@ pub trait MemoryMapper {
         rom_data: Vec<u8>,
         ram_data: Option<Vec<u8>>
     ) -> Result<Self, String> where Self: Sized;
+    fn write_vram(&mut self, addr: u16, value: u8);
+    fn read_vram(&self, addr: u16) -> u8;
     fn get_accessed_oam_ram(&self) -> &u8;
     fn get_boot_enable(&self) -> bool;
     fn get_boot_rom(&self) -> &[u8; 0x0100];
@@ -116,7 +120,7 @@ pub trait MemoryMapper {
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc | MemoryRegion::ERam => self.get_cart().read(addr),
             MemoryRegion::Vram => {
-                self.get_ppu().read_vram(addr)
+                self.read_vram(addr)
             }
             MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
@@ -166,7 +170,7 @@ pub trait MemoryMapper {
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc | MemoryRegion::ERam => self.get_cart().write(addr, val),
             MemoryRegion::Vram => {
-                self.get_ppu().write_vram(addr, val);
+                self.write_vram(addr, val);
             }
             MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
@@ -272,6 +276,13 @@ pub trait MemoryMapper {
 }
 
 impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> MemoryMapper for DmgMmu<C, T, P> {
+    fn write_vram(&mut self, addr: u16, val: u8)
+    {
+        self.vram.write(addr, val);
+    }
+    fn read_vram(&self, addr: u16) -> u8 {
+        self.vram.read(addr)
+    }
     fn get_timer(&mut self) -> &mut dyn TimingComponent { &mut self.timers }
     fn get_dma_index(&mut self) -> u8 { self.dma_index }
     fn set_dma_index(&mut self, val: u8) { self.dma_index = val }
@@ -311,8 +322,9 @@ impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> MemoryMapper for DmgMm
             accessed_oam_ram: 0xFF,
             dma_source: 0x0,
             dma_index: 0xFF,
+            vram: DmgVram::new(),
         })
-    }   
+    }
 
     fn tick_ppu(&mut self, ct: &mut Box<dyn GameCT>) 
     where Self: Sized
@@ -416,6 +428,7 @@ pub struct DmgMmu<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> {
     accessed_oam_ram: u8, // for OAM Bug
     dma_source: u16,
     pub dma_index: u8,
+    vram: DmgVram
 }
 
 impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> Default for DmgMmu<C, T, P> {
@@ -425,6 +438,12 @@ impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> Default for DmgMmu<C, 
 }
 
 impl<C: Mbc, T: TimingComponent, P: Ppu<CgbMmu<C, T, P>>> MemoryMapper for CgbMmu<C, T, P>{
+    fn write_vram(&mut self, addr: u16, value: u8) {
+        self.vram.write(addr, value);
+    }
+    fn read_vram(&self, addr: u16) -> u8 {
+        self.vram.read(addr)
+    }
     fn get_timer(&mut self) -> &mut dyn TimingComponent { &mut self.timers }
     fn get_dma_index(&mut self) -> u8 { self.dma_index }
     fn set_dma_index(&mut self, val: u8) { self.dma_index = val }
@@ -466,6 +485,7 @@ impl<C: Mbc, T: TimingComponent, P: Ppu<CgbMmu<C, T, P>>> MemoryMapper for CgbMm
             accessed_oam_ram: 0xFF,
             dma_source: 0x0,
             dma_index: 0xFF,
+            vram: CgbVram::new()
         })
     }
 
@@ -578,6 +598,7 @@ pub struct CgbMmu<C: Mbc, T: TimingComponent, P: Ppu<CgbMmu<C, T, P>>> {
     accessed_oam_ram: u8, // for OAM Bug
     dma_source: u16,
     pub dma_index: u8,
+    vram: CgbVram
 }
 
 #[cfg(test)]

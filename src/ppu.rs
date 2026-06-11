@@ -6,7 +6,6 @@ mod pixel_fifo;
 mod obj_piso;
 mod pixel_fetcher;
 mod oam_fetcher;
-mod vram;
 
 use crate::communications::GameCT;
 use crate::mmu::{MemoryMapper};
@@ -20,7 +19,6 @@ use crate::ppu::pixel_fifo::PixelFifo;
 use crate::ppu::obj_piso::ObjPiso;
 use crate::ppu::pixel_fetcher::PixelFetcher;
 use crate::ppu::oam_fetcher::OamFetcher;
-use crate::ppu::vram::{CgbVram, DmgVram, Vram};
 
 pub const WIN_SIZE_X: usize = 160;
 pub const WIN_SIZE_Y: usize = 144;
@@ -95,8 +93,7 @@ pub trait Ppu<M> {
     //Commons
     fn new() -> Self where Self: Sized;
     fn read_register(&self, addr: u16) -> u8;
-    fn read_vram(&mut self, addr: u16) -> u8;
-    fn write_vram(&mut self, addr: u16, data: u8);
+
     fn write_register(&mut self, addr: u16, val: u8);
     fn read_lcdc(&self) -> LcdControl {
         LcdControl::from_byte(self.lcdc_byte())
@@ -471,7 +468,6 @@ pub struct DmgPpu {
     // Pending interrupts to be drained by MMU after tick
     pub pending_vblank: bool,
     pub pending_stat: bool,
-    vram: DmgVram
 }
 
 pub struct CgbPpu {
@@ -513,7 +509,6 @@ pub struct CgbPpu {
     // Pending interrupts to be drained by MMU after tick
     pub pending_vblank: bool,
     pub pending_stat: bool,
-    vram: CgbVram
 }
 
 impl<M> Ppu<M> for DmgPpu {
@@ -620,7 +615,6 @@ impl<M> Ppu<M> for DmgPpu {
             wx: 0x00,
             pending_vblank: false,
             pending_stat: false,
-            vram: DmgVram::new(),
         }
     }
 
@@ -639,14 +633,6 @@ impl<M> Ppu<M> for DmgPpu {
             0xFF4B => self.wx,
             _ => 0xFF,
         }
-    }
-
-    fn read_vram(&mut self, addr: u16) -> u8 {
-        self.vram.read(addr)
-    }
-
-    fn write_vram(&mut self, addr: u16, data: u8) {
-        self.vram.write(addr, data);
     }
 
     fn write_register(&mut self, addr: u16, val: u8) {
@@ -945,16 +931,7 @@ impl<M> Ppu<M> for CgbPpu {
             wx: 0x00,
             pending_vblank: false,
             pending_stat: false,
-            vram: CgbVram::new()
         }
-    }
-
-    fn write_vram(&mut self, addr: u16, val: u8) {
-        self.vram.write(addr, val);
-    }
-
-    fn read_vram(&mut self, addr: u16) -> u8 {
-        self.vram.read(addr)
     }
 
     fn read_register(&self, addr: u16) -> u8 {
