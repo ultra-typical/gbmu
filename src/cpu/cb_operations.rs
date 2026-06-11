@@ -4,7 +4,7 @@ use crate::cpu_def::*;
 use crate::mmu::MemoryMapper;
 
 pub fn build_cb_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
-     vec![
+    vec![
         Instruction {
             opcode: 0x00,
             micro_ops: vec![Cpu::rlc::<B>],
@@ -249,15 +249,15 @@ pub fn build_cb_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
         },
         Instruction {
             opcode: 0x35,
+            micro_ops: vec![Cpu::swap::<L>],
+        },
+        Instruction {
+            opcode: 0x36,
             micro_ops: vec![
                 Cpu::read_memory::<HL, Z>,
                 Cpu::write_swap_mem::<HL, Z>,
                 Cpu::noop,
             ],
-        },
-        Instruction {
-            opcode: 0x36,
-            micro_ops: vec![Cpu::swap::<B>],
         },
         Instruction {
             opcode: 0x37,
@@ -1168,7 +1168,7 @@ impl<M: MemoryMapper> Cpu<M> {
         self.queue = self.cb_instructions[cb_opcode as usize].micro_ops.clone();
         self.op_index = 0;
     }
-    pub fn debug_step(&mut self, instruction: u8, bus: &mut M) -> bool {
+    pub fn debug_step(&mut self, _instruction: u8, _bus: &mut M) -> bool {
         todo!()
     }
 }

@@ -26,31 +26,46 @@ impl<M: MemoryMapper> Cpu<M> {
             halt_bug: false,
             tick_to_wait: 0,
             instructions: build_instructions_set(),
-            cb_instructions: build_cb_instructions()
+            cb_instructions: build_cb_instructions(),
         }
     }
 
+    pub fn first_read(&mut self, bus: &mut M) {
+        let pc = self.get_r16::<PC>();
+        let instruction_byte: u8 = bus.read_byte(pc);
+
+        self.handle_halt_bug(bus);
+        self.handle_ime_delay();
+
+        self.set_r16::<PC>(self.get_r16::<PC>().wrapping_add(1));
+        self.queue = self.instructions[instruction_byte as usize]
+            .micro_ops
+            .to_vec();
+        self.op_index = 0;
+    }
+
     pub fn tick(&mut self, bus: &mut M) {
-        if self.op_index < self.queue.len() {
-            let micro_op = &self.queue[self.op_index];
-            self.op_index += 1;
-            micro_op(self, bus);
+        if Self::get_r16::<PC>(self) == 0 {
+            Self::first_read(self, bus);
+            return;
+        }
+        let micro_op = &self.queue[self.op_index];
+        self.op_index += 1;
+        micro_op(self, bus);
 
-            if self.op_index == self.queue.len() {
-                let pc = self.get_r16::<PC>();
-                let instruction_byte: u8 = bus.read_byte(pc);
+        if self.op_index == self.queue.len() {
+            let pc = self.get_r16::<PC>();
+            let instruction_byte: u8 = bus.read_byte(pc);
 
-                self.handle_halt_bug();
-                self.handle_ime_delay();
+            self.handle_halt_bug(bus);
+            self.handle_ime_delay();
 
-                self.set_r16::<PC>(self.get_r16::<PC>().wrapping_add(1));
-                self.queue = build_instructions_set()[instruction_byte as usize]
-                    .micro_ops
-                    .to_vec();
-                self.op_index = 0;
-            }
-        } else {
-            unreachable!("No instruction left!");
+            self.set_r16::<PC>(self.get_r16::<PC>().wrapping_add(1));
+            println!("{}", instruction_byte);
+            self.queue = self.instructions[instruction_byte as usize]
+                .micro_ops
+                .to_vec();
+            self.op_index = 0;
         }
     }
 
@@ -113,9 +128,9 @@ impl<M: MemoryMapper> Cpu<M> {
         }
     }
 
-    fn handle_halt_bug(&mut self) {
+    fn handle_halt_bug(&mut self, bus: &mut M) {
         if self.halt_bug {
-            Self::dec_r16::<PC>;
+            Self::dec_r16::<PC>(self, bus);
             self.halt_bug = false;
         }
     }
