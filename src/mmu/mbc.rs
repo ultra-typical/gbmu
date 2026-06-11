@@ -474,6 +474,7 @@ impl Mbc for Mbc5 {
     fn dump(&self) -> Option<Vec<u8>> {
         self.ram_banks.concat().into()
     }
+
     fn new(rom_image: Vec<u8>, saved_ram: Option<Vec<u8>>) -> Result<Self, String> where Self: Sized {
         println!("New Mbc5");
         let rom_banks = map_rom_into_bank(&rom_image)?;
@@ -495,7 +496,7 @@ impl Mbc for Mbc5 {
             0x0000..0x4000 => self.rom_banks[0][addr as usize],
             0x4000..0x8000 => {
                 self.rom_banks[
-                    (self.rom_bank_register - 0x4000) as usize
+                    (self.rom_bank_register as usize) % self.rom_banks.len()
                 ][
                     (addr  - 0x4000) as usize
                 ]
