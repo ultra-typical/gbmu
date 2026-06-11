@@ -6,7 +6,6 @@ pub mod timers;
 pub mod oam;
 pub mod apu;
 
-use self::timers::CgbTimer;
 use crate::mmu::interrupt::Interrupt;
 use crate::mmu::interrupt::InterruptController;
 use crate::mmu::mbc::Mbc;
@@ -116,6 +115,9 @@ pub trait MemoryMapper {
 
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc | MemoryRegion::ERam => self.get_cart().read(addr),
+            MemoryRegion::Vram => {
+                self.get_ppu().read_vram(addr)
+            }
             MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
                 self.get_data()[mirror as usize]
@@ -163,6 +165,9 @@ pub trait MemoryMapper {
 
         match MemoryRegion::from(addr) {
             MemoryRegion::Mbc | MemoryRegion::ERam => self.get_cart().write(addr, val),
+            MemoryRegion::Vram => {
+                self.get_ppu().write_vram(addr, val);
+            }
             MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
                 self.update_data(mirror as usize, val);
@@ -270,15 +275,8 @@ impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> MemoryMapper for DmgMm
     fn get_timer(&mut self) -> &mut dyn TimingComponent { &mut self.timers }
     fn get_dma_index(&mut self) -> u8 { self.dma_index }
     fn set_dma_index(&mut self, val: u8) { self.dma_index = val }
-
-    fn write_timers(&mut self, addr: u16, value: u8) {
-        self.timers.write(addr, value)
-    }
-
-    fn read_timers(&mut self, addr: u16) -> u8 {
-        self.timers.read(addr)
-    }
-
+    fn write_timers(&mut self, addr: u16, value: u8) { self.timers.write(addr, value) }
+    fn read_timers(&mut self, addr: u16) -> u8 { self.timers.read(addr) }
     fn tick_dma(&mut self) {
         let byte = self.read_byte(self.dma_source + self.dma_index as u16);
 
@@ -335,8 +333,6 @@ impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> MemoryMapper for DmgMm
     fn get_cart(&mut self) -> &mut dyn Mbc {
         &mut self.cart
     }
-
-
     fn get_data(&self) -> &[u8; 0x10000] {
         &self.data
     }
@@ -428,106 +424,65 @@ impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> Default for DmgMmu<C, 
     }
 }
 
-impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> DmgMmu<C, T, P> {
-    pub fn ram_dump(&self) ->  Option<Vec<u8>> {
-        self.cart.dump()
+impl<C: Mbc, T: TimingComponent, P: Ppu<CgbMmu<C, T, P>>> MemoryMapper for CgbMmu<C, T, P>{
+    fn get_timer(&mut self) -> &mut dyn TimingComponent { &mut self.timers }
+    fn get_dma_index(&mut self) -> u8 { self.dma_index }
+    fn set_dma_index(&mut self, val: u8) { self.dma_index = val }
+    fn write_timers(&mut self, addr: u16, value: u8) { self.timers.write(addr, value) }
+    fn read_timers(&mut self, addr: u16) -> u8 {
+        self.timers.read(addr)
+    }
+    fn tick_dma(&mut self) {
+        let byte = self.read_byte(self.dma_source + self.dma_index as u16);
+
+        let mut oam = self.oam.write().unwrap();
+
+        oam.write(0xFE00 + self.dma_index as u16, byte);
+
+        self.dma_index+= 1;
+
+        if self.dma_index == 160 { self.dma_index=0xFF; }
     }
 
-    pub fn read_byte(&self, addr: u16) -> u8 {
-        if self.boot_enable && addr <= 0x00FF {
-            return self.boot_rom[addr as usize];
-        }
-
-        match MemoryRegion::from(addr) {
-            MemoryRegion::Mbc | MemoryRegion::ERam => self.cart.read(addr),
-            MemoryRegion::Mram => {
-                let mirror = addr - 0x2000;
-
-                self.data[mirror as usize]
-            }
-            MemoryRegion::Timers => self.timers.read(addr),
-            MemoryRegion::Io => {
-                if addr == 0xFF00 {
-                    let selection = self.data[0xFF00] & 0b0011_0000;
-                    let mut result = 0x0F;
-
-                    if selection & 0b0001_0000 == 0 {
-                        result &= self.dpad_state;
-                    }
-                    if selection & 0b0010_0000 == 0 {
-                        result &= self.button_state;
-                    }
-
-                    0b1100_0000 | selection | result
-                } else if matches!(addr, 0xFF40..=0xFF4B) && addr != 0xFF46 {
-                    self.ppu.read_register(addr)
-                } else {
-                    self.data[addr as usize]
-                }
-            }
-            MemoryRegion::Oam => {
-                let mut oam = self.oam.write().unwrap();
-                if self.accessed_oam_ram != 0xFF {
-                    oam.trigger_oam_bug_read(self.accessed_oam_ram);
-                }
-                oam.read(addr)
-            },
-            MemoryRegion::Unusable => 0xFF,
-            MemoryRegion::InterruptFlag => self.interrupts.read_interrupt_flag(),
-            MemoryRegion::InterruptEnable => self.interrupts.read_interrupt_enable(),
-            _ => self.data[addr as usize],
-        }
+    fn new(
+        wrapped_boot_rom: Option<[u8; 0x100]>,
+        rom_data: Vec<u8>,
+        ram_data: Option<Vec<u8>>
+    ) -> Result<Self, String> where Self: Sized {
+        let boot_enable = wrapped_boot_rom.is_some();
+        let boot_rom = wrapped_boot_rom.unwrap_or([0xFF; 0x0100]);
+        Ok(CgbMmu {
+            apu: Apu::default(),
+            data: Box::new([0xFF; 0x10000]),
+            cart: C::new(rom_data, ram_data)?,
+            interrupts: InterruptController::new(),
+            timers: T::new(),
+            oam: RwLock::new(Oam::default()),
+            ppu: P::new(),
+            boot_enable,
+            boot_rom,
+            dpad_state: 0x0F,
+            button_state: 0x0F,
+            accessed_oam_ram: 0xFF,
+            dma_source: 0x0,
+            dma_index: 0xFF,
+        })
     }
 
-    fn write_byte(&mut self, addr: u16, val: u8) {
-        if val != 0 && addr == 0xFF50 {
-            self.data[addr as usize] = val;
-            self.boot_enable = false;
-
-            return;
+    fn tick_ppu(&mut self, ct: &mut Box<dyn GameCT>)
+    where Self: Sized
+    {
+        let mut ppu = std::mem::replace(&mut self.ppu, P::new());
+        ppu.tick(self, ct);
+        if ppu.pending_vblank() {
+            self.interrupts_request(Interrupt::VBlank);
+            ppu.set_pending_vblank(false);
         }
-
-        match MemoryRegion::from(addr) {
-            MemoryRegion::Mbc | MemoryRegion::ERam => self.cart.write(addr, val),
-            MemoryRegion::Vram => {
-                self.get_ppu().write_vram(addr, val);
-            }
-            MemoryRegion::Mram => {
-                let mirror = addr - 0x2000;
-
-                self.data[mirror as usize] = val;
-            }
-            MemoryRegion::Timers => self.timers.write(addr, val),
-            MemoryRegion::Io => {
-                // The CPU can only change the bits 4 and 5. The emulator use methods to write into the memory.
-                if addr == 0xFF00 {
-                    let selection_bits = val & 0b0011_0000;
-                    let current_inputs = self.data[0xFF00] & 0x0F;
-                    self.data[0xFF00] = 0b1100_0000 | selection_bits | current_inputs;
-
-                    self.update_joypad_register();
-                } else if matches!(addr, 0xFF40..=0xFF4B) && addr != 0xFF46 {
-                    self.ppu.write_register(addr, val);
-                } else if addr == 0xFF46 {
-                    self.data[addr as usize] = val;
-                    self.dma_index = 0;
-                    self.dma_source = (val as u16) << 8;
-                } else {
-                    self.data[addr as usize] = val;
-                }
-            }
-            MemoryRegion::Oam => {
-                let mut oam = self.oam.write().unwrap();
-                if self.accessed_oam_ram != 0xFF {
-                    oam.trigger_oam_bug_write(self.accessed_oam_ram);
-                }
-                oam.write(addr, val)
-            },
-            MemoryRegion::Unusable => {}
-            MemoryRegion::InterruptFlag => self.interrupts.write_interrupt_flag(val),
-            MemoryRegion::InterruptEnable => self.interrupts.write_interrupt_enable(val),
-            _ => self.data[addr as usize] = val,
+        if ppu.pending_stat() {
+            self.interrupts_request(Interrupt::LcdStat);
+            ppu.set_pending_stat(false);
         }
+        self.ppu = ppu;
     }
 
     fn get_cart(&mut self) -> &mut dyn Mbc {
@@ -572,13 +527,6 @@ impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> DmgMmu<C, T, P> {
     fn set_boot_enable(&mut self, enabled: bool) {
         self.boot_enable = enabled;
     }
-
-    /*
-    fn set_dma_index(&mut self, val: u8) {
-        self.dma_index = val;
-    }
-    */
-
     fn set_dma_source(&mut self, val: u16) {
         self.dma_source = val;
     }
@@ -611,12 +559,8 @@ impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> DmgMmu<C, T, P> {
             self.write_byte(interrupt_flags_addr, interrupt_flags);
         }
     }
-}
 
-impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> Default for DmgMmu<C, T, P> {
-    fn default() -> Self {
-        DmgMmu::<C, T, P>::new(None, vec![], None).expect("This is not suppose to happen")
-    }
+    fn get_ppu(&mut self) -> &mut dyn Ppu<CgbMmu<C, T, P>> { &mut self.ppu }
 }
 
 pub struct CgbMmu<C: Mbc, T: TimingComponent, P: Ppu<CgbMmu<C, T, P>>> {
@@ -634,7 +578,7 @@ pub struct CgbMmu<C: Mbc, T: TimingComponent, P: Ppu<CgbMmu<C, T, P>>> {
     accessed_oam_ram: u8, // for OAM Bug
     dma_source: u16,
     pub dma_index: u8,
-} 
+}
 
 #[cfg(test)]
 mod tests {
