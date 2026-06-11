@@ -11,7 +11,7 @@ use egui_file_dialog::{FileDialog, Filter};
 use crate::communications::{CpuState, GameCT, InstructionList, InterfaceCT, WatchedAdresses, create_communication_tools};
 use crate::gameboy::GameBoy;
 use crate::mmu::DmgMmu;
-use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, RomOnly};
+use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, Mbc5, RomOnly};
 use crate::mmu::timers::DmgTimers;
 use crate::ppu::{self, DmgPpu};
 use eframe::egui::{Key, TextureHandle};
@@ -195,6 +195,8 @@ pub enum AnyGameApp {
     CgbMbc2(GameBoy<DmgMmu<Mbc2, DmgTimers, DmgPpu>>),
     DmgMbc3(GameBoy<DmgMmu<Mbc3, DmgTimers, DmgPpu>>),
     CgbMbc3(GameBoy<DmgMmu<Mbc3, DmgTimers, DmgPpu>>),
+    DmgMbc5(GameBoy<DmgMmu<Mbc5, DmgTimers, DmgPpu>>),
+    CgbMbc5(GameBoy<DmgMmu<Mbc5, DmgTimers, DmgPpu>>),
 }
 
 
@@ -266,9 +268,18 @@ impl AnyGameApp {
                             )?)
                         )
                     }
+                    0x19 | 0x1A | 0x1B | 0x1C | 0x1D | 0x1E => {
+                        println!("Mbc5 detected");
+                        Ok(
+                            AnyGameApp::CgbMbc5(GameBoy::new(
+                                boot_rom_data,
+                                rom_data,
+                                ram_data,
+                            )?)
+                        )
+                    },
                     /*
                     0x0B | 0x0C | 0x0D => Ok(todo!()), // MMM01 pas dans le sujet
-                    0x19 | 0x1A | 0x1B | 0x1C | 0x1D | 0x1E => Ok(todo!()), // Mbc5
                     0x20 => Ok(todo!()), // Mbc6
                     0x22 => Ok(todo!()),// MBC7+SENSOR+RUMBLE+RAM+BATTERY
                     */
@@ -310,6 +321,8 @@ impl AnyGameApp {
             AnyGameApp::CgbMbc2(g) => g.launch(ct),
             AnyGameApp::DmgMbc3(g) => g.launch(ct),
             AnyGameApp::CgbMbc3(g) => g.launch(ct),
+            AnyGameApp::DmgMbc5(g) => g.launch(ct),
+            AnyGameApp::CgbMbc5(g) => g.launch(ct),
         }
     }
 }
