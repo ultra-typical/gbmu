@@ -93,6 +93,8 @@ pub trait Ppu<M> {
     //Commons
     fn new() -> Self where Self: Sized;
     fn read_register(&self, addr: u16) -> u8;
+    fn read_vram(&mut self, addr: usize) -> u8;
+    fn write_vram(&mut self, addr: usize, data: u8);
     fn write_register(&mut self, addr: u16, val: u8);
     fn read_lcdc(&self) -> LcdControl {
         LcdControl::from_byte(self.lcdc_byte())
@@ -634,6 +636,14 @@ impl<M> Ppu<M> for DmgPpu {
             _ => 0xFF,
         }
     }
+
+    fn read_vram(&mut self, _addr: usize) -> u8 {
+        0
+    }
+
+    fn write_vram(&mut self, _addr: usize, _data: u8) {
+    }
+
     fn write_register(&mut self, addr: u16, val: u8) {
         match addr {
             0xFF40 => self.lcdc_byte = val,
@@ -713,15 +723,6 @@ impl<M> Ppu<M> for DmgPpu {
                 }
             }
         }
-    }
-}
-
-impl CgbPpu {
-    fn write_vram(&self, addr: u16, val: u8) {
-        self.vram.write_byte(addr, val);
-    }
-    fn read_vram(&self, addr: u16) -> u8 {
-        self.vram.read_byte(addr);
     }
 }
 
@@ -941,6 +942,14 @@ impl<M> Ppu<M> for CgbPpu {
             pending_stat: false,
             vram: Vram::new()
         }
+    }
+
+    fn write_vram(&mut self, addr: usize, val: u8) {
+        self.vram.write_byte(addr, val);
+    }
+
+    fn read_vram(&mut self, addr: usize) -> u8 {
+        self.vram.read_byte(addr)
     }
 
     fn read_register(&self, addr: u16) -> u8 {
