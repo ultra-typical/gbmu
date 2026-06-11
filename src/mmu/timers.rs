@@ -27,7 +27,7 @@ pub trait TimingComponent  {
     fn previous_and_result(&self) -> bool;
     fn set_next_and_result(&mut self, and_result: bool);
 
-    fn and_result(&self) -> bool { 
+    fn and_result(&self) -> bool {
         let enabled = (self.tac() & 0b100) > 0;
         let mask = 0b1
             << match self.tac() & 0b11 {
@@ -128,7 +128,7 @@ impl TimingComponent for DmgTimers {
     fn tima (&self) -> u8 { self.tima }
     fn set_tima(&mut self, value: u8) { self.tima = value }
     fn inc_tima(&mut self) { self.tima = self.tima.wrapping_add(1); }
-    
+
     fn previous_and_result(&self) -> bool { self.previous_and_result }
     fn set_next_and_result(&mut self, and_result: bool) { self.previous_and_result = and_result}
 }

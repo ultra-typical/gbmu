@@ -176,7 +176,7 @@ pub trait MemoryMapper {
                     let val = 0b1100_0000 | selection_bits | current_inputs;
                     self.update_data(0xFF00, val);
                     self.update_joypad_register();
-                } else if matches!(addr, 0xFF40..=0xFF4B) && addr != 0xFF46 {
+                } else if matches!(addr, 0xFF40..=0xFF4F) && addr != 0xFF46 {
                     self.get_ppu().write_register(addr, val);
                 } else if addr == 0xFF46 {
                     self.update_data(addr as usize, val);
@@ -425,6 +425,12 @@ pub struct DmgMmu<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> {
     pub dma_index: u8,
 }
 
+impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> Default for DmgMmu<C, T, P> {
+    fn default() -> Self {
+        DmgMmu::<C, T, P>::new(None, vec![], None).expect("This is not suppose to happen")
+    }
+}
+
 impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> DmgMmu<C, T, P> {
     pub fn ram_dump(&self) ->  Option<Vec<u8>> {
         self.cart.dump()
@@ -476,7 +482,7 @@ impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> DmgMmu<C, T, P> {
         }
     }
 
-    pub fn write_byte(&mut self, addr: u16, val: u8) {
+    fn write_byte(&mut self, addr: u16, val: u8) {
         if val != 0 && addr == 0xFF50 {
             self.data[addr as usize] = val;
             self.boot_enable = false;

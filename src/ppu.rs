@@ -505,10 +505,10 @@ pub struct CgbPpu {
     obp1: u8,       // 0xFF49
     wy: u8,         // 0xFF4A
     wx: u8,         // 0xFF4B
-    vram: u8,
     // Pending interrupts to be drained by MMU after tick
     pub pending_vblank: bool,
     pub pending_stat: bool,
+    vram: Vram
 }
 
 impl<M> Ppu<M> for DmgPpu {
@@ -713,6 +713,15 @@ impl<M> Ppu<M> for DmgPpu {
                 }
             }
         }
+    }
+}
+
+impl CgbPpu {
+    fn write_vram(&self, addr: u16, val: u8) {
+        self.vram.write_byte(addr, val);
+    }
+    fn read_vram(&self, addr: u16) -> u8 {
+        self.vram.read_byte(addr);
     }
 }
 
@@ -928,9 +937,9 @@ impl<M> Ppu<M> for CgbPpu {
             obp1: 0x00,
             wy: 0x00,
             wx: 0x00,
-            vram: 0x00,
             pending_vblank: false,
             pending_stat: false,
+            vram: Vram::new()
         }
     }
 
@@ -947,7 +956,6 @@ impl<M> Ppu<M> for CgbPpu {
             0xFF49 => self.obp1,
             0xFF4A => self.wy,
             0xFF4B => self.wx,
-            0xFF4F => self.vram,
             _ => 0xFF,
         }
     }
@@ -969,7 +977,6 @@ impl<M> Ppu<M> for CgbPpu {
             0xFF49 => self.obp1 = val,
             0xFF4A => self.wy = val,
             0xFF4B => self.wx = val,
-            0xFF4F => self.vram = val,
             _ => {}
         }
     }
@@ -1030,6 +1037,40 @@ impl<M> Ppu<M> for CgbPpu {
                     break;
                 }
             }
+        }
+    }
+}
+
+struct Vram {
+    bank0: Box<[u8; 0x1FFF]>,
+    bank1: Box<[u8; 0x1FFF]>,
+    vbk: u8,        // 0xFF4F
+}
+
+impl Vram {
+    fn new() -> Vram {
+        Vram {
+            bank0: Box::new([0x00; 0x1FFF]),
+            bank1: Box::new([0x00; 0x1FFF]),
+            vbk: 0x00
+        }
+    }
+
+    fn write_byte(&mut self, addr: usize, val: u8) {
+        let addr_in_banks = addr - 0x8000;
+        match self.vbk {
+            0x00 => self.bank0[addr_in_banks] = val,
+            0x01 => self.bank1[addr_in_banks] = val,
+            _ => {}
+        }
+    }
+
+    fn read_byte(&mut self, addr: usize) -> u8 {
+        let addr_in_banks = addr - 0x8000;
+        match self.vbk {
+            0x00 => self.bank0[addr_in_banks],
+            0x01 => self.bank1[addr_in_banks],
+            _ => unreachable!()
         }
     }
 }
