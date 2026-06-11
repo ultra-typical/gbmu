@@ -267,7 +267,7 @@ pub trait MemoryMapper {
 
 }
 
-impl<C: Mbc, T: TimingComponent, P: Ppu<GbaMmu<C, T, P>>> MemoryMapper for GbaMmu<C, T, P> {
+impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> MemoryMapper for DmgMmu<C, T, P> {
     fn get_timer(&mut self) -> &mut dyn TimingComponent { &mut self.timers } 
     fn get_dma_index(&mut self) -> u8 { self.dma_index }
     fn set_dma_index(&mut self, val: u8) { self.dma_index = val }
@@ -403,12 +403,12 @@ impl<C: Mbc, T: TimingComponent, P: Ppu<GbaMmu<C, T, P>>> MemoryMapper for GbaMm
     }
 
 
-    fn get_ppu(&mut self) -> &mut dyn Ppu<GbaMmu<C, T, P>> { &mut self.ppu }
+    fn get_ppu(&mut self) -> &mut dyn Ppu<DmgMmu<C, T, P>> { &mut self.ppu }
 }
 
 
 
-pub struct GbaMmu<C: Mbc, T: TimingComponent, P: Ppu<GbaMmu<C, T, P>>> {
+pub struct DmgMmu<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> {
     data: Box<[u8; 0x10000]>, // 0xFFFF (65535) + 1 = 0x10000 (65536)
     cart: C,
     interrupts: InterruptController,
@@ -425,7 +425,7 @@ pub struct GbaMmu<C: Mbc, T: TimingComponent, P: Ppu<GbaMmu<C, T, P>>> {
     pub dma_index: u8,
 }
 
-impl<C: Mbc, T: TimingComponent, P: Ppu<GbaMmu<C, T, P>>> GbaMmu<C, T, P> {
+impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> DmgMmu<C, T, P> {
     pub fn ram_dump(&self) ->  Option<Vec<u8>> {
         self.cart.dump()
     }
@@ -615,9 +615,9 @@ impl<C: Mbc, T: TimingComponent, P: Ppu<GbaMmu<C, T, P>>> GbaMmu<C, T, P> {
     }
 }
 
-impl<C: Mbc, T: TimingComponent, P: Ppu<GbaMmu<C, T, P>>> Default for GbaMmu<C, T, P> {
+impl<C: Mbc, T: TimingComponent, P: Ppu<DmgMmu<C, T, P>>> Default for DmgMmu<C, T, P> {
     fn default() -> Self {
-        GbaMmu::<C, T, P>::new(None, vec![], None).expect("This is not suppose to happen")
+        DmgMmu::<C, T, P>::new(None, vec![], None).expect("This is not suppose to happen")
     }
 }
 
@@ -641,18 +641,18 @@ pub struct CgbMmu<T: Mbc> {
 #[cfg(test)]
 mod tests {
     use crate::mmu::mbc::RomOnly;
-    use crate::mmu::timers::GbaTimers;
-    use crate::ppu::GbaPpu;
+    use crate::mmu::timers::DmgTimers;
+    use crate::ppu::DmgPpu;
     use super::*;
 
     use super::{MemoryRegion, DmgMmu};
 
-    fn default_dmg_mmu_from(rom: Vec<u8>) -> GbaMmu<RomOnly, GbaTimers, GbaPpu>{
-        GbaMmu::<RomOnly, GbaTimers, GbaPpu>::new(None, rom, None).unwrap()
+    fn default_dmg_mmu_from(rom: Vec<u8>) -> DmgMmu<RomOnly, DmgTimers, DmgPpu>{
+        DmgMmu::<RomOnly, DmgTimers, DmgPpu>::new(None, rom, None).unwrap()
     }
 
-    fn default_dmg_mmu() -> GbaMmu<RomOnly, GbaTimers, GbaPpu>{
-        GbaMmu::<RomOnly, GbaTimers, GbaPpu>::default()
+    fn default_dmg_mmu() -> DmgMmu<RomOnly, DmgTimers, DmgPpu>{
+        DmgMmu::<RomOnly, DmgTimers, DmgPpu>::default()
     }
 
     #[test]

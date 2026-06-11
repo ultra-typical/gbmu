@@ -428,7 +428,7 @@ pub trait Ppu<M> {
 }
 
 
-pub struct GbaPpu {
+pub struct DmgPpu {
     pub dots: u32,
     lcd_status: LcdStatus,
     wly: u8,
@@ -511,7 +511,7 @@ pub struct CgbPpu {
     pub pending_stat: bool,
 }
 
-impl<M> Ppu<M> for GbaPpu {
+impl<M> Ppu<M> for DmgPpu {
     // Getter
     fn lcdc_byte(&self) -> u8 { self.lcdc_byte }
     fn bgp(&self) -> u8 { self.bgp }

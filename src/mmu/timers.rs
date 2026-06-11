@@ -113,7 +113,7 @@ const TIMA_ADDR: u16 = 0xFF05;
 const TMA_ADDR: u16 = 0xFF06;
 const TAC_ADDR: u16 = 0xFF07;
 
-impl TimingComponent for GbaTimers {
+impl TimingComponent for DmgTimers {
     fn new() -> Self where Self: Sized { Self::default() }
     fn div(&self) -> u16 { self.div }
     fn set_div(&mut self, value: u8) { self.div = value as u16 }

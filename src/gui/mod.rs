@@ -12,8 +12,8 @@ use crate::communications::{CpuState, GameCT, InstructionList, InterfaceCT, Watc
 use crate::gameboy::GameBoy;
 use crate::mmu::DmgMmu;
 use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, RomOnly};
-use crate::mmu::timers::GbaTimers;
-use crate::ppu::{self, GbaPpu};
+use crate::mmu::timers::DmgTimers;
+use crate::ppu::{self, DmgPpu};
 use eframe::egui::{Key, TextureHandle};
 use eframe::egui::{load::SizedTexture, vec2, ColorImage, TextureOptions};
 use std::collections::HashSet;
@@ -187,14 +187,14 @@ use std::process;
 
 
 pub enum AnyGameApp {
-    GbaOnlyRom(GameBoy<GbaMmu<RomOnly, GbaTimers, GbaPpu>>),
-    CgbOnlyRom(GameBoy<GbaMmu<RomOnly, GbaTimers, GbaPpu>>),
-    GbaMbc1(GameBoy<GbaMmu<Mbc1, GbaTimers, GbaPpu>>),
-    CgbMbc1(GameBoy<GbaMmu<Mbc1, GbaTimers, GbaPpu>>),
-    GbaMbc2(GameBoy<GbaMmu<Mbc2, GbaTimers, GbaPpu>>),
-    CgbMbc2(GameBoy<GbaMmu<Mbc2, GbaTimers, GbaPpu>>),
-    GbaMbc3(GameBoy<GbaMmu<Mbc3, GbaTimers, GbaPpu>>),
-    CgbMbc3(GameBoy<GbaMmu<Mbc3, GbaTimers, GbaPpu>>),
+    DmgOnlyRom(GameBoy<DmgMmu<RomOnly, DmgTimers, DmgPpu>>),
+    CgbOnlyRom(GameBoy<DmgMmu<RomOnly, DmgTimers, DmgPpu>>),
+    DmgMbc1(GameBoy<DmgMmu<Mbc1, DmgTimers, DmgPpu>>),
+    CgbMbc1(GameBoy<DmgMmu<Mbc1, DmgTimers, DmgPpu>>),
+    DmgMbc2(GameBoy<DmgMmu<Mbc2, DmgTimers, DmgPpu>>),
+    CgbMbc2(GameBoy<DmgMmu<Mbc2, DmgTimers, DmgPpu>>),
+    DmgMbc3(GameBoy<DmgMmu<Mbc3, DmgTimers, DmgPpu>>),
+    CgbMbc3(GameBoy<DmgMmu<Mbc3, DmgTimers, DmgPpu>>),
 }
 
 
