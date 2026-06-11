@@ -15,7 +15,7 @@ pub struct Instruction<M: MemoryMapper> {
     pub micro_ops: Vec<MicroOp<M>>,
 }
 
-pub type MicroOp<M: MemoryMapper> = fn(&mut Cpu<M>, bus: &mut M);
+pub type MicroOp<M> = fn(&mut Cpu<M>, bus: &mut M);
 pub type Flags = u8;
 
 pub struct Cpu<M: MemoryMapper> {
