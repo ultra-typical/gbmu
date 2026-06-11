@@ -459,7 +459,6 @@ impl Mbc for Mbc3 {
     }
 }
 
-#[allow(unused)]
 pub struct Mbc5 {
     ram_gate_enable: bool,
     rom_bank_register: u16,
