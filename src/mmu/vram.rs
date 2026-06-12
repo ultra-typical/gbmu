@@ -21,7 +21,6 @@ impl Vram for DmgVram {
         }
     }
     fn write(&mut self, addr: u16, byte: u8) {
-        println!("WRITE {} {}", addr, byte);
         let addr_in_bank = addr - 0x8000;
         self.bank0[addr_in_bank as usize] = byte;
     }
