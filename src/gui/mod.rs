@@ -268,7 +268,7 @@ impl AnyGameApp {
                             )?)
                         )
                     }
-                    0x19 | 0x1A | 0x1B | 0x1C | 0x1D | 0x1E => {
+                    0x19..=0x1E => {
                         println!("Mbc5 detected");
                         Ok(
                             AnyGameApp::CgbMbc5(GameBoy::new(
