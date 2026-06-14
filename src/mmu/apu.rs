@@ -37,9 +37,9 @@ struct ChannelFour {
 
 #[derive(Default)]
 pub struct Apu {
-    audio_master_control: AudioMasterControlReg,
-    sound_panning: SoundPanningReg,
-    master_vol_and_vin_panning: MasterVolVinPanningReg,
+    nr50_master_vol_and_vin_panning: MasterVolVinPanningReg,
+    nr51_sound_panning: SoundPanningReg,
+    nr52_audio_master_control: AudioMasterControlReg,
 
     wave_ram: [u8; 16],
 
@@ -130,6 +130,9 @@ impl Apu {
             0xFF21 => self.channel_four.nr42_volume_envelope.read(),
             0xFF22 => self.channel_four.nr43_freq_and_randomness.read(),
             0xFF23 => self.channel_four.nr44_control.read(),
+            0xFF24 => self.nr50_master_vol_and_vin_panning.read(),
+            0xFF25 => self.nr51_sound_panning.read(),
+            0xFF26 => self.nr52_audio_master_control.read(),
             _ => 0xFF,
         }
     }
@@ -153,6 +156,9 @@ impl Apu {
             0xFF21 => self.channel_four.nr42_volume_envelope.write(value),
             0xFF22 => self.channel_four.nr43_freq_and_randomness.write(value),
             0xFF23 => self.channel_four.nr44_control.write(value),
+            0xFF24 => self.nr50_master_vol_and_vin_panning.write(value),
+            0xFF25 => self.nr51_sound_panning.write(value),
+            0xFF26 => self.nr52_audio_master_control.write(value),
             _ => {}
         }
     }
