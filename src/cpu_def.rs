@@ -224,11 +224,33 @@ impl<M: MemoryMapper> Cpu<M> {
     }
 
     pub fn get_r16<R: Reg16>(&self) -> u16 {
-        (self.r8[R::USIZE * 2] as u16) << 8 | self.r8[R::USIZE * 2 + 1] as u16
+        let (hi_idx, lo_idx) = match R::USIZE {
+            r16::AF => (r8::A, r8::F),
+            r16::BC => (r8::B, r8::C),
+            r16::DE => (r8::D, r8::E),
+            r16::HL => (r8::H, r8::L),
+            r16::SP => (r8::S, r8::P),
+            r16::PC => (r8::PcC, r8::PcP),
+            r16::WZ => (r8::W, r8::Z),
+            _ => unreachable!(),
+        };
+
+        (self.r8[hi_idx] as u16) << 8 | (self.r8[lo_idx] as u16)
     }
 
     pub fn set_r16<R: Reg16>(&mut self, value: u16) {
-        self.r8[R::USIZE * 2] = (value >> 8) as u8;
-        self.r8[R::USIZE * 2 + 1] = (value & 0xFF) as u8;
+        let (hi_idx, lo_idx) = match R::USIZE {
+            r16::AF => (r8::A, r8::F),
+            r16::BC => (r8::B, r8::C),
+            r16::DE => (r8::D, r8::E),
+            r16::HL => (r8::H, r8::L),
+            r16::SP => (r8::S, r8::P),
+            r16::PC => (r8::PcC, r8::PcP),
+            r16::WZ => (r8::W, r8::Z),
+            _ => unreachable!(),
+        };
+
+        self.r8[hi_idx] = (value >> 8) as u8;
+        self.r8[lo_idx] = (value & 0xFF) as u8;
     }
 }

@@ -13,9 +13,8 @@ impl<M: MemoryMapper> Cpu<M> {
         self.flags.set_flag(Flag::Zero, result == 0);
         self.flags.set_flag(Flag::Subtract, true);
         self.flags
-            .set_flag(Flag::HalfCarry, (src & 0x0F) + (dest & 0x0F) > 0x0F);
-
+            .set_flag(Flag::HalfCarry, (dest & 0x0F) < (src & 0x0F));
         self.flags
-            .set_flag(Flag::Carry, (src as u16) + (dest as u16) > 0xFF);
+            .set_flag(Flag::Carry, dest < src);
     }
 }
