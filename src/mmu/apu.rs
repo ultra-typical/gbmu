@@ -133,6 +133,10 @@ impl Apu {
             0xFF24 => self.nr50_master_vol_and_vin_panning.read(),
             0xFF25 => self.nr51_sound_panning.read(),
             0xFF26 => self.nr52_audio_master_control.read(),
+            0xFF30..=0xFF3F => {
+                let index = (addr - 0xFF30) as usize;
+                self.wave_ram[index]
+            },
             _ => 0xFF,
         }
     }
@@ -159,7 +163,11 @@ impl Apu {
             0xFF24 => self.nr50_master_vol_and_vin_panning.write(value),
             0xFF25 => self.nr51_sound_panning.write(value),
             0xFF26 => self.nr52_audio_master_control.write(value),
-            _ => {}
+            0xFF30..=0xFF3F => {
+                let index = (addr - 0xFF30) as usize;
+                self.wave_ram[index] = value;
+            },
+            _ => {},
         }
     }
 }
