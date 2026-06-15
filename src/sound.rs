@@ -1,7 +1,5 @@
-use std::sync::Mutex;
 use cpal::{SizedSample, SampleFormat, FromSample};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use std::sync::{Arc};
 
 use crate::mmu::apu::sample_buffer;
 
@@ -44,35 +42,19 @@ where
     T: SizedSample + FromSample<f32>,
 {
     let err_fn = |err| eprintln!("an error occurred on the output audio stream: {}", err);
+    let channels = config.channels as usize;
 
     device.build_output_stream(
         config,
         move |data: &mut [T], _| {
-            for sample in data.iter_mut() {
-                *sample = T::from_sample(buffer.pop().unwrap_or(0.0));
+            for frame in data.chunks_mut(channels) {
+                let value = T::from_sample(buffer.pop().unwrap_or(0.0));
+                for sample in frame.iter_mut() {
+                    *sample = value;
+                }
             }
         },
         err_fn,
         None,
     )
-}
-
-fn write_sine<T: SizedSample + FromSample<f32>>(
-    data: &mut [T],
-    frequency: f32,
-    sample_rate: f32,
-    phase: &Arc<Mutex<f32>>,
-) {
-    let mut phase_lock = phase.lock().unwrap();
-    let phase_increment = 2.0 * std::f32::consts::PI * frequency / sample_rate;
-
-    for sample in data.iter_mut() {
-        let value = phase_lock.sin() * 0.5;
-        *sample = T::from_sample(value);
-        *phase_lock += phase_increment;
-
-        if *phase_lock > 2.0 * std::f32::consts::PI {
-            *phase_lock -= 2.0 * std::f32::consts::PI;
-        }
-    }
 }
