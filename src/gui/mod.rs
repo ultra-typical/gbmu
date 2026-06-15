@@ -14,6 +14,9 @@ use crate::mmu::DmgMmu;
 use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, Mbc5, RomOnly};
 use crate::mmu::timers::DmgTimers;
 use crate::ppu::{self, DmgPpu};
+use crate::mmu::apu::sample_buffer::{self, SampleBuffer};
+use crate::sound::start_audio;
+
 use eframe::egui::{Key, TextureHandle};
 use eframe::egui::{load::SizedTexture, vec2, ColorImage, TextureOptions};
 use std::collections::HashSet;
@@ -202,7 +205,7 @@ pub enum AnyGameApp {
 
 
 impl AnyGameApp {
-    pub fn new(game_data: CoreGameOptions) -> Result<Self, String> {
+    pub fn new(game_data: CoreGameOptions, sample_buffer: SampleBuffer) -> Result<Self, String> {
         let rom_data: Vec<u8> = Self::read_rom(&game_data.rom_path);
         let ram_path = game_data.rom_path.to_owned() + ".save";
         let ram_data: Option<Vec<u8>> = Self::read_ram(&ram_path);
@@ -235,6 +238,7 @@ impl AnyGameApp {
                                 boot_rom_data,
                                 rom_data,
                                 ram_data,
+                                sample_buffer,
                             )?)
                         )
                     }
@@ -245,6 +249,7 @@ impl AnyGameApp {
                                 boot_rom_data,
                                 rom_data,
                                 ram_data,
+                                sample_buffer,
                             )?)
                         )
                     }
@@ -255,6 +260,7 @@ impl AnyGameApp {
                                 boot_rom_data,
                                 rom_data,
                                 ram_data,
+                                sample_buffer,
                             )?)
                         )
                     }
@@ -265,6 +271,7 @@ impl AnyGameApp {
                                 boot_rom_data,
                                 rom_data,
                                 ram_data,
+                                sample_buffer,
                             )?)
                         )
                     }
@@ -275,6 +282,7 @@ impl AnyGameApp {
                                 boot_rom_data,
                                 rom_data,
                                 ram_data,
+                                sample_buffer,
                             )?)
                         )
                     },
@@ -330,10 +338,11 @@ impl AnyGameApp {
 
 async fn async_launch_game(
     game_data: CoreGameOptions,
-    ct: Box<dyn GameCT>
+    ct: Box<dyn GameCT>,
+    sample_buffer: SampleBuffer,
 ) -> Result<(), String> {
     let rom_path = game_data.rom_path.clone();
-    let app = AnyGameApp::new(game_data)?;
+    let app = AnyGameApp::new(game_data, sample_buffer)?;
     if let Some(value) = app.launch(ct)? {
         let save_path = rom_path.clone() + ".save";
         eprintln!("attempting to save game ram to {}", save_path);
@@ -407,12 +416,16 @@ impl CoreGameDevice {
 
     fn new(options: CoreGameOptions) -> Self {
         let (game_ct, interface_ct) = create_communication_tools();
+        let sample_buffer = SampleBuffer::new();
+
+        start_audio(sample_buffer.clone());
 
         Self {
             interface_ct,
             handler: tokio::spawn(async_launch_game(
                 options,
                 game_ct,
+                sample_buffer,
             )),
             buffer: [0; FRAME_SIZE_IN_U8],
             texture_handler: None,

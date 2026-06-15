@@ -11,7 +11,7 @@ use crate::communications::{GameCT, Mode, Request};
 use crate::cpu::Cpu;
 use crate::cpu::registers::{R8};
 use crate::gui::KeyInput;
-
+use crate::mmu::apu::sample_buffer::SampleBuffer;
 use crate::mmu::MemoryMapper;
 
 const FRAME_CYCLES: u32 = 70224;
@@ -64,9 +64,10 @@ impl<M: MemoryMapper>  GameBoy<M> {
         boot_rom_data: Option<[u8; 0x100]>,
         rom_data: Vec<u8>,
         ram_data: Option<Vec<u8>>,
+        sample_buffer: SampleBuffer,
     ) -> Result<GameBoy<M>, String> {
         let skip_boot = boot_rom_data.is_none();
-        let bus = M::new(boot_rom_data, rom_data, ram_data)?;
+        let bus = M::new(boot_rom_data, rom_data, ram_data, sample_buffer)?;
 
         let cpu = Cpu::new();
         let mut gb = GameBoy {
