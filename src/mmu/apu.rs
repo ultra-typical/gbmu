@@ -36,7 +36,6 @@ struct ChannelFour {
     nr44_control: ChannelFourCtrlReg,
 }
 
-#[derive(Default)]
 pub struct Apu {
     nr50_master_vol_and_vin_panning: MasterVolVinPanningReg,
     nr51_sound_panning: SoundPanningReg,
@@ -48,6 +47,8 @@ pub struct Apu {
     channel_two: ChannelTwo,
     channel_three: ChannelThree,
     channel_four: ChannelFour,
+
+    sample_buffer: sample_buffer::SampleBuffer,
 }
 
 trait Channel {}
@@ -111,6 +112,20 @@ trait Register {
 }
 
 impl Apu {
+    pub fn new(sample_buffer: sample_buffer::SampleBuffer) -> Self {
+        Self {
+            nr50_master_vol_and_vin_panning: MasterVolVinPanningReg::default(),
+            nr51_sound_panning: SoundPanningReg::default(),
+            nr52_audio_master_control: AudioMasterControlReg::default(),
+            wave_ram: [0; 16],
+            channel_one: ChannelOne::default(),
+            channel_two: ChannelTwo::default(),
+            channel_three: ChannelThree::default(),
+            channel_four: ChannelFour::default(),
+            sample_buffer,
+        }
+    }
+
     pub fn read(&self, addr: u16) -> u8 {
         match addr {
             0xFF10 => self.channel_one.nr10_sweep.read(),
