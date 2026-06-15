@@ -1,6 +1,5 @@
-
 use std::sync::Mutex;
-use cpal::{Sample, SampleFormat, FromSample};
+use cpal::{SizedSample, SampleFormat, FromSample};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::sync::{Arc};
 
@@ -17,18 +16,17 @@ pub fn start_audio(buffer: sample_buffer::SampleBuffer) {
             .expect("no supported config?!")
             .with_max_sample_rate();
 
-        let err_fn = |err| eprintln!("an error occured on the output audio stream: {}", err);
         let sample_format = first_supported_config.sample_format();
         let config: cpal::StreamConfig = first_supported_config.into();
 
         let stream = match sample_format {
-            SampleFormat::U8 => {
-                device.build_output_stream(&config, move |data: &mut [u8], _| {
-                    for sample in data.iter_mut() {
-                        *sample = u8::from_sample(buffer.pop().unwrap_or(0.0));
-                    }
-                }, err_fn, None)
-            },
+            SampleFormat::U8 => { build_stream::<u8>(&device, &config, buffer.clone()) },
+            SampleFormat::I8 => { build_stream::<i8>(&device, &config, buffer.clone()) },
+            SampleFormat::U16 => { build_stream::<u16>(&device, &config, buffer.clone()) },
+            SampleFormat::I16 => { build_stream::<i16>(&device, &config, buffer.clone()) },
+            SampleFormat::U32 => { build_stream::<u32>(&device, &config, buffer.clone()) },
+            SampleFormat::I32 => { build_stream::<i32>(&device, &config, buffer.clone()) },
+            SampleFormat::F32 => { build_stream::<f32>(&device, &config, buffer.clone()) },
             _ => panic!("Unsupported sample format '{sample_format}'")
         }.unwrap();
 
@@ -37,8 +35,29 @@ pub fn start_audio(buffer: sample_buffer::SampleBuffer) {
         });
 }
 
+fn build_stream<T>(
+    device: &cpal::Device,
+    config: &cpal::StreamConfig,
+    buffer: sample_buffer::SampleBuffer,
+) -> Result<cpal::Stream, cpal::BuildStreamError>
+where
+    T: SizedSample + FromSample<f32>,
+{
+    let err_fn = |err| eprintln!("an error occurred on the output audio stream: {}", err);
 
-fn write_sine<T: Sample + FromSample<f32>>(
+    device.build_output_stream(
+        config,
+        move |data: &mut [T], _| {
+            for sample in data.iter_mut() {
+                *sample = T::from_sample(buffer.pop().unwrap_or(0.0));
+            }
+        },
+        err_fn,
+        None,
+    )
+}
+
+fn write_sine<T: SizedSample + FromSample<f32>>(
     data: &mut [T],
     frequency: f32,
     sample_rate: f32,
