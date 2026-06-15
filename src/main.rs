@@ -34,7 +34,7 @@ async fn main() {
         let buffer = sample_buffer::SampleBuffer::new();
 
         let mut phase = 0.0;
-        for _ in 0..48000*3 {
+        for _ in 0..48000*5 {
             phase += 2.0 * PI * 261.63 / 48000.0;
             buffer.push(phase.sin() * 0.5);
         }
