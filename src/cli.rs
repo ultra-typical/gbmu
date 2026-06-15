@@ -5,7 +5,7 @@ use std::fs::metadata;
 pub struct EmulatorArguments {
     pub rom_path: Option<String>,
     pub boot_rom: bool,
-    pub sound_test: bool,
+    pub sound: bool,
 }
 
 impl EmulatorArguments {
@@ -24,12 +24,12 @@ impl EmulatorArguments {
                     .help("If set, nintendo basic boot rom will boot first.")
             )
             .arg(
-                Arg::new("sound_test")
+                Arg::new("sound")
                     .short('s')
-                    .long("sound_test")
+                    .long("sound")
                     .action(ArgAction::SetTrue)
                     .required(false)
-                    .help("If set, only emit the sound of darkness.")
+                    .help("Activate sound if set.")
             )
             .get_matches();
 
@@ -39,12 +39,12 @@ impl EmulatorArguments {
 
         // boot_with_nintendo_room
         let boot_rom = matches.get_flag("boot_rom");
-        let sound_test = matches.get_flag("sound_test");
+        let sound = matches.get_flag("sound");
 
         let unchecked = Self {
             rom_path,
             boot_rom,
-            sound_test
+            sound
         };
 
         unchecked.check_fields()

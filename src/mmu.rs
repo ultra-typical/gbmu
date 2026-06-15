@@ -14,6 +14,7 @@ use crate::mmu::apu::Apu;
 use crate::communications::GameCT;
 use crate::ppu::PixelProcessor;
 use crate::mmu::timers::TimingComponent;
+use crate::mmu::apu::sample_buffer;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum MemoryRegion {
@@ -78,7 +79,7 @@ pub trait MemoryMapper {
     fn new(
         wrapped_boot_rom: Option<[u8; 0x100]>,
         rom_data: Vec<u8>,
-        ram_data: Option<Vec<u8>>
+        ram_data: Option<Vec<u8>>,
     ) -> Result<Self, String> where Self: Sized;
     fn get_boot_enable(&self) -> bool;
     fn get_boot_rom(&self) -> &[u8; 0x0100];
@@ -268,7 +269,7 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<C, T
         let boot_enable = wrapped_boot_rom.is_some();
         let boot_rom = wrapped_boot_rom.unwrap_or([0xFF; 0x0100]);
         Ok(Self {
-            apu: Apu::default(),
+            apu: Apu::new(sample_buffer::SampleBuffer::new()),
             data: Box::new([0xFF; 0x10000]),
             cart: C::new(rom_data, ram_data)?,
             interrupts: InterruptController::new(),
@@ -408,7 +409,7 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<C, T
         let boot_enable = wrapped_boot_rom.is_some();
         let boot_rom = wrapped_boot_rom.unwrap_or([0xFF; 0x0100]);
         Ok(CgbMmu {
-            apu: Apu::default(),
+            apu: Apu::new(sample_buffer::SampleBuffer::new()),
             data: Box::new([0xFF; 0x10000]),
             cart: C::new(rom_data, ram_data)?,
             interrupts: InterruptController::new(),

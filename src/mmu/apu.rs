@@ -1,6 +1,8 @@
 #![allow(unused_variables, dead_code)]
 
-mod sample_buffer;
+pub mod sample_buffer;
+
+pub use sample_buffer::SampleBuffer;
 
 #[derive(Default)]
 struct ChannelOne {

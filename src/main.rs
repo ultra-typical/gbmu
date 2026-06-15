@@ -9,10 +9,13 @@ mod file;
 mod sound;
 mod communications;
 
-use sound::sound_test;
+use sound::start_audio;
 use gui::GraphicalApp;
 use crate::{cli::EmulatorArguments, file::{GbmuFile}, gui::EmulationAppOptions};
 use std::sync::{LazyLock, Mutex};
+use std::f32::consts::PI;
+
+use crate::mmu::apu::sample_buffer;
 
 static GBMU_FILE: LazyLock<Mutex<GbmuFile>> =
     LazyLock::new(|| Mutex::new(GbmuFile::get_existing_or_new()));
@@ -27,8 +30,16 @@ async fn main() {
         }
     };
 
-    if arguments.sound_test {
-        return sound_test();
+    if arguments.sound {
+        let buffer = sample_buffer::SampleBuffer::new();
+
+        let mut phase = 0.0;
+        for _ in 0..48000*3 {
+            phase += 2.0 * PI * 261.63 / 48000.0;
+            buffer.push(phase.sin() * 0.5);
+        }
+        start_audio(buffer.clone());
+        std::thread::sleep(std::time::Duration::from_secs(4));
     }
 
     let options = eframe::NativeOptions {
