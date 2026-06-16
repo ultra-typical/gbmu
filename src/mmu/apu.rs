@@ -1,6 +1,13 @@
 #![allow(unused_variables, dead_code)]
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+use crate::sound::start_audio;
+
 pub mod sample_buffer;
+
+use crate::sample_buffer::SampleBuffer;
 
 #[derive(Default)]
 struct ChannelOne {
@@ -48,7 +55,7 @@ pub struct Apu {
     channel_three: ChannelThree,
     channel_four: ChannelFour,
 
-    sample_buffer: sample_buffer::SampleBuffer,
+    audio_running: Arc<AtomicBool>,
 }
 
 trait Channel {}
@@ -112,7 +119,11 @@ trait Register {
 }
 
 impl Apu {
-    pub fn new(sample_buffer: sample_buffer::SampleBuffer) -> Self {
+    pub fn new() -> Self {
+        let sample_buffer = SampleBuffer::new();
+        let audio_running = Arc::new(AtomicBool::new(true));
+        start_audio(sample_buffer.clone(), audio_running.clone());
+
         Self {
             nr50_master_vol_and_vin_panning: MasterVolVinPanningReg::default(),
             nr51_sound_panning: SoundPanningReg::default(),
@@ -122,7 +133,7 @@ impl Apu {
             channel_two: ChannelTwo::default(),
             channel_three: ChannelThree::default(),
             channel_four: ChannelFour::default(),
-            sample_buffer,
+            audio_running,
         }
     }
 
@@ -185,5 +196,12 @@ impl Apu {
             },
             _ => {},
         }
+    }
+}
+
+impl Drop for Apu {
+    fn drop(&mut self) {
+        self.audio_running.store(false, Ordering::Relaxed);
+        println!("APU dropped");
     }
 }

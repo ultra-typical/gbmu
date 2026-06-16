@@ -208,7 +208,7 @@ pub enum AnyGameApp {
 
 
 impl AnyGameApp {
-    pub fn new(game_data: CoreGameOptions, sample_buffer: SampleBuffer) -> Result<Self, String> {
+    pub fn new(game_data: CoreGameOptions) -> Result<Self, String> {
         let rom_data: Vec<u8> = Self::read_rom(&game_data.rom_path);
         let ram_path = game_data.rom_path.to_owned() + ".save";
         let ram_data: Option<Vec<u8>> = Self::read_ram(&ram_path);
@@ -241,7 +241,6 @@ impl AnyGameApp {
                                 boot_rom_data,
                                 rom_data,
                                 ram_data,
-                                sample_buffer,
                             )?)
                         )
                     }
@@ -252,7 +251,6 @@ impl AnyGameApp {
                                 boot_rom_data,
                                 rom_data,
                                 ram_data,
-                                sample_buffer,
                             )?)
                         )
                     }
@@ -263,7 +261,6 @@ impl AnyGameApp {
                                 boot_rom_data,
                                 rom_data,
                                 ram_data,
-                                sample_buffer,
                             )?)
                         )
                     }
@@ -274,7 +271,6 @@ impl AnyGameApp {
                                 boot_rom_data,
                                 rom_data,
                                 ram_data,
-                                sample_buffer,
                             )?)
                         )
                     }
@@ -285,7 +281,6 @@ impl AnyGameApp {
                                 boot_rom_data,
                                 rom_data,
                                 ram_data,
-                                sample_buffer,
                             )?)
                         )
                     },
@@ -342,10 +337,9 @@ impl AnyGameApp {
 async fn async_launch_game(
     game_data: CoreGameOptions,
     ct: Box<dyn GameCT>,
-    sample_buffer: SampleBuffer,
 ) -> Result<(), String> {
     let rom_path = game_data.rom_path.clone();
-    let app = AnyGameApp::new(game_data, sample_buffer)?;
+    let app = AnyGameApp::new(game_data)?;
     if let Some(value) = app.launch(ct)? {
         let save_path = rom_path.clone() + ".save";
         eprintln!("attempting to save game ram to {}", save_path);
@@ -365,7 +359,6 @@ pub struct CoreGameDevice {
     texture_handler: Option<TextureHandle>,
     key_mapping: KeyMapping,
     pub interface_ct: Box<dyn InterfaceCT>,
-    audio_running: Arc<AtomicBool>,
 }
 
 impl KeyMapping {
@@ -387,7 +380,6 @@ impl Drop for CoreGameDevice {
     fn drop(&mut self) {
         println!("this was droped");
         self.handler.abort();
-        self.audio_running.store(false, Ordering::Relaxed);
     }
 }
 
@@ -421,23 +413,19 @@ impl CoreGameDevice {
 
     fn new(options: CoreGameOptions) -> Self {
         let (game_ct, interface_ct) = create_communication_tools();
-        let sample_buffer = SampleBuffer::new();
 
         let audio_running =  Arc::new(AtomicBool::new(true));
-        start_audio(sample_buffer.clone(), audio_running.clone());
 
         Self {
             interface_ct,
             handler: tokio::spawn(async_launch_game(
                 options,
                 game_ct,
-                sample_buffer,
             )),
             buffer: [0; FRAME_SIZE_IN_U8],
             texture_handler: None,
             sized_image: None,
             key_mapping: KeyMapping::default(),
-            audio_running
         }
     }
 }

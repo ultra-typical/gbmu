@@ -80,7 +80,6 @@ pub trait MemoryMapper {
         wrapped_boot_rom: Option<[u8; 0x100]>,
         rom_data: Vec<u8>,
         ram_data: Option<Vec<u8>>,
-        sample_buffer: SampleBuffer,
     ) -> Result<Self, String> where Self: Sized;
     fn get_boot_enable(&self) -> bool;
     fn get_boot_rom(&self) -> &[u8; 0x0100];
@@ -266,12 +265,11 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<C, T
         wrapped_boot_rom: Option<[u8; 0x100]>,
         rom_data: Vec<u8>,
         ram_data: Option<Vec<u8>>,
-        sample_buffer: SampleBuffer,
     ) -> Result<Self, String> where Self: Sized {
         let boot_enable = wrapped_boot_rom.is_some();
         let boot_rom = wrapped_boot_rom.unwrap_or([0xFF; 0x0100]);
         Ok(Self {
-            apu: Apu::new(sample_buffer),
+            apu: Apu::new(),
             data: Box::new([0xFF; 0x10000]),
             cart: C::new(rom_data, ram_data)?,
             interrupts: InterruptController::new(),
@@ -379,7 +377,7 @@ pub struct DmgMmu<C: Mbc, T: TimingComponent, P: PixelProcessor> {
 
 impl<C: Mbc, T: TimingComponent, P: PixelProcessor> Default for DmgMmu<C, T, P> {
     fn default() -> Self {
-        DmgMmu::<C, T, P>::new(None, vec![], None, SampleBuffer::new()).expect("This is not suppose to happen")
+        DmgMmu::<C, T, P>::new(None, vec![], None).expect("This is not suppose to happen")
     }
 }
 
@@ -407,12 +405,11 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<C, T
         wrapped_boot_rom: Option<[u8; 0x100]>,
         rom_data: Vec<u8>,
         ram_data: Option<Vec<u8>>,
-        sample_buffer: SampleBuffer
     ) -> Result<Self, String> where Self: Sized {
         let boot_enable = wrapped_boot_rom.is_some();
         let boot_rom = wrapped_boot_rom.unwrap_or([0xFF; 0x0100]);
         Ok(CgbMmu {
-            apu: Apu::new(sample_buffer),
+            apu: Apu::new(),
             data: Box::new([0xFF; 0x10000]),
             cart: C::new(rom_data, ram_data)?,
             interrupts: InterruptController::new(),
@@ -530,7 +527,7 @@ mod tests {
     use super::{MemoryRegion, DmgMmu};
 
     fn default_dmg_mmu_from(rom: Vec<u8>) -> DmgMmu<RomOnly, DmgTimers, DmgPpu>{
-        DmgMmu::<RomOnly, DmgTimers, DmgPpu>::new(None, rom, None, SampleBuffer::new()).unwrap()
+        DmgMmu::<RomOnly, DmgTimers, DmgPpu>::new(None, rom, None).unwrap()
     }
 
     fn default_dmg_mmu() -> DmgMmu<RomOnly, DmgTimers, DmgPpu>{
