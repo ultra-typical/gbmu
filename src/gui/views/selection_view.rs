@@ -43,6 +43,14 @@ impl SelectionDevice {
     }
 
     fn display(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if let Some(path) = ui.ctx().input(|i| {
+            i.raw.dropped_files
+                .first()
+                .and_then(|file| file.path.clone())
+        }) {
+            self.path = path.to_string_lossy().to_string();
+        }
+
         egui::Panel::right("history_panel")
             .show_inside(ui, |ui| {
                 ui.heading("History");
@@ -77,15 +85,22 @@ impl SelectionDevice {
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
+            let is_hovering_file = ui.ctx().input(|i| !i.raw.hovered_files.is_empty());
+
             ui.centered_and_justified(|ui| {
-                if ui.button("Pick file").clicked() {
-                    self.file_dialog.pick_file();
+                if is_hovering_file {
+                    ui.heading("Drop your ROM here");
+                } else {
+                    ui.vertical_centered(|ui| {
+                        if ui.button("Pick file").clicked() {
+                            self.file_dialog.pick_file();
+                        }
+                        ui.add_space(10.0);
+                        ui.label(format!("Picked file: {:?}", self.picked_file));
+                    });
                 }
 
-                ui.label(format!("Picked file: {:?}", self.picked_file));
-
                 self.file_dialog.update(ui.ctx());
-
                 if let Some(path) = self.file_dialog.take_picked() {
                     self.path = path.into_os_string().into_string().unwrap();
                 }
