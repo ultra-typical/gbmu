@@ -20,7 +20,7 @@ use crate::ppu::{self, DmgPpu};
 use eframe::egui::{Key, TextureHandle};
 use eframe::egui::{load::SizedTexture, vec2, ColorImage, TextureOptions};
 use std::collections::HashSet;
-
+use std::str::FromStr;
 use std::time::Instant;
 
 #[derive(Default)]
@@ -67,7 +67,7 @@ pub struct EmulationAppOptions {
     boot_rom: bool,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum GbType {
     Cgb,
     Dmg
@@ -79,6 +79,18 @@ impl GbType {
             0x80 => vec![GbType::Cgb, GbType::Dmg],
             0xC0 => vec![GbType::Cgb],
             _ => vec![GbType::Dmg],
+        }
+    }
+}
+
+impl FromStr for GbType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "cgb" => Ok(GbType::Cgb),
+            "dmg" => Ok(GbType::Dmg),
+            _ => Err(format!("Unknown GameBoy type: {}. Choose between Cgb and Dmg", s)),
         }
     }
 }

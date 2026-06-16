@@ -1,11 +1,13 @@
-use clap::{Arg, ArgAction, command};
+use clap::{Arg, ArgAction, command, value_parser};
 use std::io::ErrorKind;
 use std::fs::metadata;
+use crate::gui::GbType;
 
 pub struct EmulatorArguments {
     pub rom_path: Option<String>,
     pub boot_rom: bool,
     pub sound: bool,
+    pub gb_type: GbType
 }
 
 impl EmulatorArguments {
@@ -20,7 +22,6 @@ impl EmulatorArguments {
                     .short('b')
                     .long("boot_rom")
                     .action(ArgAction::SetTrue)
-                    .required(false)
                     .help("If set, nintendo basic boot rom will boot first.")
             )
             .arg(
@@ -28,8 +29,15 @@ impl EmulatorArguments {
                     .short('s')
                     .long("sound")
                     .action(ArgAction::SetTrue)
-                    .required(false)
                     .help("Activate sound if set.")
+            )
+            .arg(
+                Arg::new("type")
+                    .short('t')
+                    .long("type")
+                    .value_parser(value_parser!(GbType))
+                    .default_value("dmg")
+                    .help("Set the type of gameboy to emulate. (Cgb or Dmg)")
             )
             .get_matches();
 
@@ -40,11 +48,13 @@ impl EmulatorArguments {
         // boot_with_nintendo_room
         let boot_rom = matches.get_flag("boot_rom");
         let sound = matches.get_flag("sound");
+        let gb_type: &GbType = matches.get_one::<GbType>("type").unwrap();
 
         let unchecked = Self {
             rom_path,
             boot_rom,
-            sound
+            sound,
+            gb_type: gb_type.clone()
         };
 
         unchecked.check_fields()
