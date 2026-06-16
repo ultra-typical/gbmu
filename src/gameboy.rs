@@ -11,7 +11,6 @@ use crate::communications::{GameCT, Mode, Request};
 use crate::cpu::Cpu;
 use crate::cpu::registers::{R8};
 use crate::gui::KeyInput;
-use crate::mmu::apu::sample_buffer::SampleBuffer;
 use crate::mmu::MemoryMapper;
 
 const FRAME_CYCLES: u32 = 70224;

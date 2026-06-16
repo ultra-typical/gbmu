@@ -14,7 +14,6 @@ use crate::mmu::apu::Apu;
 use crate::communications::GameCT;
 use crate::ppu::PixelProcessor;
 use crate::mmu::timers::TimingComponent;
-use crate::mmu::apu::sample_buffer::SampleBuffer;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum MemoryRegion {

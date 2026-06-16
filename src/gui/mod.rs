@@ -5,7 +5,7 @@ mod common;
 mod views;
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 use std::thread;
 use std::sync::Arc;
@@ -16,9 +16,6 @@ use crate::mmu::DmgMmu;
 use crate::mmu::mbc::{Mbc1, Mbc2, Mbc3, Mbc5, RomOnly};
 use crate::mmu::timers::DmgTimers;
 use crate::ppu::{self, DmgPpu};
-use crate::mmu::apu::sample_buffer::SampleBuffer;
-
-use crate::sound::start_audio;
 
 use eframe::egui::{Key, TextureHandle};
 use eframe::egui::{load::SizedTexture, vec2, ColorImage, TextureOptions};
