@@ -96,7 +96,7 @@ impl From<EmulationAppOptions> for CoreGameOptions {
             boot_rom_path: "boot-roms/dmg.bin".into(),
             rom_path: value.rom_path,
             boot_rom: value.boot_rom,
-            gbtype: GbType::Dmg, // TODO -> permettre le choix du type par EmulationAppOptions
+            gbtype: GbType::Dmg, // TODO -> need to do feature to choose which type
         }
     }
 }
@@ -296,7 +296,7 @@ impl AnyGameApp {
                     0x00 | 0x08 | 0x09 => {
                         println!("Dmg OnlyRom detected");
                         Ok(
-                            AnyGameApp::CgbOnlyRom(GameBoy::new(
+                            AnyGameApp::DmgOnlyRom(GameBoy::new(
                                 boot_rom_data,
                                 rom_data,
                                 ram_data,
@@ -306,7 +306,7 @@ impl AnyGameApp {
                     0x01..=0x03 => {
                         println!("Dmg Mbc1 detected");
                         Ok(
-                            AnyGameApp::CgbMbc1(GameBoy::new(
+                            AnyGameApp::DmgMbc1(GameBoy::new(
                                 boot_rom_data,
                                 rom_data,
                                 ram_data,
@@ -316,7 +316,7 @@ impl AnyGameApp {
                     0x05 | 0x06 => {
                         println!("Dmg Mbc2 detected");
                         Ok(
-                            AnyGameApp::CgbMbc2(GameBoy::new(
+                            AnyGameApp::DmgMbc2(GameBoy::new(
                                 boot_rom_data,
                                 rom_data,
                                 ram_data,
@@ -326,7 +326,7 @@ impl AnyGameApp {
                     0x0F..=0x13 => {
                         println!("Dmg Mbc3 detected");
                         Ok(
-                            AnyGameApp::CgbMbc3(GameBoy::new(
+                            AnyGameApp::DmgMbc3(GameBoy::new(
                                 boot_rom_data,
                                 rom_data,
                                 ram_data,
