@@ -1,6 +1,5 @@
 #![allow(unused_variables, dead_code)]
 
-use std::f32::consts::PI;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -29,6 +28,16 @@ struct ChannelTwo {
     nr22_volume_envelope: VolumeEnvReg,
     nr23_period_low: PeriodLowReg,
     nr24_period_high_ctrl: PeriodHighCtrlReg,
+
+    freq_timer: u64,
+    duty_step: u64,
+}
+
+impl ChannelTwo {
+    fn period(&self) -> u16 {
+        ((self.nr24_period_high_ctrl.raw() as u16 & 0b0000_0111) << 8)
+            | self.nr23_period_low.raw() as u16
+    }
 }
 
 #[derive(Default)]
@@ -63,7 +72,7 @@ pub struct Apu {
     audio_running: Arc<AtomicBool>,
     sample_counter: f64,
     sample_buffer: SampleBuffer,
-    test_phase: f32,
+    // test_phase: f32,
 }
 
 impl Apu {
@@ -84,7 +93,7 @@ impl Apu {
             audio_running,
             sample_counter: 0.0,
             sample_buffer,
-            test_phase: 0.0,
+            // test_phase: 0.0,
         }
     }
 
@@ -94,9 +103,9 @@ impl Apu {
         if self.sample_counter >= CYCLES_PER_SAMPLE {
             self.sample_counter -= CYCLES_PER_SAMPLE;
 
-            self.test_phase += 2.0 * PI * 261.63 / SAMPLE_RATE as f32;
-            let sample = self.test_phase.sin() * 0.5;
-            self.sample_buffer.push(sample);
+            // self.test_phase += 2.0 * PI * 261.63 / SAMPLE_RATE as f32;
+            // let sample = self.test_phase.sin() * 0.05;
+            // self.sample_buffer.push(sample);
         }
     }
 
@@ -184,6 +193,7 @@ macro_rules! read_write_register {
         impl Register for $name {
             fn read(&self) -> u8 { self.byte }
             fn write(&mut self, value: u8) { self.byte = value}
+            fn raw(&self) -> u8 { self.byte }
         }
     };
 }
@@ -194,6 +204,7 @@ macro_rules! write_only_register {
         impl Register for $name {
             fn read(&self) -> u8 { 0xFF }
             fn write(&mut self, value: u8) { self.byte = value}
+            fn raw(&self) -> u8 { 0xFF }
         }
     };
 }
@@ -207,6 +218,7 @@ define_register!(LnTimerDutyCycleReg);
 impl Register for LnTimerDutyCycleReg {
     fn read(&self) -> u8 { (self.byte & 0b1100_0000) | 0b0011_1111 }
     fn write(&mut self, value: u8) { self.byte = value;}
+    fn raw(&self) -> u8 { self.byte }
 }
 
 read_write_register!(VolumeEnvReg);
@@ -222,9 +234,11 @@ define_register!(ChannelFourCtrlReg);
 impl Register for ChannelFourCtrlReg {
     fn read(&self) -> u8 { (self.byte & 0b0110_0000) | 0b1001_1111 }
     fn write(&mut self, value: u8) { self.byte = value }
+    fn raw(&self) -> u8 { self.byte }
 }
 
 trait Register {
     fn read(&self) -> u8;
     fn write(&mut self, value: u8);
+    fn raw(&self) -> u8;
 }
