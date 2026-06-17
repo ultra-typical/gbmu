@@ -29,14 +29,24 @@ struct ChannelTwo {
     nr23_period_low: PeriodLowReg,
     nr24_period_high_ctrl: PeriodHighCtrlReg,
 
-    freq_timer: u64,
-    duty_step: u64,
+    freq_timer: u16,
+    duty_step: u8,
 }
 
 impl ChannelTwo {
     fn period(&self) -> u16 {
         ((self.nr24_period_high_ctrl.raw() as u16 & 0b0000_0111) << 8)
             | self.nr23_period_low.raw() as u16
+    }
+
+    fn step(&mut self) {
+        if self.freq_timer > 0 {
+            self.freq_timer -= 1;
+        }
+        if self.freq_timer == 0 {
+            self.freq_timer = (2048 - self.period()) * 4;
+            self.duty_step = (self.duty_step + 1) % 8;
+        }
     }
 }
 
