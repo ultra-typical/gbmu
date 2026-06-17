@@ -12,6 +12,12 @@ use sample_buffer::SampleBuffer;
 const T_CYCLES_PER_SEC: f64 = 4_194_304.0;
 const SAMPLE_RATE: f64 = 48_000.0;
 const CYCLES_PER_SAMPLE: f64 = T_CYCLES_PER_SEC / SAMPLE_RATE; // ~= 87.38
+const DUTY_PATTERNS: [u8; 4] = [
+    0b0000_0001, // 12.5%
+    0b0000_0011, // 25%
+    0b0000_1111, // 50%
+    0b0011_1111, // 75%
+];
 
 #[derive(Default)]
 struct ChannelOne {
@@ -47,6 +53,17 @@ impl ChannelTwo {
             self.freq_timer = (2048 - self.period()) * 4;
             self.duty_step = (self.duty_step + 1) % 8;
         }
+    }
+
+    fn duty_output(&self) -> u8 {
+        let duty = (self.nr21_ln_timer_duty_cycle.raw() >> 6) & 0b11;
+        let pattern = DUTY_PATTERNS[duty as usize];
+
+        (pattern >> self.duty_step) & 1
+    }
+
+    fn output(&self) -> f32 {
+        if self.duty_output() == 1 { 0.25 } else { -0.25 }
     }
 }
 
@@ -108,14 +125,15 @@ impl Apu {
     }
 
     pub fn step(&mut self) {
-        self.sample_counter += 1.0;
+        self.channel_two.step();
 
+        self.sample_counter += 1.0;
         if self.sample_counter >= CYCLES_PER_SAMPLE {
             self.sample_counter -= CYCLES_PER_SAMPLE;
 
-            // self.test_phase += 2.0 * PI * 261.63 / SAMPLE_RATE as f32;
-            // let sample = self.test_phase.sin() * 0.05;
-            // self.sample_buffer.push(sample);
+            let sample = self.channel_two.output();
+
+            self.sample_buffer.push(sample);
         }
     }
 
