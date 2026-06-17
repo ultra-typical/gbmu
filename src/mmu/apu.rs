@@ -38,6 +38,7 @@ struct ChannelTwo {
     freq_timer: u16,
     duty_step: u8,
     enabled: bool,
+    length_counter: u8,
 }
 
 impl ChannelTwo {
@@ -45,9 +46,23 @@ impl ChannelTwo {
         (self.nr22_volume_envelope.raw() & 0b1111_1000) != 0
     }
 
+    fn tick_length(&mut self) {
+        if self.nr24_period_high_ctrl.raw() & 0b0100_0000 != 0
+            && self.length_counter > 0 {
+                self.length_counter -= 1;
+                if self.length_counter == 0 {
+                    self.enabled = false;
+                }
+            }
+    }
+
     fn trigger(&mut self) {
         self.enabled = true;
         self.freq_timer = (2048 - self.period()) * 4;
+
+        let length_load = self.nr21_ln_timer_duty_cycle.raw() & 0b0011_1111;
+        self.length_counter = 64 - length_load;
+        if self.length_counter == 0 { self.length_counter = 64; }
     }
 
     fn period(&self) -> u16 {
@@ -112,8 +127,9 @@ pub struct Apu {
 
     audio_running: Arc<AtomicBool>,
     sample_counter: f64,
+    frame_seq_counter: u64,
+    frame_seq_step: u8,
     sample_buffer: SampleBuffer,
-    // test_phase: f32,
 }
 
 impl Apu {
@@ -133,8 +149,9 @@ impl Apu {
             channel_four: ChannelFour::default(),
             audio_running,
             sample_counter: 0.0,
+            frame_seq_counter: 0,
+            frame_seq_step: 0,
             sample_buffer,
-            // test_phase: 0.0,
         }
     }
 
@@ -142,6 +159,16 @@ impl Apu {
         self.channel_two.step();
 
         self.sample_counter += 1.0;
+        self.frame_seq_counter += 1;
+        if self.frame_seq_counter >= 8192 {
+            self.frame_seq_counter -= 8192;
+            self.frame_seq_step = (self.frame_seq_step + 1) % 8;
+
+            match self.frame_seq_step {
+                0 | 2 | 4 | 6 => self.channel_two.tick_length(),
+                _ => {}
+            }
+        }
         if self.sample_counter >= CYCLES_PER_SAMPLE {
             self.sample_counter -= CYCLES_PER_SAMPLE;
 
