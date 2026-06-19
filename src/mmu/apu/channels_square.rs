@@ -8,11 +8,12 @@ const DUTY_PATTERNS: [u8; 4] = [
 ];
 
 #[derive(Default)]
-pub struct ChannelTwo {
-    pub nr21_ln_timer_duty_cycle: LnTimerDutyCycleReg,
-    pub nr22_volume_envelope: VolumeEnvReg,
-    pub nr23_period_low: PeriodLowReg,
-    pub nr24_period_high_ctrl: PeriodHighCtrlReg,
+pub struct ChannelSquare {
+    pub nr0_sweep: SweepReg,
+    pub nr1_ln_timer_duty_cycle: LnTimerDutyCycleReg,
+    pub nr2_volume_envelope: VolumeEnvReg,
+    pub nr3_period_low: PeriodLowReg,
+    pub nr4_period_high_ctrl: PeriodHighCtrlReg,
 
     freq_timer: u16,
     duty_step: u8,
@@ -22,26 +23,25 @@ pub struct ChannelTwo {
     envelope_timer: u8,
 }
 
-impl ChannelTwo {
+impl ChannelSquare {
     fn dac_enabled(&self) -> bool {
-        (self.nr22_volume_envelope.raw() & 0b1111_1000) != 0
+        (self.nr2_volume_envelope.raw() & 0b1111_1000) != 0
     }
 
     pub fn tick_length(&mut self) {
-        if self.nr24_period_high_ctrl.raw() & 0b0100_0000 != 0 && self.length_counter > 0 {
-            self.length_counter -= 1;
-            if self.length_counter == 0 {
-                self.enabled = false;
+        if self.nr4_period_high_ctrl.raw() & 0b0100_0000 != 0
+            && self.length_counter > 0 {
+                self.length_counter -= 1;
+                if self.length_counter == 0 {
+                    self.enabled = false;
+                }
             }
-        }
     }
 
     pub fn tick_envelope(&mut self) {
-        let period = self.nr22_volume_envelope.raw() & 0b0000_0111;
-
-        if period == 0 {
-            return;
-        }
+        let period = self.nr2_volume_envelope.raw() & 0b0000_0111;
+        
+        if period == 0 { return ; }
 
         if self.envelope_timer > 0 {
             self.envelope_timer -= 1;
@@ -50,9 +50,11 @@ impl ChannelTwo {
         if self.envelope_timer == 0 {
             self.envelope_timer = period;
 
-            if (self.nr22_volume_envelope.raw() & 0b0000_1000) != 0 && self.volume < 15 {
+            if (self.nr2_volume_envelope.raw() & 0b0000_1000) != 0
+                && self.volume < 15 {
                 self.volume += 1;
-            } else if (self.nr22_volume_envelope.raw() & 0b0000_1000) == 0 && self.volume > 0 {
+            } else if (self.nr2_volume_envelope.raw() & 0b0000_1000) == 0
+                && self.volume > 0 {
                 self.volume -= 1;
             }
         }
@@ -62,19 +64,19 @@ impl ChannelTwo {
         self.enabled = true;
         self.freq_timer = (2048 - self.period()) * 4;
 
-        let length_load = self.nr21_ln_timer_duty_cycle.raw() & 0b0011_1111;
+        let length_load = self.nr1_ln_timer_duty_cycle.raw() & 0b0011_1111;
         self.length_counter = 64 - length_load;
         if self.length_counter == 0 {
             self.length_counter = 64;
         }
 
-        self.volume = (self.nr22_volume_envelope.raw() & 0b1111_0000) >> 4;
-        self.envelope_timer = self.nr22_volume_envelope.raw() & 0b0000_0111;
+        self.volume = (self.nr2_volume_envelope.raw() & 0b1111_0000) >> 4;
+        self.envelope_timer = self.nr2_volume_envelope.raw() & 0b0000_0111;
     }
 
     fn period(&self) -> u16 {
-        ((self.nr24_period_high_ctrl.raw() as u16 & 0b0000_0111) << 8)
-            | self.nr23_period_low.raw() as u16
+        ((self.nr4_period_high_ctrl.raw() as u16 & 0b0000_0111) << 8)
+            | self.nr3_period_low.raw() as u16
     }
 
     pub fn step(&mut self) {
@@ -88,7 +90,7 @@ impl ChannelTwo {
     }
 
     fn duty_output(&self) -> u8 {
-        let duty = (self.nr21_ln_timer_duty_cycle.raw() >> 6) & 0b11;
+        let duty = (self.nr1_ln_timer_duty_cycle.raw() >> 6) & 0b11;
         let pattern = DUTY_PATTERNS[duty as usize];
 
         (pattern >> self.duty_step) & 1

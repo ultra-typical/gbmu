@@ -5,16 +5,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::sound::start_audio;
 
-pub mod channel1;
-pub mod channel2;
+pub mod sample_buffer;
+pub mod registers;
+pub mod channels_square;
 pub mod channel3;
 pub mod channel4;
 pub mod registers;
 pub mod sample_buffer;
 
 use crate::mmu::apu::registers::*;
-use channel1::ChannelOne;
-use channel2::ChannelTwo;
+use channels_square::ChannelSquare;
 use channel3::ChannelThree;
 use channel4::ChannelFour;
 use sample_buffer::SampleBuffer;
@@ -30,8 +30,8 @@ pub struct Apu {
 
     wave_ram: [u8; 16],
 
-    channel_one: ChannelOne,
-    channel_two: ChannelTwo,
+    channel_one: ChannelSquare,
+    channel_two: ChannelSquare,
     channel_three: ChannelThree,
     channel_four: ChannelFour,
 
@@ -53,8 +53,8 @@ impl Apu {
             nr51_sound_panning: SoundPanningReg::default(),
             nr52_audio_master_control: AudioMasterControlReg::default(),
             wave_ram: [0; 16],
-            channel_one: ChannelOne::default(),
-            channel_two: ChannelTwo::default(),
+            channel_one: ChannelSquare::default(),
+            channel_two: ChannelSquare::default(),
             channel_three: ChannelThree::default(),
             channel_four: ChannelFour::default(),
             audio_running,
@@ -91,15 +91,15 @@ impl Apu {
 
     pub fn read(&self, addr: u16) -> u8 {
         match addr {
-            0xFF10 => self.channel_one.nr10_sweep.read(),
-            0xFF11 => self.channel_one.nr11_ln_timer_duty_cycle.read(),
-            0xFF12 => self.channel_one.nr12_volume_envelope.read(),
-            0xFF13 => self.channel_one.nr13_period_low.read(),
-            0xFF14 => self.channel_one.nr14_period_high_ctrl.read(),
-            0xFF16 => self.channel_two.nr21_ln_timer_duty_cycle.read(),
-            0xFF17 => self.channel_two.nr22_volume_envelope.read(),
-            0xFF18 => self.channel_two.nr23_period_low.read(),
-            0xFF19 => self.channel_two.nr24_period_high_ctrl.read(),
+            0xFF10 => self.channel_one.nr0_sweep.read(),
+            0xFF11 => self.channel_one.nr1_ln_timer_duty_cycle.read(),
+            0xFF12 => self.channel_one.nr2_volume_envelope.read(),
+            0xFF13 => self.channel_one.nr3_period_low.read(),
+            0xFF14 => self.channel_one.nr4_period_high_ctrl.read(),
+            0xFF16 => self.channel_two.nr1_ln_timer_duty_cycle.read(),
+            0xFF17 => self.channel_two.nr2_volume_envelope.read(),
+            0xFF18 => self.channel_two.nr3_period_low.read(),
+            0xFF19 => self.channel_two.nr4_period_high_ctrl.read(),
             0xFF1A => self.channel_three.nr30_dac_enable.read(),
             0xFF1B => self.channel_three.nr31_ln_timer.read(),
             0xFF1C => self.channel_three.nr32_output_level.read(),
@@ -121,16 +121,16 @@ impl Apu {
     }
     pub fn write(&mut self, addr: u16, value: u8) {
         match addr {
-            0xFF10 => self.channel_one.nr10_sweep.write(value),
-            0xFF11 => self.channel_one.nr11_ln_timer_duty_cycle.write(value),
-            0xFF12 => self.channel_one.nr12_volume_envelope.write(value),
-            0xFF13 => self.channel_one.nr13_period_low.write(value),
-            0xFF14 => self.channel_one.nr14_period_high_ctrl.write(value),
-            0xFF16 => self.channel_two.nr21_ln_timer_duty_cycle.write(value),
-            0xFF17 => self.channel_two.nr22_volume_envelope.write(value),
-            0xFF18 => self.channel_two.nr23_period_low.write(value),
+            0xFF10 => self.channel_one.nr0_sweep.write(value),
+            0xFF11 => self.channel_one.nr1_ln_timer_duty_cycle.write(value),
+            0xFF12 => self.channel_one.nr2_volume_envelope.write(value),
+            0xFF13 => self.channel_one.nr3_period_low.write(value),
+            0xFF14 => self.channel_one.nr4_period_high_ctrl.write(value),
+            0xFF16 => self.channel_two.nr1_ln_timer_duty_cycle.write(value),
+            0xFF17 => self.channel_two.nr2_volume_envelope.write(value),
+            0xFF18 => self.channel_two.nr3_period_low.write(value),
             0xFF19 => {
-                self.channel_two.nr24_period_high_ctrl.write(value);
+                self.channel_two.nr4_period_high_ctrl.write(value);
                 if value & 0b1000_0000 != 0 {
                     self.channel_two.trigger();
                 }
