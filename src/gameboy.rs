@@ -2,17 +2,16 @@
 
 use std::collections::HashSet;
 
-use crate::cpu_def::*;
 use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
+use crate::cpu_def::*;
 use crate::communications::InstructionList;
 use crate::communications::WatchedAdresses;
 use crate::communications::{GameCT, Mode, Request};
 use crate::cpu::defines::Cpu;
 use crate::gui::KeyInput;
-
 use crate::mmu::MemoryMapper;
 
 const FRAME_CYCLES: u32 = 70224;
@@ -101,7 +100,7 @@ impl<M: MemoryMapper> GameBoy<M> {
         let mut debut: Instant;
         let mut mode: GBMode<M> = Self::game_mode;
         loop {
-            // debut = Instant::now();
+            debut = Instant::now();
             ct.poll_requests()
                 .into_iter()
                 .for_each(|request| self.treat_request(request, &mut mode));
@@ -114,11 +113,11 @@ impl<M: MemoryMapper> GameBoy<M> {
             if self.should_get_fps {
                 ct.update_fps(Self::calculate_fps(&mut before))?;
             }
-            // let wanted_duration = Duration::from_micros(GAME_REFRESH_PERIOD_IN_MILLIS);
-            // let duration_elapsed = debut.elapsed();
-            // if wanted_duration > duration_elapsed {
-            //     Self::cap_frame(wanted_duration, duration_elapsed);
-            // }
+            let wanted_duration = Duration::from_micros(GAME_REFRESH_PERIOD_IN_MILLIS);
+            let duration_elapsed = debut.elapsed();
+            if wanted_duration > duration_elapsed {
+                Self::cap_frame(wanted_duration, duration_elapsed);
+            }
         }
         Ok(self.ram_dump())
     }
@@ -265,6 +264,7 @@ impl<M: MemoryMapper> GameBoy<M> {
         }
 
         self.bus.tick_ppu(ct);
+        self.bus.tick_apu();
     }
 
     fn game_mode(&mut self, key_input: &KeyInput, ct: &mut Box<dyn GameCT>) {

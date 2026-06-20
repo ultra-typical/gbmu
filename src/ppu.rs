@@ -6,19 +6,24 @@ mod pixel_fifo;
 mod obj_piso;
 mod pixel_fetcher;
 mod oam_fetcher;
+pub mod vram;
 
-use crate::communications::GameCT;
-use crate::mmu::{MemoryMapper};
-use crate::mmu::oam::Sprite;
-use crate::ppu::colors_palette::Color;
+pub type DmgPpu = Ppu<DmgVram, PixelFetcher<DmgVram>, Oam>;
+pub type CgbPpu = Ppu<CgbVram, PixelFetcher<CgbVram>, Oam>;
 use crate::ppu::lcd_control::LcdControl;
-use crate::ppu::lcd_status::LcdStatus;
+
+
 use crate::ppu::lcd_status::PpuMode;
+use crate::communications::GameCT;
+use crate::mmu::oam::{Oam, Sprite};
+use crate::ppu::colors_palette::Color;
+use crate::ppu::lcd_status::LcdStatus;
 use crate::ppu::pixel::Pixel;
 use crate::ppu::pixel_fifo::PixelFifo;
 use crate::ppu::obj_piso::ObjPiso;
-use crate::ppu::pixel_fetcher::PixelFetcher;
+use crate::ppu::pixel_fetcher::{PFetcher, PixelFetcher};
 use crate::ppu::oam_fetcher::OamFetcher;
+use crate::ppu::vram::{CgbVram, DmgVram, Vram};
 
 pub const WIN_SIZE_X: usize = 160;
 pub const WIN_SIZE_Y: usize = 144;
@@ -26,16 +31,45 @@ pub const WIN_SIZE_Y: usize = 144;
 const OAM_DOTS: u32 = 80;
 const SCANLINE_DOTS: u32 = 456;
 
+pub trait PixelProcessor {
+    fn new() -> Self where Self: Sized;
+    fn read_vram(&self, addr: u16) -> u8;
+    fn read_register(&self, addr: u16) -> u8;
+    fn write_vram(&mut self, addr: u16, val: u8);
+    fn write_register(&mut self, addr: u16, val: u8);
+    fn tick(&mut self, ct: &mut Box<dyn GameCT>);
 
-pub struct GbaPpu {
+    fn read_oam(&mut self, addr: u16) -> u8; // mut read for bug on read
+    fn write_oam(&mut self, addr: u16, value: u8);
+
+    
+    fn pending_vblank(&self) -> bool;
+    fn set_pending_vblank(&mut self, value: bool);
+    fn pending_stat(&self) -> bool;
+    fn set_pending_stat(&mut self, value: bool);
+}
+
+pub trait ObjectManager {
+    fn new() -> Self where Self: Sized;
+
+    fn read(&mut self, addr: u16) -> u8; // mut read for bug
+    fn write(&mut self, addr: u16, value:  u8);
+
+    fn set_accessed_oam_row(&mut self, value: u8);
+    fn update_accessed_oam_row(&mut self, value: u8);
+    fn accessed_oam_row(&mut self) -> u8;
+    fn sprite(&mut self, index: u8) -> &mut Sprite;
+}
+
+pub struct Ppu<V: Vram, P: PFetcher<V>, O: ObjectManager> {
     pub dots: u32,
     lcd_status: LcdStatus,
     wly: u8,
     ly: u8,
     internal_ly: u8,
     x: usize,
-    pixel_fetcher: PixelFetcher,
-    oam_fetcher: OamFetcher,
+    pixel_fetcher: P,
+    oam_fetcher: OamFetcher<V>,
     bg_fifo: PixelFifo,
     obj_piso: ObjPiso,
     visible_sprites: [Option<Sprite>; 10],
@@ -66,22 +100,25 @@ pub struct GbaPpu {
     // Pending interrupts to be drained by MMU after tick
     pub pending_vblank: bool,
     pub pending_stat: bool,
+    vram: V,
+    oam: O,
 }
 
-pub struct CgbPpu {
+impl <V: Vram, P: PFetcher<V>, O: ObjectManager> PixelProcessor for Ppu<V, P, O> {
+    fn pending_vblank(&self) -> bool {self.pending_vblank}
+    fn set_pending_vblank(&mut self, value: bool) { self.pending_vblank = value}
+    fn pending_stat(&self) -> bool {self.pending_stat}
+    fn set_pending_stat(&mut self, value: bool) {self.pending_stat = value}
 
-}
-
-impl GbaPpu {
-    pub fn new() -> Self {
-        GbaPpu {
+    fn new() -> Self {
+        Self {
             dots: 0,
             lcd_status: LcdStatus::new(),
             wly: 0x00,
             ly: 0x00,
             internal_ly: 0x00,
             x: 0,
-            pixel_fetcher: PixelFetcher::default(),
+            pixel_fetcher: P::new(),
             oam_fetcher: OamFetcher::default(),
             bg_fifo: PixelFifo::default(),
             obj_piso: ObjPiso::default(),
@@ -111,10 +148,28 @@ impl GbaPpu {
             wx: 0x00,
             pending_vblank: false,
             pending_stat: false,
+            vram: V::new(),
+            oam: O::new(),
         }
     }
 
-    pub fn read_register(&self, addr: u16) -> u8 {
+    fn read_oam(&mut self, addr: u16) -> u8 {
+        self.oam.read(addr)
+    }
+
+    fn write_oam(&mut self, addr: u16, value: u8) {
+        self.oam.write(addr, value);
+    }
+
+    fn write_vram(&mut self, addr: u16, val: u8) {
+        self.vram.write(addr, val);
+    }
+
+    fn read_vram(&self, addr: u16) -> u8 {
+        self.vram.read(addr)
+    }
+
+    fn read_register(&self, addr: u16) -> u8 {
         match addr {
             0xFF40 => self.lcdc_byte,
             0xFF41 => self.lcd_status.struct_to_byte(),
@@ -131,7 +186,7 @@ impl GbaPpu {
         }
     }
 
-    pub fn write_register(&mut self, addr: u16, val: u8) {
+    fn write_register(&mut self, addr: u16, val: u8) {
         match addr {
             0xFF40 => self.lcdc_byte = val,
             0xFF41 => {
@@ -152,6 +207,98 @@ impl GbaPpu {
         }
     }
 
+    fn tick(&mut self, ct: &mut Box<dyn GameCT>) {
+        self.check_lyc_equals_ly();
+
+        if !self.read_lcdc().is_ppu_enabled() {
+            self.reset_when_ppu_disabled();
+            return;
+        }
+
+        if !self.lcd_was_enabled {
+            self.is_first_scanline_after_lcd_on = true;
+            self.lcd_was_enabled = true;
+        }
+
+        self.dots += 1;
+
+        if self.wy == self.ly {
+            self.wy_equal_ly_condition_met = true;
+        }
+
+        match self.lcd_status.get_ppu_mode() {
+            PpuMode::OamSearch => self.mode_oam_search(),
+            PpuMode::PixelTransfer => self.mode_pixel_transfer(ct),
+            PpuMode::HBlank => self.mode_hblank(),
+            PpuMode::VBlank => self.mode_vblank(),
+        };
+
+        self.evaluate_stat_interrupt();
+    }
+}
+
+impl<V: Vram, P: PFetcher<V>, O: ObjectManager> Ppu<V, P, O> {
+    fn step_oam_fetcher(&mut self) {
+
+        let height: u8 = if LcdControl::from_byte(self.lcdc_byte).is_obj_size_8x16() { 16 } else { 8 };
+
+        if self.fetching_sprite {
+            if let Some(index) = self.current_sprite_to_fetch
+                && let Some(sprite) = self.visible_sprites[index]
+            {
+                self.fetching_sprite = !self.oam_fetcher.tick(
+                    &self.vram,
+                    &sprite,
+                    &mut self.obj_piso,
+                    self.ly,
+                    height,
+                    self.x,
+                    self.obp0,
+                    self.obp1,
+                );
+
+                if !self.fetching_sprite {
+                    self.visible_sprites[index] = None;
+
+                    let remaining_pixels = self.bg_fifo.len() as u8;
+                    if remaining_pixels < 6 {
+                        self.stall_dots = 6 - remaining_pixels;
+                    }
+                }
+            };
+        } else {
+            if !LcdControl::from_byte(self.lcdc_byte).is_obj_enabled() {
+                return;
+            }
+
+            for (index, sprite_opt) in self.visible_sprites.iter_mut().enumerate() {
+                if let Some(sprite) = sprite_opt
+                    && sprite.x as usize <= self.x + 8
+                {
+                    self.current_sprite_to_fetch = Some(index);
+                    self.pixel_fetcher.reset_to_state_1();
+
+                    self.fetching_sprite = !self.oam_fetcher.tick(
+                        &self.vram,
+                        sprite,
+                        &mut self.obj_piso,
+                        self.ly,
+                        height,
+                        self.x,
+                        self.obp0,
+                        self.obp1,
+                    );
+
+                    if !self.fetching_sprite {
+                        *sprite_opt = None;
+                    }
+
+                    break;
+                }
+            }
+        }
+    }
+
     fn read_lcdc(&self) -> LcdControl {
         LcdControl::from_byte(self.lcdc_byte)
     }
@@ -161,7 +308,7 @@ impl GbaPpu {
         Color::from_index(index)
     }
 
-    fn sort_sprites_by_x(&self) -> Vec<Sprite> {
+    fn sort_sprites_by_x(&mut self) -> Vec<Sprite> {
         let mut sprites: Vec<(usize, Sprite)> = self.visible_sprites
             .iter()
             .enumerate()
@@ -179,9 +326,9 @@ impl GbaPpu {
         sprites.into_iter().map(|(_, s)| s).collect()
     }
 
-    fn mode_oam_search<M: MemoryMapper>(&mut self, bus: &mut M) {
+    fn mode_oam_search(&mut self) {
         if self.dots == 1 {
-            bus.set_accessed_oam_row(0);
+            self.oam.set_accessed_oam_row(0);
             self.oam_scan_index = 0;
             self.visible_sprites_count = 0;
             self.visible_sprites = [None; 10];
@@ -193,22 +340,21 @@ impl GbaPpu {
         }
 
         if self.dots.is_multiple_of(2) && self.oam_scan_index < 40 {
-            let oam = bus.get_oam_reader();
+            let sprite = self.oam.sprite(self.oam_scan_index);
 
-            let mut sprite = oam.sprites[self.oam_scan_index as usize];
-            
             if sprite.is_visible(self.ly, self.current_obj_height)
                 && self.visible_sprites_count < 10
             {
                 sprite.oam_index = self.oam_scan_index;
-                self.visible_sprites[self.visible_sprites_count as usize] = Some(sprite);
+                let visible_sprites_count = self.visible_sprites_count;
+                self.visible_sprites[visible_sprites_count as usize] = Some(*sprite);
                 self.visible_sprites_count += 1;
             }
             self.oam_scan_index += 1;
         }
 
         if self.dots.is_multiple_of(4) {
-            bus.update_accessed_oam_row(8);
+            self.oam.update_accessed_oam_row(8);
         }
 
         if self.dots >= OAM_DOTS {
@@ -220,7 +366,7 @@ impl GbaPpu {
             }
 
             self.update_ppu_mode(PpuMode::PixelTransfer);
-            bus.set_accessed_oam_row(0xFF);
+            self.oam.set_accessed_oam_row(0xFF);
         }
     }
 
@@ -228,22 +374,21 @@ impl GbaPpu {
         if !self.use_window && use_window {
             self.pixel_fetcher.reset_for_window();
             self.bg_fifo.clear();
-
-            self.wx_at_window_start = self.wx;
-            self.pixels_to_discard = 0;
+            let wx = self.wx;
+            self.wx_at_window_start=wx;
+            self.pixels_to_discard=0;
         }
 
         self.use_window = use_window;
 
-        let wx = self.wx;
         if self.use_window
-            && wx != self.wx_at_window_start
-            && self.x + 7 >= wx as usize
+            && self.wx != self.wx_at_window_start
+            && self.x + 7 >= self.wx as usize
             && !self.is_wx_glitch_happened
         {
             let glitched_pixel = Pixel::new_bg(self.apply_background_palette(0), 0);
             self.bg_fifo.push(glitched_pixel);
-            self.is_wx_glitch_happened = true;
+            self.is_wx_glitch_happened=true;
         }
     }
 
@@ -282,23 +427,23 @@ impl GbaPpu {
                 let ly = self.ly as usize;
                 let offset = ly * WIN_SIZE_X + self.x;
                 ct.put_pixel_to_frame(offset, final_color);
-                self.x += 1;
+                let x = self.x;
+                self.x = x + 1;
             }
         }
     }
 
-    fn step_pixel_fetcher<M: MemoryMapper>(&mut self, use_window: bool, bus: &mut M) {
-        let lcdc = self.read_lcdc();
+    fn step_pixel_fetcher(&mut self, use_window: bool) {
         let tile_pixels = self.pixel_fetcher.tick(
-            bus,
-            &self.bg_fifo,
-            self.ly,
-            self.scx,
-            self.scy,
-            self.wly,
-            &lcdc,
-            use_window,
-            self.bgp,
+			&self.bg_fifo,
+            &self.vram,
+			self.ly,
+			self.scx,
+			self.scy,
+			self.wly,
+			&LcdControl::from_byte(self.lcdc_byte),
+			use_window,
+			self.bgp,
         );
 
         if let Some(pixels) = tile_pixels {
@@ -308,67 +453,7 @@ impl GbaPpu {
         }
     }
 
-    fn step_oam_fetcher<M: MemoryMapper>(&mut self, bus: &mut M) {
-        let height: u8 = if self.read_lcdc().is_obj_size_8x16() { 16 } else { 8 };
-
-        if self.fetching_sprite {
-            if let Some(index) = self.current_sprite_to_fetch
-                && let Some(sprite) = self.visible_sprites[index]
-            {
-                self.fetching_sprite = !self.oam_fetcher.tick(
-                    bus,
-                    &sprite,
-                    &mut self.obj_piso,
-                    self.ly,
-                    height,
-                    self.x,
-                    self.obp0,
-                    self.obp1,
-                );
-
-                if !self.fetching_sprite {
-                    self.visible_sprites[index] = None;
-
-                    let remaining_pixels = self.bg_fifo.len() as u8;
-                    if remaining_pixels < 6 {
-                        self.stall_dots = 6 - remaining_pixels;
-                    }
-                }
-            };
-        } else {
-            if !self.read_lcdc().is_obj_enabled() {
-                return;
-            }
-
-            for (index, sprite_opt) in self.visible_sprites.iter_mut().enumerate() {
-                if let Some(sprite) = sprite_opt
-                    && sprite.x as usize <= self.x + 8
-                {
-                    self.current_sprite_to_fetch = Some(index);
-                    self.pixel_fetcher.reset_to_state_1();
-
-                    self.fetching_sprite = !self.oam_fetcher.tick(
-                        bus,
-                        sprite,
-                        &mut self.obj_piso,
-                        self.ly,
-                        height,
-                        self.x,
-                        self.obp0,
-                        self.obp1,
-                    );
-
-                    if !self.fetching_sprite {
-                        *sprite_opt = None;
-                    }
-
-                    break;
-                }
-            }
-        }
-    }
-
-    fn mode_pixel_transfer<M: MemoryMapper>(&mut self, bus: &mut M, ct: &mut Box<dyn GameCT>) {
+    fn mode_pixel_transfer(&mut self, ct: &mut Box<dyn GameCT>) {
         if self.ly < WIN_SIZE_Y as u8 {
             let wx = self.wx;
 
@@ -376,10 +461,10 @@ impl GbaPpu {
                 && self.wy_equal_ly_condition_met
                 && (self.x + 7 >= wx as usize);
 
-            self.step_oam_fetcher(bus);
+            self.step_oam_fetcher();
 
             if !self.fetching_sprite {
-                self.step_pixel_fetcher(use_window, bus);
+                self.step_pixel_fetcher(use_window);
                 if self.stall_dots > 0 {
                     self.stall_dots -= 1;
                 } else {
@@ -395,26 +480,23 @@ impl GbaPpu {
     }
 
     fn reset_for_new_scanline(&mut self) {
-        self.x = 0;
+        self.x =  0;
         self.bg_fifo.clear();
         self.obj_piso.reset();
         self.pixel_fetcher.reset_for_scanline();
         self.pixels_to_discard = self.scx % 8;
         self.use_window = false;
-        self.is_wx_glitch_happened = false;
-        self.is_first_scanline_after_lcd_on = false;
+        self.is_wx_glitch_happened=false;
+        self.is_first_scanline_after_lcd_on=false;
         self.stall_dots = 0;
     }
 
     fn advance_to_next_scanline(&mut self) {
-        let wy = self.wy;
-        let wx = self.wx;
-
-        if self.read_lcdc().is_window_enabled() && self.ly >= wy && wx <= 166 {
-            self.wly += 1;
+        if self.read_lcdc().is_window_enabled() && self.ly >= self.wy && self.wx <= 166 && self.wly < WIN_SIZE_Y as u8 {
+            self.wly  += 1;
         }
 
-        self.ly += 1;
+        self.ly  += 1;
         self.internal_ly += 1;
 
         self.check_lyc_equals_ly();
@@ -481,45 +563,16 @@ impl GbaPpu {
     }
 
     fn reset_when_ppu_disabled(&mut self) {
-        self.ly = 0;
-        self.internal_ly = 0;
+        self.ly = 0 ;
+        self.internal_ly = 0 ;
 
-        self.dots = 0;
+        self.dots = 0 ;
         self.update_ppu_mode(PpuMode::HBlank);
 
-        self.lcd_was_enabled = false;
-        self.stat_interrupt_line = false;
+        self.lcd_was_enabled = false ;
+        self.stat_interrupt_line = false ;
     }
 
-    pub fn tick<M: MemoryMapper>(&mut self, bus: &mut M, ct: &mut Box<dyn GameCT>) {
-        self.check_lyc_equals_ly();
-
-        if !self.read_lcdc().is_ppu_enabled() {
-            self.reset_when_ppu_disabled();
-            return;
-        }
-
-        if !self.lcd_was_enabled {
-            self.is_first_scanline_after_lcd_on = true;
-            self.lcd_was_enabled = true;
-        }
-
-        self.dots += 1;
-
-        let wy = self.wy;
-        if wy == self.ly {
-            self.wy_equal_ly_condition_met = true;
-        }
-
-        match self.lcd_status.get_ppu_mode() {
-            PpuMode::OamSearch => self.mode_oam_search(bus),
-            PpuMode::PixelTransfer => self.mode_pixel_transfer(bus, ct),
-            PpuMode::HBlank => self.mode_hblank(),
-            PpuMode::VBlank => self.mode_vblank(),
-        };
-
-        self.evaluate_stat_interrupt();
-    }
 
     fn check_lyc_equals_ly(&mut self) {
         let lyc_match = self.ly == self.lyc;
@@ -539,4 +592,5 @@ impl GbaPpu {
 
         self.stat_interrupt_line = current_line;
     }
+
 }

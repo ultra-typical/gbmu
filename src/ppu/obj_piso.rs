@@ -4,7 +4,7 @@
 use crate::ppu::pixel::Pixel;
 use crate::ppu::colors_palette::Color;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ObjPiso {
     pixels: [Pixel; 8],
 }

@@ -1,3 +1,5 @@
+use crate::ppu::ObjectManager;
+
 const OAM_BEGINNING: u16 = 0xFE00;
 
 #[derive(Clone, Copy)]
@@ -34,23 +36,43 @@ impl Sprite {
 
 pub struct Oam {
 	pub sprites: [Sprite; 40],
+    accessed_oam_row: u8,
 }
 
 impl Default for Oam {
 	fn default() -> Self {
-		Self { sprites: [Sprite::default(); 40] }
+		Self { sprites: [Sprite::default(); 40] , accessed_oam_row: 0xFF}
 	}
 }
 
-impl Oam {
-	pub fn new() -> Self {
+impl ObjectManager for  Oam {
+	fn new() -> Self {
 		Default::default()
 	}
-
-	pub fn read(&self, addr: u16) -> u8 {
+	fn read(&mut self, addr: u16) -> u8 {
+        if self.accessed_oam_row != 0xFF {
+            self.trigger_oam_bug_read(self.accessed_oam_row);
+        }
         self.read_raw((addr - OAM_BEGINNING) as u8)
 	}
+	fn write(&mut self, addr: u16, val: u8) {
+        if self.accessed_oam_row != 0xFF {
+            self.trigger_oam_bug_read_increase(self.accessed_oam_row);
+        }
+        self.write_raw((addr - OAM_BEGINNING) as u8, val);
+    }
+    fn set_accessed_oam_row(&mut self, value: u8) { self.accessed_oam_row = value; }
+    fn update_accessed_oam_row(&mut self, value: u8) {
+        self.accessed_oam_row += value;
+    }
+    fn accessed_oam_row(&mut self) -> u8 { self.accessed_oam_row }
 
+    fn sprite(&mut self, index: u8) -> &mut Sprite {
+        &mut self.sprites[index as usize]
+    }
+}
+
+impl Oam {
 	pub fn read_raw(&self, offset: u8) -> u8 {
 		let sprite = (offset / 4) as usize;
 		let byte = (offset % 4) as usize;
@@ -71,9 +93,6 @@ impl Oam {
         ((byte_1  as u16) << 8) | byte_2 as u16
     }
 
-	pub fn write(&mut self, addr: u16, val: u8) {
-        self.write_raw((addr - OAM_BEGINNING) as u8, val);
-	}
 
 	pub fn write_raw(&mut self, offset: u8, val: u8) {
 		let sprite = (offset / 4) as usize;
@@ -209,6 +228,7 @@ impl Oam {
 mod tests {
     use super::Oam;
     use super::Sprite;
+    use crate::ppu::ObjectManager;
 
     #[test]
     fn test_write_sprite_0_y_position() {

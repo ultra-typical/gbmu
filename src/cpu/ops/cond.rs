@@ -1,5 +1,5 @@
 
-use crate::cpu_def::Reg8;
+use crate::cpu_def::*;
 use crate::{
     cpu::{
         defines::{Cpu, Flag},

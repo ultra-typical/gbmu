@@ -1,4 +1,5 @@
-use crate::mmu::{MemoryMapper};
+use std::marker::PhantomData;
+
 use crate::ppu::lcd_control::LcdControl;
 use crate::ppu::pixel::Pixel;
 use crate::ppu::colors_palette::Color;
@@ -17,8 +18,24 @@ pub enum FetcherState {
     PushPixel = 4,
 }
 
-#[derive(Default)]
-pub struct PixelFetcher {
+use super::Vram;
+
+pub trait PFetcher<V> {
+    #[allow(clippy::too_many_arguments)]
+    fn tick(&mut self, fifo: &PixelFifo, vram: &V, ly: u8, scx: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool, bgp: u8) -> Option<[Pixel; 8]>;
+    fn reset_for_window(&mut self);
+
+    fn reset_to_state_1(&mut self);
+    fn reset_for_scanline(&mut self);
+
+    fn new() -> Self where Self: Sized;
+}
+
+
+#[derive(Default, Copy, Clone)]
+pub struct PixelFetcher<V: Vram>{
+    phantom: PhantomData<V>,
+
     fetcher_state: FetcherState,
     tile_id: u8,
     tile_data_low: u8,
@@ -28,9 +45,12 @@ pub struct PixelFetcher {
     first_fetch_done: bool,
 }
 
-impl PixelFetcher {
+impl <V: Vram + Default>PFetcher<V> for PixelFetcher<V> {
+    fn new() -> Self {
+        PixelFetcher::default() 
+    }
     #[allow(clippy::too_many_arguments)]
-    pub fn tick<M: MemoryMapper>(&mut self, bus: &mut M, fifo: &PixelFifo, ly: u8, scx: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool, bgp: u8) -> Option<[Pixel; 8]> {
+    fn tick(&mut self, fifo: &PixelFifo, vram: &V, ly: u8, scx: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool, bgp: u8) -> Option<[Pixel; 8]> {
         self.dot_counter = self.dot_counter.wrapping_add(1);
 
         if self.fetcher_state == FetcherState::PushPixel && fifo.is_empty() {
@@ -43,17 +63,17 @@ impl PixelFetcher {
         } else if self.dot_counter.is_multiple_of(2) {
             match self.fetcher_state {
                 FetcherState::GetTileId => {
-                    self.tile_id = self.get_tile_id(bus, ly, scx, scy, wly, lcd_control, use_window);
+                    self.tile_id = self.get_tile_id(vram, ly, scx, scy, wly, lcd_control, use_window);
                     self.fetcher_state = FetcherState::GetLowData;
                     None
                 },
                 FetcherState::GetLowData => {
-                    self.tile_data_low = self.get_tile_data_low(bus, ly, scy, wly, lcd_control, use_window);
+                    self.tile_data_low = self.get_tile_data_low(vram, ly, scy, wly, lcd_control, use_window);
                     self.fetcher_state = FetcherState::GetHighData;
                     None
                 },
                 FetcherState::GetHighData => {
-                    self.tile_data_high = self.get_tile_data_high(bus, ly, scy, wly, lcd_control, use_window);
+                    self.tile_data_high = self.get_tile_data_high(vram, ly, scy, wly, lcd_control, use_window);
                     if self.first_fetch_done {
                         if fifo.is_empty() {
                             let tile: Option<[Pixel; 8]> = self.push_pixel(bgp);
@@ -81,26 +101,31 @@ impl PixelFetcher {
         }
     }
 
+    fn reset_for_window(&mut self) {
+        self.reset_internal(true);
+    }
+
+    fn reset_for_scanline(&mut self) {
+        self.reset_internal(false);
+    }
+
+    fn reset_to_state_1(&mut self) {
+        self.fetcher_state = FetcherState::GetTileId;
+    }
+}
+
+impl <V: Vram>PixelFetcher<V> {
     fn reset_internal(&mut self, first_fetch_done: bool) {
         self.fetcher_state = FetcherState::GetTileId;
         self.fetcher_x = 0;
         self.first_fetch_done = first_fetch_done;
     }
 
-    pub fn reset_for_scanline(&mut self) {
-        self.reset_internal(false);
-    }
 
-    pub fn reset_for_window(&mut self) {
-        self.reset_internal(true);
-    }
 
-    pub fn reset_to_state_1(&mut self) {
-        self.fetcher_state = FetcherState::GetTileId;
-    }
 
     #[allow(clippy::too_many_arguments)]
-    fn get_tile_id<M: MemoryMapper>(&mut self, bus: &mut M, ly: u8, scx: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
+    fn get_tile_id(&self, vram: &V, ly: u8, scx: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
         let tilemap_base: std::ops::Range<u16> = if use_window {
             lcd_control.window_tile_map_area()
         } else {
@@ -121,10 +146,11 @@ impl PixelFetcher {
 
         let offset = (y * 32 + x) as u16;
 
-        bus.read_byte(tilemap_base.start + offset)
+        vram.read(tilemap_base.start + offset)
     }
 
-    fn get_tile_data_low<M: MemoryMapper>(&mut self, bus: &mut M, ly: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
+
+    fn get_tile_data_low(&self, vram: &V, ly: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
         let y = if use_window {
             wly as usize
         } else {
@@ -135,18 +161,18 @@ impl PixelFetcher {
 
         if lcd_control.bg_window_tile_data_area().start == TILE_DATA_1_START {
             let tilemap_base = TILE_DATA_1_START + (self.tile_id as u16) * 16;
-            bus.read_byte(tilemap_base + correct_byte as u16)
+            vram.read(tilemap_base + correct_byte as u16)
         } else if lcd_control.bg_window_tile_data_area().start == TILE_DATA_0_START {
             let base = 0x9000u16;
             let offset = (self.tile_id as i8) as i16 * 16;
             let tilemap_base = base.wrapping_add_signed(offset);
-            bus.read_byte(tilemap_base + correct_byte as u16)
+            vram.read(tilemap_base + correct_byte as u16)
         } else {
             unreachable!()
         }
     }
 
-    fn get_tile_data_high<M: MemoryMapper>(&mut self, bus: &mut M, ly: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
+    fn get_tile_data_high(&self, vram: &V, ly: u8, scy: u8, wly: u8, lcd_control: &LcdControl, use_window: bool) -> u8 {
         let y = if use_window {
             wly as usize
         } else {
@@ -157,12 +183,12 @@ impl PixelFetcher {
 
         if lcd_control.bg_window_tile_data_area().start == TILE_DATA_1_START {
             let tilemap_base = TILE_DATA_1_START + (self.tile_id as u16) * 16;
-            bus.read_byte(tilemap_base + correct_byte as u16)
+            vram.read(tilemap_base + correct_byte as u16)
         } else if lcd_control.bg_window_tile_data_area().start == TILE_DATA_0_START {
             let base = 0x9000u16;
             let offset = (self.tile_id as i8) as i16 * 16;
             let tilemap_base = base.wrapping_add_signed(offset);
-            bus.read_byte(tilemap_base + correct_byte as u16)
+            vram.read(tilemap_base + correct_byte as u16)
         } else {
             unreachable!()
         }
@@ -173,7 +199,7 @@ impl PixelFetcher {
         Color::from_index(index)
     }
 
-    fn push_pixel(&mut self, bgp: u8) -> Option<[Pixel; 8]> {
+    fn push_pixel(&self, bgp: u8) -> Option<[Pixel; 8]> {
         let mut tile_pixels = [Pixel::default(); 8];
 
         for i in 0..8 {

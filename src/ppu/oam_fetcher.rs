@@ -1,6 +1,8 @@
-use crate::mmu::{MemoryMapper};
+use std::marker::PhantomData;
+
 use crate::mmu::oam::Sprite;
 use crate::ppu::obj_piso::ObjPiso;
+use crate::ppu::vram::Vram;
 
 const VRAM_START: u16 = 0x8000;
 
@@ -13,8 +15,8 @@ pub enum FetcherState {
     PushPixel = 3,
 }
 
-#[derive(Default)]
-pub struct OamFetcher {
+pub struct OamFetcher<V: Vram> {
+    phantom: PhantomData<Option<V>>,
     fetcher_state: FetcherState,
     tile_id: u8,
     tile_data_low: u8,
@@ -23,9 +25,23 @@ pub struct OamFetcher {
     actual_sprite_line: usize,
 }
 
-impl OamFetcher {
+impl <V: Vram> Default for OamFetcher<V> {
+    fn default() -> Self {
+        Self {
+            phantom: PhantomData,
+            fetcher_state: FetcherState::default(),
+            tile_id: 0,
+            tile_data_low: 0,
+            tile_data_high: 0,
+            dot_counter: 0,
+            actual_sprite_line: 0,
+        }
+    }
+}
+
+impl <V: Vram>OamFetcher<V> {
     #[allow(clippy::too_many_arguments)]
-    pub fn tick<M: MemoryMapper>(&mut self, bus: &mut M, sprite: &Sprite, piso: &mut ObjPiso, ly: u8, height: u8, scanline_x: usize, obp0: u8, obp1: u8) -> bool {
+    pub fn tick(&mut self, vram: &V, sprite: &Sprite, piso: &mut ObjPiso, ly: u8, height: u8, scanline_x: usize, obp0: u8, obp1: u8) -> bool {
         self.dot_counter = self.dot_counter.wrapping_add(1);
 
         if self.dot_counter.is_multiple_of(2) {
@@ -37,13 +53,13 @@ impl OamFetcher {
                     return false;
                 },
                 FetcherState::GetLowData => {
-                    self.tile_data_low = self.get_tile_data_low(bus);
+                    self.tile_data_low = self.get_tile_data_low(vram);
                     self.fetcher_state = FetcherState::GetHighData;
 
                     return false;
                 },
                 FetcherState::GetHighData => {
-                    self.tile_data_high = self.get_tile_data_high(bus);
+                    self.tile_data_high = self.get_tile_data_high(vram);
                     self.fetcher_state = FetcherState::PushPixel;
 
                     return false;
@@ -74,18 +90,18 @@ impl OamFetcher {
         tile_index
     }
 
-    fn get_tile_data_low<M: MemoryMapper>(&mut self, bus: &mut M) -> u8 {
+    fn get_tile_data_low(&mut self, vram: &V) -> u8 {
         let tile_address = VRAM_START
             + (self.tile_id as u16 * 16)
             + (self.actual_sprite_line % 8 * 2) as u16;
-        bus.read_byte(tile_address)
+        vram.read(tile_address)
     }
 
-    fn get_tile_data_high<M: MemoryMapper>(&mut self, bus: &mut M) -> u8 {
+    fn get_tile_data_high(&mut self, vram: &V) -> u8 {
         let tile_address = VRAM_START
             + (self.tile_id as u16 * 16)
             + (self.actual_sprite_line % 8 * 2) as u16;
-        bus.read_byte(tile_address + 1)
+        vram.read(tile_address + 1)
     }
 
     fn extract_attributes(&self, attributes: u8) -> (bool, bool, bool, bool) {

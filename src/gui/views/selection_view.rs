@@ -43,6 +43,14 @@ impl SelectionDevice {
     }
 
     fn display(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if let Some(path) = ui.ctx().input(|i| {
+            i.raw.dropped_files
+                .first()
+                .and_then(|file| file.path.clone())
+        }) {
+            self.path = path.to_string_lossy().to_string();
+        }
+
         egui::Panel::right("history_panel")
             .show_inside(ui, |ui| {
                 ui.heading("History");

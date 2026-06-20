@@ -1,17 +1,19 @@
 #[cfg(test)]
 mod tests {
-    use crate::cpu::defines::Flag;
-    use crate::cpu::flags::FlagsOps;
     use crate::cpu_def::*;
+    use crate::cpu::defines::Flag;
+    use crate::mmu::timers::DmgTimers;
+    use crate::ppu::DmgPpu;
+    use crate::mmu::MemoryMapper;
+    use crate::cpu::flags::FlagsOps;
+    use crate::mmu::DmgMmu;
     use crate::gameboy::GameBoy;
-    use crate::mmu::GbaMmu;
-use crate::mmu::mbc;
     use crate::mmu::mbc::*;
 
     // Creates a GameBoy with the given first opcode and pads with NOPs so post-instruction
     // fetch never goes out of bounds. Tests operate on the GameBoy and its inner CPU (`gb.cpu`).
-    fn gb<M>(opcode: u8) -> GameBoy<GbaMmu<RomOnly>> {
-        let mut gb: GameBoy<GbaMmu<RomOnly>> =
+    fn gb<M>(opcode: u8) -> GameBoy<DmgMmu<RomOnly, DmgTimers, DmgPpu>> {
+        let mut gb: GameBoy<DmgMmu<RomOnly, DmgTimers, DmgPpu>> =
             GameBoy::new(None, Vec::new(), None).expect("Failed to create gb");
         gb.bus.write_byte(0x8000, opcode);
         gb.cpu.r8 = Default::default(); //mental retardation
@@ -19,7 +21,7 @@ use crate::mmu::mbc;
         gb
     }
 
-    fn ticks(gb: &mut GameBoy<GbaMmu<mbc::RomOnly>>, n: usize) {
+    fn ticks(gb: &mut GameBoy<DmgMmu<RomOnly, DmgTimers, DmgPpu>>, n: usize) {
         for _ in 0..n {
             gb.cpu.tick(&mut gb.bus);
         }
@@ -27,7 +29,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_00_noop() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x00);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x00);
         c.cpu.set_r16::<PC>(0x8000); // set correct pc lo
         c.cpu.first_read(&mut c.bus);
         ticks(&mut c, 1);
@@ -52,7 +54,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_01_ld_bc_d16() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x01);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x01);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x34);
         c.bus.write_byte(0x8002, 0x12);
@@ -64,7 +66,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_02_ld_a_bc() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x02);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x02);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0xAB);
         c.cpu.set_r16::<BC>(0x8003);
@@ -74,7 +76,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_03_inc_bc() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x03);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x03);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<BC>(0x1234);
         ticks(&mut c, 1);
@@ -83,7 +85,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_04_inc_b_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x04);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x04);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<B>(0xFE);
         ticks(&mut c, 1);
@@ -95,7 +97,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_04_inc_b_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x04);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x04);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<B>(0x0F);
         ticks(&mut c, 1);
@@ -108,7 +110,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_0c_inc_c_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x0C);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x0C);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<C>(0xFE);
         ticks(&mut c, 1);
@@ -120,7 +122,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_0c_inc_c_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x0C);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x0C);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<C>(0x0F);
         ticks(&mut c, 1);
@@ -132,7 +134,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_14_inc_d_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x14);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x14);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<D>(0xFE);
         ticks(&mut c, 1);
@@ -144,7 +146,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_14_inc_d_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x14);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x14);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<D>(0x0F);
         ticks(&mut c, 1);
@@ -156,7 +158,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_1c_inc_e_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x1C);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x1C);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<E>(0xFE);
         ticks(&mut c, 1);
@@ -168,7 +170,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_1c_inc_e_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x1C);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x1C);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<E>(0x0F);
         ticks(&mut c, 1);
@@ -180,7 +182,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_24_inc_h_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x24);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x24);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<H>(0xFE);
         ticks(&mut c, 1);
@@ -192,7 +194,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_24_inc_h_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x24);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x24);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<H>(0x0F);
         ticks(&mut c, 1);
@@ -204,7 +206,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_2c_inc_l_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x2C);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x2C);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<L>(0xFE);
         ticks(&mut c, 1);
@@ -216,7 +218,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_2c_inc_l_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x2C);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x2C);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<L>(0x0F);
         ticks(&mut c, 1);
@@ -228,7 +230,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_3c_inc_a_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x3C);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x3C);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0xFE);
         ticks(&mut c, 1);
@@ -240,7 +242,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_3c_inc_a_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x3C);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x3C);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0x0F);
         ticks(&mut c, 1);
@@ -252,7 +254,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_34_inc_hl_mem_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x34);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x34);
         c.cpu.first_read(&mut c.bus);
         
         c.cpu.set_r16::<HL>(0xC000);
@@ -267,7 +269,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_34_inc_hl_mem_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x34);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x34);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0xC000);
         c.bus.write_byte(0xC000, 0xFE);
@@ -280,7 +282,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_05_dec_b_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x05);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x05);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<B>(0x11);
         ticks(&mut c, 1);
@@ -292,7 +294,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_05_dec_b_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x05);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x05);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<B>(0x10);
         ticks(&mut c, 1);
@@ -304,7 +306,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_0d_dec_c_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x0D);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x0D);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<C>(0x11);
         ticks(&mut c, 1);
@@ -316,7 +318,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_0d_dec_c_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x0D);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x0D);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<C>(0x10);
         ticks(&mut c, 1);
@@ -328,7 +330,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_15_dec_d_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x15);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x15);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<D>(0x11);
         ticks(&mut c, 1);
@@ -340,7 +342,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_15_dec_d_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x15);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x15);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<D>(0x10);
         ticks(&mut c, 1);
@@ -352,7 +354,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_1d_dec_e_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x1D);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x1D);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<E>(0x11);
         ticks(&mut c, 1);
@@ -364,7 +366,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_1d_dec_e_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x1D);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x1D);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<E>(0x10);
         ticks(&mut c, 1);
@@ -376,7 +378,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_25_dec_h_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x25);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x25);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<H>(0x11);
         ticks(&mut c, 1);
@@ -388,7 +390,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_25_dec_h_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x25);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x25);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<H>(0x10);
         ticks(&mut c, 1);
@@ -400,7 +402,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_2d_dec_l_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x2D);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x2D);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<L>(0x11);
         ticks(&mut c, 1);
@@ -412,7 +414,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_2d_dec_l_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x2D);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x2D);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<L>(0x10);
         ticks(&mut c, 1);
@@ -424,7 +426,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_3d_dec_a_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x3D);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x3D);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0x11);
         ticks(&mut c, 1);
@@ -436,7 +438,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_3d_dec_a_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x3D);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x3D);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0x10);
         ticks(&mut c, 1);
@@ -448,7 +450,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_35_dec_hl_mem_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x35);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x35);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0xC000);
         c.bus.write_byte(0xC000, 0xFE);
@@ -462,7 +464,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_35_dec_hl_mem_no_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x35);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x35);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0xC000);
         c.bus.write_byte(0xC000, 0x0F);
@@ -475,7 +477,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_80_add_a_b_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x80);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x80);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0x0F);
         c.cpu.set_r8::<B>(0x01);
@@ -488,7 +490,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_80_add_a_b_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x80);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x80);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0xFF);
         c.cpu.set_r8::<B>(0x01);
@@ -501,7 +503,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_80_add_a_b_half_carry_carry_and_zero() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x80);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x80);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0xFF);
         c.cpu.set_r8::<B>(0x01);
@@ -515,7 +517,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_06_ld_b_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x06);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x06);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
@@ -524,7 +526,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_07_rlca() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x07);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x07);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0b1000_0001);
         ticks(&mut c, 1);
@@ -537,7 +539,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_07_rlca_no_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x07);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x07);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0b0000_0001);
         ticks(&mut c, 1);
@@ -550,7 +552,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_08_ld_a16_sp() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x08);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x08);
         c.bus.write_byte(0x8003, 0x08);
 
         c.cpu.first_read(&mut c.bus);
@@ -571,7 +573,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_09_add_hl_bc() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x09);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x09);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x1234);
         c.cpu.set_r16::<BC>(0x1234);
@@ -584,7 +586,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_09_add_hl_bc_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x09);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x09);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x0FFF);
         c.cpu.set_r16::<BC>(0x0001);
@@ -597,7 +599,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_09_add_hl_bc_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x09);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x09);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0xFFFF);
         c.cpu.set_r16::<BC>(0x0001);
@@ -610,7 +612,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_09_add_hl_bc_carry_other_inverted() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x09);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x09);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x0001);
         c.cpu.set_r16::<BC>(0xFFFF);
@@ -623,7 +625,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_0a_ld_a_bc() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x0A);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x0A);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<BC>(0xC000);
         c.bus.write_byte(0xC000, 0xAB);
@@ -633,7 +635,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_0b_dec_bc() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x0B);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x0B);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<BC>(0x1234);
         ticks(&mut c, 2);
@@ -643,7 +645,7 @@ use crate::mmu::mbc;
     
     #[test]
     fn op_1b_dec_de() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x1B);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x1B);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<DE>(0x1234);
         ticks(&mut c, 2);
@@ -652,7 +654,7 @@ use crate::mmu::mbc;
     
     #[test]
     fn op_2b_dec_hl() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x2B);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x2B);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x1234);
         ticks(&mut c, 2);
@@ -661,7 +663,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_3b_dec_sp() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x3B);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x3B);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<SP>(0x1234);
         ticks(&mut c, 2);
@@ -670,7 +672,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_0e_ld_c_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x0E);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x0E);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
@@ -679,7 +681,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_1e_ld_e_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x1E);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x1E);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
@@ -688,7 +690,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_2e_ld_l_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x2E);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x2E);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
@@ -697,7 +699,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_3e_ld_a_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x3E);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x3E);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
@@ -706,7 +708,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_4e_ld_c_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x4E);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x4E);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
@@ -715,7 +717,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_66_ld_h_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x66);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x66);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
@@ -724,7 +726,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_46_ld_b_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x46);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x46);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
@@ -733,7 +735,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_56_ld_d_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x56);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x56);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
@@ -742,7 +744,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_6e_ld_l_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x6E);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x6E);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
@@ -751,7 +753,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_7e_ld_a_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x7E);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x7E);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
@@ -760,7 +762,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_0f_rrca() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x0F);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x0F);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0b0000_0001);
         ticks(&mut c, 1);
@@ -773,7 +775,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_0f_rrca_no_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x0F);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x0F);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0b0000_0010);
         ticks(&mut c, 1);
@@ -787,7 +789,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_11_ld_de_d16() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x11);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x11);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x34);
         c.bus.write_byte(0x8002, 0x12);
@@ -799,7 +801,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_21_ld_hl_d16() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x21);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x21);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x34);
         c.bus.write_byte(0x8002, 0x12);
@@ -810,7 +812,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_31_ld_sp_d16() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x31);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x31);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x34);
         c.bus.write_byte(0x8002, 0x12);
@@ -821,7 +823,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_12_ld_a_de() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x12);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x12);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<DE>(0xC000);
         c.cpu.set_r8::<A>(0x69);
@@ -831,7 +833,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_22_ld_a_hl_plus() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x22);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x22);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0x69);
         c.cpu.set_r16::<HL>(0xC000);
@@ -842,7 +844,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_32_ld_a_hl_minus() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x32);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x32);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0x69);
         c.cpu.set_r16::<HL>(0xC001);
@@ -853,7 +855,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_13_inc_de() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x13);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x13);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<DE>(0x1234);
         ticks(&mut c, 2);
@@ -863,7 +865,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_16_ld_d_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x16);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x16);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
@@ -872,7 +874,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_26_ld_h_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x26);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x26);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
@@ -881,7 +883,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_17_rla() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x17);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x17);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0b1000_0001);
         ticks(&mut c, 1);
@@ -894,7 +896,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_17_rla_no_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x17);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x17);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0b0000_0001);
         ticks(&mut c, 1);
@@ -906,7 +908,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_18_jr_r8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x18);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x18);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x05);
         ticks(&mut c, 3);
@@ -915,7 +917,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_18_jr_r8_negative() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x18);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x18);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xFB);
         ticks(&mut c, 3);
@@ -924,7 +926,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_28_jr_z_r8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x28);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x28);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x05);
         c.cpu.flags.set_flag(Flag::Zero, true);
@@ -934,7 +936,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_28_jr_z_r8_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x28);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x28);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x05);
         c.cpu.flags.set_flag(Flag::Zero, false);
@@ -944,7 +946,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_30_jr_nc_r8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x30);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x30);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x05);
         c.cpu.flags.set_flag(Flag::Carry, false);
@@ -954,7 +956,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_30_jr_nc_r8_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x30);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x30);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x05);
         c.cpu.flags.set_flag(Flag::Carry, true);
@@ -964,7 +966,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_38_jr_c_r8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x38);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x38);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x05);
         c.cpu.flags.set_flag(Flag::Carry, true);
@@ -974,7 +976,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_38_jr_c_r8_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x38);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x38);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x05);
         c.cpu.flags.set_flag(Flag::Carry, false);
@@ -984,7 +986,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_19_add_hl_de() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x19);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x19);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x1234);
         c.cpu.set_r16::<DE>(0x1234);
@@ -997,7 +999,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_29_add_hl_hl() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x29);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x29);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x1234);
         c.cpu.set_r16::<HL>(0x1234);
@@ -1010,7 +1012,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_39_add_hl_sp() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x39);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x39);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x1234);
         c.cpu.set_r16::<SP>(0x1234);
@@ -1023,7 +1025,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_1a_ld_a_de() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x1A);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x1A);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<DE>(0xC000);
         c.bus.write_byte(0xC000, 0xAB);
@@ -1033,7 +1035,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_2a_ld_a_hl_plus() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x2A);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x2A);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0xC000);
         c.bus.write_byte(0xC000, 0xAB);
@@ -1044,7 +1046,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_3a_ld_a_hl_minus() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x3A);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x3A);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0xC001);
         c.bus.write_byte(0xC001, 0xAB);
@@ -1055,7 +1057,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_1f_rra() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x1f);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x1f);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0b1000_0001);
         ticks(&mut c, 1);
@@ -1068,7 +1070,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_1f_rra_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x1f);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x1f);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<A>(0b1000_0001);
         c.cpu.flags.set_flag(Flag::Carry, true);
@@ -1082,7 +1084,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_23_inc_hl() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x23);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x23);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x1234);
         ticks(&mut c, 1);
@@ -1092,7 +1094,7 @@ use crate::mmu::mbc;
     #[test]
     fn op_27_daa_add_adjust_low() {
    
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x27);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x27);
         c.cpu.first_read(&mut c.bus);
         
         c.cpu.set_r8::<A>(0x4B);
@@ -1111,7 +1113,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_27_daa_add_zero_and_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x27);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x27);
         c.cpu.first_read(&mut c.bus);
         
         c.cpu.set_r8::<A>(0x9A);
@@ -1130,7 +1132,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_27_daa_sub_adjust_with_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x27);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x27);
         c.cpu.first_read(&mut c.bus);
         
         c.cpu.set_r8::<A>(0x1B);
@@ -1149,7 +1151,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_27_daa_sub_with_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x27);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x27);
         c.cpu.first_read(&mut c.bus);
          
         c.cpu.set_r8::<A>(0xE3);
@@ -1168,7 +1170,7 @@ use crate::mmu::mbc;
 
     #[test]
     pub fn op_2f_cpl() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x2f);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x2f);
         c.cpu.first_read(&mut c.bus);
          
         c.cpu.set_r8::<A>(0b1010_0101);
@@ -1182,7 +1184,7 @@ use crate::mmu::mbc;
 
     #[test]
     pub fn op_2f_cpl_2() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x2f);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x2f);
         c.cpu.first_read(&mut c.bus);
          
         c.cpu.set_r8::<A>(0b0000_0000);
@@ -1196,7 +1198,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_33_inc_sp() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x33);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x33);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<SP>(0x1234);
         ticks(&mut c, 1);
@@ -1205,7 +1207,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_36_ld_hl_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x36);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x36);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x8050);
         c.bus.write_byte(0x8001, 0xAB);
@@ -1215,7 +1217,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_37_scf() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x37);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x37);
         c.cpu.first_read(&mut c.bus);
         ticks(&mut c, 1);
         assert!(!c.cpu.flags.get_flag(Flag::Subtract));
@@ -1225,7 +1227,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_3f_scf() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x3F);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x3F);
         c.cpu.first_read(&mut c.bus);
         c.cpu.flags.set_flag(Flag::Carry, true);
         ticks(&mut c, 1);
@@ -1238,7 +1240,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $dest:ident, $src:ident, same) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<$src>(0x5A);
@@ -1259,7 +1261,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $dest:ident, $src:ident) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<$dest>(0x00);
@@ -1343,7 +1345,7 @@ use crate::mmu::mbc;
         ($name:ident, $opcode:expr, $src:ident, same) => {
             #[test]
             fn $name() {
-                let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+                let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
                 c.cpu.first_read(&mut c.bus);
                 
                 c.cpu.set_r8::<A>(0x84);
@@ -1366,7 +1368,7 @@ use crate::mmu::mbc;
         ($name:ident, $opcode:expr, $src:ident) => {
             #[test]
             fn $name() {
-                let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+                let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
                 c.cpu.first_read(&mut c.bus);
                 
                 c.cpu.set_r8::<A>(0x78);
@@ -1402,7 +1404,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $src:ident, same) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<A>(0x5A);
@@ -1425,7 +1427,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $src:ident) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<A>(0xF0);
@@ -1462,7 +1464,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $src:ident, same) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<A>(0x5A);
@@ -1485,7 +1487,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $src:ident) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<A>(0xF0);
@@ -1521,7 +1523,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $src:ident, same) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<A>(0x5A);
@@ -1544,7 +1546,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $src:ident) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<A>(0x50);
@@ -1580,7 +1582,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $src:ident, same) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<A>(0x5A);
@@ -1603,7 +1605,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $src:ident) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<A>(0x3A);
@@ -1639,7 +1641,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $src:ident, same) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<A>(0x7F);
@@ -1661,7 +1663,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $src:ident) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<A>(0x78);
@@ -1698,7 +1700,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $src:ident, same) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             // Pour SUB A, A -> Soustraction d'une valeur par elle-même (0x5A - 0x5A = 0x00)
@@ -1725,7 +1727,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $src:ident) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<A>(0x3A);
@@ -1761,7 +1763,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $src:ident, same) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<A>(0x5A);
@@ -1785,7 +1787,7 @@ use crate::mmu::mbc;
     ($name:ident, $opcode:expr, $src:ident) => {
         #[test]
         fn $name() {
-            let mut c = gb::<GbaMmu<mbc::RomOnly>>($opcode);
+            let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
             c.cpu.set_r8::<A>(0x80);
@@ -1819,7 +1821,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_70_ld_hl_b() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x70);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x70);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x8005);
         c.cpu.set_r8::<B>(0x69);
@@ -1830,7 +1832,7 @@ use crate::mmu::mbc;
 
         #[test]
     fn op_71_ld_hl_c() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x71);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x71);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x8005);
         c.cpu.set_r8::<C>(0x69);
@@ -1842,7 +1844,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_72_ld_hl_d() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x72);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x72);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x8005);
         c.cpu.set_r8::<D>(0x69);
@@ -1854,7 +1856,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_73_ld_hl_e() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x73);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x73);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x8005);
         c.cpu.set_r8::<E>(0x69);
@@ -1865,7 +1867,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_74_ld_hl_h() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x74);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x74);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<L>(0x05);
         c.cpu.set_r8::<H>(0x80);
@@ -1876,7 +1878,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_75_ld_hl_l() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x75);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x75);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r8::<L>(0x05);
         c.cpu.set_r8::<H>(0x80);
@@ -1887,7 +1889,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_77_ld_hl_l() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x77);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x77);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x8005);
         c.cpu.set_r8::<A>(0x69);
@@ -1899,7 +1901,7 @@ use crate::mmu::mbc;
     
     #[test]
     fn op_86_add_a_hl() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x86);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x86);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x8005);
         c.cpu.set_r8::<A>(0x12);
@@ -1911,7 +1913,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_8e_adc_a_hl() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x8E);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x8E);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x8005);
         c.bus.write_byte(0x8005, 0x00);
@@ -1933,7 +1935,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_96_sub_hl() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x96);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x96);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x8005);
         c.bus.write_byte(0x8005, 0x10);
@@ -1957,7 +1959,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_9e_sbc_a_hl() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x9E);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x9E);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x8005);
         c.bus.write_byte(0x8005, 0x00);
@@ -1980,7 +1982,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_ae_xor_hl() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xAE);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xAE);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x8005);
         c.bus.write_byte(0x8005, 0xAA);
@@ -2004,7 +2006,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_b6_or_hl() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xB6);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xB6);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x8005);
         c.bus.write_byte(0x8005, 0x00);
@@ -2027,7 +2029,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_be_cp_hl() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xBE);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xBE);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<HL>(0x8005);
         c.bus.write_byte(0x8005, 0x43);
@@ -2054,7 +2056,7 @@ use crate::mmu::mbc;
     // =========================================================================
     #[test]
     fn op_c9_ret() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xC9);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC9);
         c.cpu.first_read(&mut c.bus);
 
         c.cpu.set_r16::<SP>(0xFFFD);
@@ -2079,7 +2081,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_c0_ret_nz_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xC0);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC0);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<SP>(0xFFFD);
         c.bus.write_byte(0xFFFD, 0x34);
@@ -2094,7 +2096,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_c0_ret_nz_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xC0);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC0);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<SP>(0xFFFD);
         c.bus.write_byte(0xFFFD, 0x34);
@@ -2111,7 +2113,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_c8_ret_z_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xC8);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC8);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<SP>(0xFFFD);
         c.bus.write_byte(0xFFFD, 0x34);
@@ -2126,7 +2128,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_c8_ret_z_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xC8);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC8);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<SP>(0xFFFD);
         c.bus.write_byte(0xFFFD, 0x34);
@@ -2142,7 +2144,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_d0_ret_nc_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xD0);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xD0);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<SP>(0xFFFD);
         c.bus.write_byte(0xFFFD, 0x34);
@@ -2157,7 +2159,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_d0_ret_nc_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xD0);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xD0);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<SP>(0xFFFD);
         c.bus.write_byte(0xFFFD, 0x34);
@@ -2173,7 +2175,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_d8_ret_c_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xD8);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xD8);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<SP>(0xFFFD);
         c.bus.write_byte(0xFFFD, 0x34);
@@ -2188,7 +2190,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_d8_ret_c_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xD8);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xD8);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<SP>(0xFFFD);
         c.bus.write_byte(0xFFFD, 0x34);
@@ -2204,7 +2206,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_d9_reti() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xD9);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xD9);
         c.cpu.first_read(&mut c.bus);
         c.cpu.set_r16::<SP>(0xFFFD);
         c.bus.write_byte(0xFFFD, 0x34);
@@ -2225,7 +2227,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_c3_jp() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xC3);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC3);
         c.cpu.first_read(&mut c.bus);
         
         // On écrit l'adresse cible 0x1234 juste après l'opcode
@@ -2241,7 +2243,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_c2_jp_nz_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xC2);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC2);
         c.cpu.first_read(&mut c.bus);
         
         let pc = c.cpu.get_r16::<PC>();
@@ -2256,7 +2258,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_c2_jp_nz_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xC2);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC2);
         c.cpu.first_read(&mut c.bus);
         
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2272,7 +2274,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_ca_jp_z_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCA);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCA);
         c.cpu.first_read(&mut c.bus);
         
         let pc = c.cpu.get_r16::<PC>();
@@ -2287,7 +2289,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_ca_jp_z_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCA);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCA);
         c.cpu.first_read(&mut c.bus);
         
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2302,7 +2304,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_d2_jp_nc_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xD2);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xD2);
         c.cpu.first_read(&mut c.bus);
         
         let pc = c.cpu.get_r16::<PC>();
@@ -2317,7 +2319,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_d2_jp_nc_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xD2);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xD2);
         c.cpu.first_read(&mut c.bus);
         
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2332,7 +2334,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_da_jp_c_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xDA);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xDA);
         c.cpu.first_read(&mut c.bus);
         
         let pc = c.cpu.get_r16::<PC>();
@@ -2347,7 +2349,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_da_jp_c_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xDA);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xDA);
         c.cpu.first_read(&mut c.bus);
         
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2361,7 +2363,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_c1_pop_bc() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xC1);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC1);
         c.cpu.first_read(&mut c.bus);   
 
         c.cpu.set_r16::<SP>(0xFFFD);
@@ -2376,7 +2378,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_d1_pop_de() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xD1);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xD1);
         c.cpu.first_read(&mut c.bus);   
 
         c.cpu.set_r16::<SP>(0xFFFD);
@@ -2391,7 +2393,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_e1_pop_hl() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xE1);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xE1);
         c.cpu.first_read(&mut c.bus);   
 
         c.cpu.set_r16::<SP>(0xFFFD);
@@ -2406,7 +2408,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_f1_pop_af_flags_true() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xF1);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xF1);
         c.cpu.first_read(&mut c.bus);   
 
         c.cpu.set_r16::<SP>(0xFFFD);
@@ -2425,7 +2427,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_f1_pop_af_flags_false() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xF1);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xF1);
         c.cpu.first_read(&mut c.bus);   
 
         c.cpu.set_r16::<SP>(0xFFFD);
@@ -2444,7 +2446,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_c5_push_bc() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xC5);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC5);
         c.cpu.first_read(&mut c.bus);
 
         c.cpu.set_r16::<BC>(0x1234);
@@ -2459,7 +2461,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_d5_push_de() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xD5);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xD5);
         c.cpu.first_read(&mut c.bus);
 
         c.cpu.set_r16::<DE>(0x5678);
@@ -2474,7 +2476,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_e5_push_hl() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xE5);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xE5);
         c.cpu.first_read(&mut c.bus);
 
         c.cpu.set_r16::<HL>(0x9ABC);
@@ -2489,7 +2491,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_f5_push_af() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xF5);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xF5);
         c.cpu.first_read(&mut c.bus);
 
         c.cpu.flags.set_flag(Flag::Zero, true);
@@ -2509,7 +2511,7 @@ use crate::mmu::mbc;
  
     #[test]
     fn op_cd_call() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCD);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCD);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2531,7 +2533,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_c4_call_nz_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xC4);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC4);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2553,7 +2555,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_c4_call_nz_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xC4);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC4);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2571,7 +2573,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_cc_call_z_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCC);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCC);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2593,7 +2595,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_cc_call_z_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCC);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCC);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2611,7 +2613,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_cc_call_z_taken_with_overlap() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCC);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCC);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2640,7 +2642,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_d4_call_nc_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xD4);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xD4);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2662,7 +2664,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_dc_call_c_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xDC);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xDC);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2684,7 +2686,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_d4_call_nc_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xD4);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xD4);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2702,7 +2704,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_dc_call_c_not_taken() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xDC);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xDC);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2720,7 +2722,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_c7_rst_00h() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xC7);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC7);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2737,7 +2739,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_cf_rst_08h() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCF);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCF);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2755,7 +2757,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_d7_rst_10h() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xD7);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xD7);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2773,7 +2775,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_df_rst_18h() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xDF);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xDF);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2791,7 +2793,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_e7_rst_20h() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xE7);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xE7);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2809,7 +2811,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_ef_rst_28h() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xEF);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xEF);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2827,7 +2829,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_f7_rst_30h() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xF7);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xF7);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2845,7 +2847,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_ff_rst_38h() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xFF);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xFF);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2863,7 +2865,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_c6_add_a_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xC6);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC6);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2879,7 +2881,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_d6_sub_a_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xD6);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xD6);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2895,7 +2897,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_ce_adc_a_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCE);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCE);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2912,7 +2914,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_de_sbc_a_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xDE);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xDE);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2929,7 +2931,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_e6_and_a_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xE6);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xE6);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2944,7 +2946,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_ee_xor_a_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xEE);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xEE);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2960,7 +2962,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_f6_or_a_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xF6);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xF6);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2976,7 +2978,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_fe_cp_a_d8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xFE);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xFE);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -2994,7 +2996,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_e0_ldh_a8_a() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xE0);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xE0);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -3010,7 +3012,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_f0_ldh_a_a8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xF0);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xF0);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -3027,7 +3029,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_e2_ld_ff00_c_a() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xE2);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xE2);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -3043,7 +3045,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_f2_ld_a_ff00_c() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xF2);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xF2);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -3060,7 +3062,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_ea_ld_a16_a() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xEA);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xEA);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -3079,7 +3081,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_fa_ld_a_a16() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xFA);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xFA);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -3098,7 +3100,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_f9_ld_sp_hl() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xF9);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xF9);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -3115,7 +3117,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_f8_ld_hl_sp_r8() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xF8);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xF8);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -3134,7 +3136,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_f8_ld_hl_sp_r8_no_flags() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xF8);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xF8);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -3157,7 +3159,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_f8_ld_hl_sp_r8_with_carry_and_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xF8);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xF8);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -3178,7 +3180,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_f8_ld_hl_sp_r8_negative_offset() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xF8);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xF8);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -3198,7 +3200,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_e8_add_sp_r8_no_flags() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xE8);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xE8);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -3221,7 +3223,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_e8_add_sp_r8_with_carry_and_half_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xE8);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xE8);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -3241,7 +3243,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_e8_add_sp_r8_negative_offset() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xE8);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xE8);
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
@@ -3261,7 +3263,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_f3_di_execution() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xF3);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xF3);
         c.cpu.first_read(&mut c.bus);
 
         c.cpu.ime = true;
@@ -3273,7 +3275,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_fb_ei_and_delay_execution() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xFB); // EI
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xFB); // EI
         c.cpu.first_read(&mut c.bus);
 
         c.cpu.ime = false;
@@ -3290,7 +3292,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn op_76_halt_execution() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0x76); 
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x76); 
         c.cpu.first_read(&mut c.bus);
 
         c.cpu.halted = false;
@@ -3309,7 +3311,7 @@ use crate::mmu::mbc;
     // ---------- RLC (0x00–0x07) ----------
     #[test]
     fn cb_00_rlc_b() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x00);
         c.cpu.set_r8::<B>(0b1000_0001);
@@ -3324,7 +3326,7 @@ use crate::mmu::mbc;
     #[test]
     fn cb_05_rlc_l() {
         // 0x05 = RLC L. Doit modifier L, pas la mémoire pointée par HL.
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x05);
         c.cpu.set_r8::<H>(0xC0);
@@ -3339,7 +3341,7 @@ use crate::mmu::mbc;
     #[test]
     fn cb_06_rlc_hl_mem() {
         // 0x06 = RLC (HL). Doit modifier la mémoire, pas B.
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x06);
         c.cpu.set_r16::<HL>(0xC000);
@@ -3353,7 +3355,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_07_rlc_a() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x07);
         c.cpu.set_r8::<A>(0b0000_0001);
@@ -3365,7 +3367,7 @@ use crate::mmu::mbc;
     // ---------- RRC (0x08–0x0F) ----------
     #[test]
     fn cb_08_rrc_b() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x08);
         c.cpu.set_r8::<B>(0b0000_0001);
@@ -3376,7 +3378,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_0d_rrc_l() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x0D);
         c.cpu.set_r8::<H>(0xC0);
@@ -3390,7 +3392,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_0e_rrc_hl_mem() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x0E);
         c.cpu.set_r16::<HL>(0xC000);
@@ -3404,7 +3406,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_0f_rrc_a() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x0F);
         c.cpu.set_r8::<A>(0b0000_0010);
@@ -3416,7 +3418,7 @@ use crate::mmu::mbc;
     // ---------- RL (0x10–0x17) ----------
     #[test]
     fn cb_10_rl_b_with_carry_in() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x10);
         c.cpu.set_r8::<B>(0b0000_0001);
@@ -3428,7 +3430,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_15_rl_l() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x15);
         c.cpu.set_r8::<H>(0xC0);
@@ -3443,7 +3445,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_16_rl_hl_mem() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x16);
         c.cpu.set_r16::<HL>(0xC000);
@@ -3459,7 +3461,7 @@ use crate::mmu::mbc;
     // ---------- RR (0x18–0x1F) ----------
     #[test]
     fn cb_18_rr_b_with_carry_in() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x18);
         c.cpu.set_r8::<B>(0b0000_0001);
@@ -3471,7 +3473,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_1d_rr_l() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x1D);
         c.cpu.set_r8::<H>(0xC0);
@@ -3486,7 +3488,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_1e_rr_hl_mem() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x1E);
         c.cpu.set_r16::<HL>(0xC000);
@@ -3502,7 +3504,7 @@ use crate::mmu::mbc;
     // ---------- SLA (0x20–0x27) ----------
     #[test]
     fn cb_20_sla_b() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x20);
         c.cpu.set_r8::<B>(0b1000_0001);
@@ -3513,7 +3515,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_25_sla_l() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x25);
         c.cpu.set_r8::<H>(0xC0);
@@ -3527,7 +3529,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_26_sla_hl_mem() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x26);
         c.cpu.set_r16::<HL>(0xC000);
@@ -3543,7 +3545,7 @@ use crate::mmu::mbc;
     // ---------- SRA (0x28–0x2F) ----------
     #[test]
     fn cb_28_sra_b_preserves_sign_bit() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x28);
         c.cpu.set_r8::<B>(0b1000_0001);
@@ -3554,7 +3556,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_2d_sra_l() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x2D);
         c.cpu.set_r8::<H>(0xC0);
@@ -3568,7 +3570,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_2e_sra_hl_mem() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x2E);
         c.cpu.set_r16::<HL>(0xC000);
@@ -3583,7 +3585,7 @@ use crate::mmu::mbc;
     // ---------- SWAP (0x30–0x37) — déjà correct, on verrouille le comportement ----------
     #[test]
     fn cb_30_swap_b() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x30);
         c.cpu.set_r8::<B>(0x12);
@@ -3594,7 +3596,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_35_swap_l_zero_flag() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x35);
         c.cpu.set_r8::<L>(0x00);
@@ -3605,7 +3607,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_36_swap_hl_mem() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x36);
         c.cpu.set_r16::<HL>(0xC000);
@@ -3617,7 +3619,7 @@ use crate::mmu::mbc;
     // ---------- SRL (0x38–0x3F) ----------
     #[test]
     fn cb_38_srl_b() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x38);
         c.cpu.set_r8::<B>(0b1000_0001);
@@ -3628,7 +3630,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_3d_srl_l() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x3D);
         c.cpu.set_r8::<H>(0xC0);
@@ -3643,7 +3645,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_3e_srl_hl_mem() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x3E);
         c.cpu.set_r16::<HL>(0xC000);
@@ -3658,7 +3660,7 @@ use crate::mmu::mbc;
     // ---------- BIT (0x40–0x7F) ----------
     #[test]
     fn cb_40_bit0_b_clear() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x40);
         c.cpu.set_r8::<B>(0b0000_0000);
@@ -3670,7 +3672,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_47_bit0_a_set_preserves_carry() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x47);
         c.cpu.set_r8::<A>(0b0000_0001);
@@ -3682,7 +3684,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_46_bit0_hl_mem() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x46);
         c.cpu.set_r16::<HL>(0xC000);
@@ -3693,7 +3695,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_7c_bit7_h() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x7C);
         c.cpu.set_r8::<H>(0b1000_0000);
@@ -3704,7 +3706,7 @@ use crate::mmu::mbc;
     // ---------- RES (0x80–0xBF) ----------
     #[test]
     fn cb_87_res0_a_does_not_touch_flags() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x87);
         c.cpu.set_r8::<A>(0b1111_1111);
@@ -3722,7 +3724,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_86_res0_hl_mem() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x86);
         c.cpu.set_r16::<HL>(0xC000);
@@ -3734,7 +3736,7 @@ use crate::mmu::mbc;
     // ---------- SET (0xC0–0xFF) ----------
     #[test]
     fn cb_c7_set0_a_does_not_touch_flags() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xC7);
         c.cpu.set_r8::<A>(0b0000_0000);
@@ -3748,7 +3750,7 @@ use crate::mmu::mbc;
 
     #[test]
     fn cb_c6_set0_hl_mem() {
-        let mut c = gb::<GbaMmu<mbc::RomOnly>>(0xCB);
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0xC6);
         c.cpu.set_r16::<HL>(0xC000);

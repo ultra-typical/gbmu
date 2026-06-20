@@ -459,12 +459,11 @@ impl Mbc for Mbc3 {
     }
 }
 
-#[allow(unused)]
 pub struct Mbc5 {
     ram_gate_enable: bool,
     rom_bank_register: u16,
     ram_bank_register: u8,
-    ramble: bool,
+    rumble: bool,
     rom_banks: Vec<[u8; ROM_BANK_SIZE]>,
     ram_banks: Vec<[u8; RAM_BANK_SIZE]>,
     
@@ -474,8 +473,10 @@ impl Mbc for Mbc5 {
     fn dump(&self) -> Option<Vec<u8>> {
         self.ram_banks.concat().into()
     }
+
     fn new(rom_image: Vec<u8>, saved_ram: Option<Vec<u8>>) -> Result<Self, String> where Self: Sized {
         println!("New Mbc5");
+
         let rom_banks = map_rom_into_bank(&rom_image)?;
         let ram_banks = map_ram_banks(&rom_image, saved_ram)?;
 
@@ -486,7 +487,7 @@ impl Mbc for Mbc5 {
                 ram_gate_enable: false,
                 rom_bank_register: 0,
                 ram_bank_register: 0,
-                ramble: false,
+                rumble: false,
             }
         )
     }
@@ -495,14 +496,18 @@ impl Mbc for Mbc5 {
             0x0000..0x4000 => self.rom_banks[0][addr as usize],
             0x4000..0x8000 => {
                 self.rom_banks[
-                    (self.rom_bank_register - 0x4000) as usize
+                    (self.rom_bank_register as usize) % self.rom_banks.len()
                 ][
                     (addr  - 0x4000) as usize
                 ]
             },
             0xA000..0xC000 => {
+                if !self.ram_gate_enable || self.ram_banks.is_empty() {
+                    return 0xFF;
+                }
+
                 self.ram_banks[
-                    self.ram_bank_register as usize
+                    (self.ram_bank_register as usize) % self.ram_banks.len()
                 ][
                     (addr - 0xA000) as usize
                 ]
@@ -512,12 +517,23 @@ impl Mbc for Mbc5 {
     }
     fn write(&mut self, addr: u16, val: u8) {
         match addr {
-            0x0000..0x2000 => self.ram_gate_enable = val == 0b0000_1010,
-            0x2000..0x3000 => self.rom_bank_register &= 0x100 + val as u16,
-            0x3000..0x4000 => self.rom_bank_register = self.rom_bank_register & (0x0FF + val as u16) & 0x100,
+            0x0000..0x2000 => self.ram_gate_enable = (val & 0b1111) == 0b0000_1010,
+            0x2000..0x3000 => self.rom_bank_register = (self.rom_bank_register & 0x100) | val as u16,
+            0x3000..0x4000 => self.rom_bank_register = (self.rom_bank_register & 0xFF) | (((val & 0x01) as u16) << 8),
             0x4000..0x6000 => {
                 self.ram_bank_register = val & 0x0F;
-                self.ramble = (val & 0x10) != 0;
+                self.rumble = (val & 0b0000_1000) != 0;
+            },
+            0x6000..0x8000 => {},
+            0xA000..0xC000 => {
+                if self.ram_gate_enable && !self.ram_banks.is_empty() {
+                    let bank = (self.ram_bank_register as usize) % self.ram_banks.len();
+                    self.ram_banks[
+                        bank
+                    ][
+                        (addr - 0xA000) as usize
+                    ] = val;
+                }
             }
             _ => unreachable!(),
         }

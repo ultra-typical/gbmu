@@ -1,20 +1,21 @@
 #[cfg(test)]
 mod tests {
     use crate::cpu::cb_instructions::build_cb_instructions;
-    use crate::mmu::GbaMmu;
-    use crate::mmu::mbc;
     use crate::mmu::mbc::*;
     use crate::{cpu::instructions::build_instructions, gameboy::GameBoy};
+    use crate::mmu::timers::DmgTimers;
+    use crate::ppu::DmgPpu;
+    use crate::mmu::DmgMmu;
 
-    pub fn get_new_gb() -> GameBoy<GbaMmu<mbc::RomOnly>> {
-        let gb: GameBoy<GbaMmu<RomOnly>> =
+    pub fn get_new_gb() -> GameBoy<DmgMmu<RomOnly, DmgTimers, DmgPpu>> {
+        let gb: GameBoy<DmgMmu<RomOnly, DmgTimers, DmgPpu>> =
             GameBoy::new(None, vec![], None).expect("Failed to create gb");
         gb
     }
 
     #[test]
     fn test_instructions_order_and_completeness() {
-        let instructions = build_instructions::<GbaMmu<RomOnly>>();
+        let instructions = build_instructions::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>();
 
         for (expected_opcode, instruction) in instructions.iter().enumerate() {
             assert_eq!(
@@ -34,7 +35,7 @@ mod tests {
 
     #[test]
     fn test_cb_instructions_order_and_completeness() {
-        let instructions = build_cb_instructions::<GbaMmu<RomOnly>>();
+        let instructions = build_cb_instructions::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>();
 
         for (expected_opcode, instruction) in instructions.iter().enumerate() {
             assert_eq!(

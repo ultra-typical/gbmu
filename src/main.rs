@@ -10,10 +10,15 @@ mod mmu;
 mod ppu;
 mod sound;
 
-use crate::{cli::EmulatorArguments, file::GbmuFile, gui::EmulationAppOptions};
+use std::sync::atomic::AtomicBool;
+use sound::start_audio;
 use gui::GraphicalApp;
-use sound::sound_test;
-use std::sync::{LazyLock, Mutex};
+use crate::{cli::EmulatorArguments, file::{GbmuFile}, gui::EmulationAppOptions};
+use std::sync::{Arc, LazyLock, Mutex};
+use std::f32::consts::PI;
+
+use crate::mmu::apu::sample_buffer;
+
 
 static GBMU_FILE: LazyLock<Mutex<GbmuFile>> =
     LazyLock::new(|| Mutex::new(GbmuFile::get_existing_or_new()));
@@ -28,8 +33,17 @@ async fn main() {
         }
     };
 
-    if arguments.sound_test {
-        return sound_test();
+    if arguments.sound {
+        let buffer = sample_buffer::SampleBuffer::new();
+
+        let mut phase = 0.0;
+        for _ in 0..48000*5 {
+            phase += 2.0 * PI * 261.63 / 48000.0;
+            buffer.push(phase.sin() * 0.5);
+        }
+        let audio_running = Arc::new(AtomicBool::new(true));
+        start_audio(buffer.clone(), audio_running);
+        std::thread::sleep(std::time::Duration::from_secs(2));
     }
 
     let options = eframe::NativeOptions {

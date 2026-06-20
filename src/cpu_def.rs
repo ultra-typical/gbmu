@@ -60,8 +60,6 @@ impl<M: MemoryMapper> Cpu<M> {
         self.load_instruction(instruction_byte);
     }
 
-
-
     pub fn tick(&mut self, bus: &mut M) {
         let micro_op = &self.queue[self.op_index];
         self.op_index += 1;

@@ -1,7 +1,6 @@
 use crate::cpu::defines::Cpu;
 use crate::cpu::defines::Flag;
 use crate::cpu::flags::FlagsOps;
-use crate::cpu_def::Reg16;
 use crate::cpu_def::*;
 use crate::mmu::MemoryMapper;
 

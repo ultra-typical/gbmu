@@ -17,7 +17,7 @@ const OBJ_SIZE_MASK: u8 = 0b0000_0100;
 const OBJ_ENABLE_MASK: u8 = 0b0000_0010;
 const BG_WINDOW_ENABLE_MASK: u8 = 0b0000_0001;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct LcdControl {
     ppu_enable: bool,
     window_tile_map_area: bool,
