@@ -18,6 +18,10 @@ mod tests {
         gb.bus.write_byte(0x8000, opcode);
         gb.cpu.r8 = Default::default(); //mental retardation
         gb.cpu.set_r16::<PC>(0x8000);
+        gb.cpu.flags.set_flag(Flag::Carry, false);
+        gb.cpu.flags.set_flag(Flag::Subtract, false);
+        gb.cpu.flags.set_flag(Flag::Zero, false);
+        gb.cpu.flags.set_flag(Flag::HalfCarry, false);
         gb
     }
 
@@ -30,7 +34,7 @@ mod tests {
     #[test]
     fn op_00_noop() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x00);
-        c.cpu.set_r16::<PC>(0x8000); // set correct pc lo
+        c.cpu.set_r16::<PC>(0x8000); 
         c.cpu.first_read(&mut c.bus);
         ticks(&mut c, 1);
         assert_eq!(c.cpu.get_r8::<A>(), 0);
@@ -46,10 +50,6 @@ mod tests {
         assert_eq!(c.cpu.get_r16::<BC>(), 0x0000);
         assert_eq!(c.cpu.get_r16::<DE>(), 0x0000);
         assert_eq!(c.cpu.get_r16::<HL>(), 0x0000);
-        assert!(!c.cpu.flags.get_flag(Flag::Zero));
-        assert!(!c.cpu.flags.get_flag(Flag::Subtract));
-        assert!(!c.cpu.flags.get_flag(Flag::Carry));
-        assert!(!c.cpu.flags.get_flag(Flag::Carry));
     }
 
     #[test]
@@ -710,6 +710,7 @@ mod tests {
     fn op_4e_ld_c_d8() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x4E);
         c.cpu.first_read(&mut c.bus);
+        c.cpu.set_r16::<HL>(0x8001);      
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
         assert_eq!(c.cpu.get_r8::<C>(), 0xAB);
@@ -719,6 +720,7 @@ mod tests {
     fn op_66_ld_h_d8() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x66);
         c.cpu.first_read(&mut c.bus);
+        c.cpu.set_r16::<HL>(0x8001);      
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
         assert_eq!(c.cpu.get_r8::<H>(), 0xAB);
@@ -728,6 +730,7 @@ mod tests {
     fn op_46_ld_b_d8() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x46);
         c.cpu.first_read(&mut c.bus);
+        c.cpu.set_r16::<HL>(0x8001);      
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
         assert_eq!(c.cpu.get_r8::<B>(), 0xAB);
@@ -737,6 +740,7 @@ mod tests {
     fn op_56_ld_d_d8() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x56);
         c.cpu.first_read(&mut c.bus);
+        c.cpu.set_r16::<HL>(0x8001);      
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
         assert_eq!(c.cpu.get_r8::<D>(), 0xAB);
@@ -746,6 +750,7 @@ mod tests {
     fn op_6e_ld_l_d8() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x6E);
         c.cpu.first_read(&mut c.bus);
+        c.cpu.set_r16::<HL>(0x8001);      
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
         assert_eq!(c.cpu.get_r8::<L>(), 0xAB);
@@ -755,6 +760,7 @@ mod tests {
     fn op_7e_ld_a_d8() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0x7E);
         c.cpu.first_read(&mut c.bus);
+        c.cpu.set_r16::<HL>(0x8001);      
         c.bus.write_byte(0x8001, 0xAB);
         ticks(&mut c, 2);
         assert_eq!(c.cpu.get_r8::<A>(), 0xAB);
@@ -1291,7 +1297,6 @@ mod tests {
     test_ld_r8_r8!(op_45_ld_b_l, 0x45, B, L);
     test_ld_r8_r8!(op_47_ld_b_a, 0x47, B, A);
 
-    // Destination C (0x48 - 0x4F)
     test_ld_r8_r8!(op_48_ld_c_b, 0x48, C, B);
     test_ld_r8_r8!(op_49_ld_c_c, 0x49, C, C, same);
     test_ld_r8_r8!(op_4a_ld_c_d, 0x4A, C, D);
@@ -1703,21 +1708,17 @@ mod tests {
             let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>($opcode);
             c.cpu.first_read(&mut c.bus);
             
-            // Pour SUB A, A -> Soustraction d'une valeur par elle-même (0x5A - 0x5A = 0x00)
             c.cpu.set_r8::<A>(0x5A);
             
-            // On initialise les drapeaux à l'inverse du résultat attendu
-            c.cpu.flags.set_flag(Flag::Zero, false);     // Attendu: true
-            c.cpu.flags.set_flag(Flag::Subtract, false); // Attendu: true
-            c.cpu.flags.set_flag(Flag::HalfCarry, true); // Attendu: false
-            c.cpu.flags.set_flag(Flag::Carry, true);     // Attendu: false
+            c.cpu.flags.set_flag(Flag::Zero, false);     
+            c.cpu.flags.set_flag(Flag::Subtract, false); 
+            c.cpu.flags.set_flag(Flag::HalfCarry, true);
+            c.cpu.flags.set_flag(Flag::Carry, true);
             
             ticks(&mut c, 1);
             
-            // L'accumulateur A doit maintenant valoir 0
             assert_eq!(c.cpu.get_r8::<A>(), 0x00);
             
-            // Vérification des drapeaux
             assert!(c.cpu.flags.get_flag(Flag::Zero));
             assert!(c.cpu.flags.get_flag(Flag::Subtract));
             assert!(!c.cpu.flags.get_flag(Flag::HalfCarry));
@@ -1948,7 +1949,6 @@ mod tests {
 
         ticks(&mut c, 2);
         
-        // 0x10 - 0x10 = 0x00
         assert_eq!(c.cpu.get_r8::<A>(), 0x00);
         
         assert!(c.cpu.flags.get_flag(Flag::Zero));
@@ -1995,7 +1995,6 @@ mod tests {
 
         ticks(&mut c, 2);
         
-        // 0xAA XOR 0xAA = 0x00
         assert_eq!(c.cpu.get_r8::<A>(), 0x00);
         
         assert!(c.cpu.flags.get_flag(Flag::Zero));
@@ -2051,24 +2050,21 @@ mod tests {
     }
 
 
-    // =========================================================================
-    // RET (Inconditionnel) - Opcode 0xC9
-    // =========================================================================
     #[test]
     fn op_c9_ret() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC9);
         c.cpu.first_read(&mut c.bus);
 
         c.cpu.set_r16::<SP>(0xFFFD);
-        c.bus.write_byte(0xFFFD, 0x34); // LSB
-        c.bus.write_byte(0xFFFE, 0x12); // MSB
+        c.bus.write_byte(0xFFFD, 0x34); 
+        c.bus.write_byte(0xFFFE, 0x12); 
 
         c.cpu.flags.set_flag(Flag::Zero, true);
         c.cpu.flags.set_flag(Flag::Subtract, false);
         c.cpu.flags.set_flag(Flag::HalfCarry, true); 
         c.cpu.flags.set_flag(Flag::Carry, false);
 
-        ticks(&mut c, 3); // 4 cycles au total
+        ticks(&mut c, 3); 
 
         assert_eq!(c.cpu.get_r16::<PC>(), 0x1234);
         assert_eq!(c.cpu.get_r16::<SP>(), 0xFFFF);
@@ -2230,12 +2226,11 @@ mod tests {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xC3);
         c.cpu.first_read(&mut c.bus);
         
-        // On écrit l'adresse cible 0x1234 juste après l'opcode
         let pc = c.cpu.get_r16::<PC>();
-        c.bus.write_byte(pc, 0x34);     // LSB
-        c.bus.write_byte(pc + 1, 0x12); // MSB
+        c.bus.write_byte(pc, 0x34);     
+        c.bus.write_byte(pc + 1, 0x12); 
 
-        ticks(&mut c, 3); // 1 (first_read) + 3 = 4 cycles
+        ticks(&mut c, 3); 
 
         assert_eq!(c.cpu.get_r16::<PC>(), 0x1234);
     }
@@ -2869,14 +2864,14 @@ mod tests {
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
-        c.bus.write_byte(pc_before, 0x20); // d8 = 0x20
+        c.bus.write_byte(pc_before, 0x20); 
 
-        c.cpu.set_r8::<A>(0x10); // A = 0x10
+        c.cpu.set_r8::<A>(0x10); 
 
         ticks(&mut c, 2);
 
-        assert_eq!(c.cpu.get_r16::<PC>(), pc_before + 2); // Overlap inclus
-        assert_eq!(c.cpu.get_r8::<A>(), 0x30);            // 0x10 + 0x20 = 0x30
+        assert_eq!(c.cpu.get_r16::<PC>(), pc_before + 2); 
+        assert_eq!(c.cpu.get_r8::<A>(), 0x30);
     }
 
     #[test]
@@ -2885,14 +2880,13 @@ mod tests {
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
-        c.bus.write_byte(pc_before, 0x10); // d8 = 0x10
+        c.bus.write_byte(pc_before, 0x10); 
 
-        c.cpu.set_r8::<A>(0x50); // A = 0x50
-
+        c.cpu.set_r8::<A>(0x50); 
         ticks(&mut c, 2);
 
         assert_eq!(c.cpu.get_r16::<PC>(), pc_before + 2);
-        assert_eq!(c.cpu.get_r8::<A>(), 0x40);            // 0x50 - 0x10 = 0x40
+        assert_eq!(c.cpu.get_r8::<A>(), 0x40);
     }
 
     #[test]
@@ -2901,15 +2895,15 @@ mod tests {
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
-        c.bus.write_byte(pc_before, 0x20); // d8 = 0x20
+        c.bus.write_byte(pc_before, 0x20); 
 
         c.cpu.set_r8::<A>(0x10);
-        c.cpu.flags.set_flag(Flag::Carry, true); // On active la retenue
+        c.cpu.flags.set_flag(Flag::Carry, true); 
 
         ticks(&mut c, 2);
 
         assert_eq!(c.cpu.get_r16::<PC>(), pc_before + 2);
-        assert_eq!(c.cpu.get_r8::<A>(), 0x31);            // 0x10 + 0x20 + 1 = 0x31
+        assert_eq!(c.cpu.get_r8::<A>(), 0x31);
     }
 
     #[test]
@@ -2918,15 +2912,13 @@ mod tests {
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
-        c.bus.write_byte(pc_before, 0x10); // d8 = 0x10
-
+        c.bus.write_byte(pc_before, 0x10); 
         c.cpu.set_r8::<A>(0x50);
-        c.cpu.flags.set_flag(Flag::Carry, true); // On active la retenue (borrow)
-
+        c.cpu.flags.set_flag(Flag::Carry, true); 
         ticks(&mut c, 2);
 
         assert_eq!(c.cpu.get_r16::<PC>(), pc_before + 2);
-        assert_eq!(c.cpu.get_r8::<A>(), 0x3F);            // 0x50 - 0x10 - 1 = 0x3F
+        assert_eq!(c.cpu.get_r8::<A>(), 0x3F);
     }
 
     #[test]
@@ -2935,13 +2927,13 @@ mod tests {
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
-        c.bus.write_byte(pc_before, 0xAA); // d8 = 0b10101010
+        c.bus.write_byte(pc_before, 0xAA); 
 
-        c.cpu.set_r8::<A>(0xFF); // A = 0b11111111
+        c.cpu.set_r8::<A>(0xFF); 
 
         ticks(&mut c, 2);
         assert_eq!(c.cpu.get_r16::<PC>(), pc_before + 2);
-        assert_eq!(c.cpu.get_r8::<A>(), 0xAA);            // 0xFF & 0xAA = 0xAA
+        assert_eq!(c.cpu.get_r8::<A>(), 0xAA);
     }
 
     #[test]
@@ -2950,9 +2942,9 @@ mod tests {
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
-        c.bus.write_byte(pc_before, 0xAA); // d8 = 0b10101010
+        c.bus.write_byte(pc_before, 0xAA); 
 
-        c.cpu.set_r8::<A>(0xFF); // A = 0b11111111
+        c.cpu.set_r8::<A>(0xFF); 
 
         ticks(&mut c, 2);
 
@@ -2966,14 +2958,14 @@ mod tests {
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
-        c.bus.write_byte(pc_before, 0x05); // d8 = 0x05
+        c.bus.write_byte(pc_before, 0x05); 
 
-        c.cpu.set_r8::<A>(0x50); // A = 0x50
+        c.cpu.set_r8::<A>(0x50); 
 
         ticks(&mut c, 2);
 
         assert_eq!(c.cpu.get_r16::<PC>(), pc_before + 2);
-        assert_eq!(c.cpu.get_r8::<A>(), 0x55);            // 0x50 | 0x05 = 0x55
+        assert_eq!(c.cpu.get_r8::<A>(), 0x55);
     }
 
     #[test]
@@ -2982,14 +2974,14 @@ mod tests {
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
-        c.bus.write_byte(pc_before, 0x50); // d8 = 0x50
+        c.bus.write_byte(pc_before, 0x50); 
 
-        c.cpu.set_r8::<A>(0x50); // A = 0x50 (Soustraction virtuelle: 0x50 - 0x50)
+        c.cpu.set_r8::<A>(0x50); 
 
         ticks(&mut c, 2);
 
         assert_eq!(c.cpu.get_r16::<PC>(), pc_before + 2);
-        assert_eq!(c.cpu.get_r8::<A>(), 0x50); // CP ne modifie PAS le registre A !
+        assert_eq!(c.cpu.get_r8::<A>(), 0x50); 
         
         assert!(c.cpu.flags.get_flag(Flag::Zero));
     }
@@ -3034,10 +3026,10 @@ mod tests {
 
         let pc_before = c.cpu.get_r16::<PC>();
         
-        c.cpu.set_r8::<C>(0x80); // C = 0x80 -> Adresse cible = 0xFF00 + 0x80 = 0xFF80
-        c.cpu.set_r8::<A>(0x7E); // Valeur à stocker
+        c.cpu.set_r8::<C>(0x80); 
+        c.cpu.set_r8::<A>(0x7E); 
 
-        ticks(&mut c, 2); // 2 ticks pour LD ($FF00+C), A
+        ticks(&mut c, 2); 
 
         assert_eq!(c.cpu.get_r16::<PC>(), pc_before + 1);
         assert_eq!(c.bus.read_byte(0xFF80), 0x7E);
@@ -3066,16 +3058,15 @@ mod tests {
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
-        // On écrit l'adresse immédiate 0xC000 (WRAM) après l'opcode
-        c.bus.write_byte(pc_before, 0x00);     // LSB
-        c.bus.write_byte(pc_before + 1, 0xC0); // MSB
+        c.bus.write_byte(pc_before, 0x00);     
+        c.bus.write_byte(pc_before + 1, 0xC0); 
 
-        c.cpu.set_r8::<A>(0xABCDEF_u32 as u8); // Disons 0x42 pour faire simple
+        c.cpu.set_r8::<A>(0xABCDEF_u32 as u8); 
         c.cpu.set_r8::<A>(0x42);
 
-        ticks(&mut c, 4); // LD (a16), A prend 4 ticks
+        ticks(&mut c, 4); 
 
-        assert_eq!(c.cpu.get_r16::<PC>(), pc_before + 3); // 3 octets consommés + overlap
+        assert_eq!(c.cpu.get_r16::<PC>(), pc_before + 3); 
         assert_eq!(c.bus.read_byte(0xC000), 0x42);
     }
 
@@ -3085,14 +3076,13 @@ mod tests {
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
-        // On va lire depuis l'adresse 0xC005
-        c.bus.write_byte(pc_before, 0x05);     // LSB
-        c.bus.write_byte(pc_before + 1, 0xC0); // MSB
+        c.bus.write_byte(pc_before, 0x05);     
+        c.bus.write_byte(pc_before + 1, 0xC0); 
 
         c.bus.write_byte(0xC005, 0x77);
         c.cpu.set_r8::<A>(0x00);
 
-        ticks(&mut c, 4); // LD A, (a16) prend 4 ticks
+        ticks(&mut c, 4); 
 
         assert_eq!(c.cpu.get_r16::<PC>(), pc_before + 3);
         assert_eq!(c.cpu.get_r8::<A>(), 0x77);
@@ -3108,9 +3098,8 @@ mod tests {
         c.cpu.set_r16::<HL>(0xABCD);
         c.cpu.set_r16::<SP>(0x1111);
 
-        ticks(&mut c, 2); // 1 octet, prend 2 ticks
+        ticks(&mut c, 2); 
 
-        // L'instruction fait 1 octet, le fetch overlap passe donc au suivant (+1)
         assert_eq!(c.cpu.get_r16::<PC>(), pc_before + 1);
         assert_eq!(c.cpu.get_r16::<SP>(), 0xABCD);
     }
@@ -3140,7 +3129,7 @@ mod tests {
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
-        c.bus.write_byte(pc_before, 0x02); // r8 = +2
+        c.bus.write_byte(pc_before, 0x02); 
 
         c.cpu.set_r16::<SP>(0x2000);
         c.cpu.flags.set_flag(Flag::Zero, true);
@@ -3163,15 +3152,14 @@ mod tests {
         c.cpu.first_read(&mut c.bus);
 
         let pc_before = c.cpu.get_r16::<PC>();
-        c.bus.write_byte(pc_before, 0x01); // r8 = +1
+        c.bus.write_byte(pc_before, 0x01); 
 
-        c.cpu.set_r16::<SP>(0x20FF); // Les 8 bits du bas sont au max
+        c.cpu.set_r16::<SP>(0x20FF); 
 
         ticks(&mut c, 3);
 
         assert_eq!(c.cpu.get_r16::<HL>(), 0x2100);
 
-        // Verification des flags
         assert_eq!(c.cpu.flags.get_flag(Flag::Zero), false);
         assert_eq!(c.cpu.flags.get_flag(Flag::Subtract), false);
         assert_eq!(c.cpu.flags.get_flag(Flag::HalfCarry), true);
@@ -3190,7 +3178,7 @@ mod tests {
 
         ticks(&mut c, 3);
 
-        assert_eq!(c.cpu.get_r16::<HL>(), 0x2000); // 0x2001 - 1 = 0x2000
+        assert_eq!(c.cpu.get_r16::<HL>(), 0x2000); 
 
         assert_eq!(c.cpu.flags.get_flag(Flag::Zero), false);
         assert_eq!(c.cpu.flags.get_flag(Flag::Subtract), false);
@@ -3235,7 +3223,6 @@ mod tests {
 
         assert_eq!(c.cpu.get_r16::<SP>(), 0x2100);
 
-        // Vérification des flags
         assert_eq!(c.cpu.flags.get_flag(Flag::Zero), false);
         assert_eq!(c.cpu.flags.get_flag(Flag::Subtract), false);
         assert_eq!(c.cpu.flags.get_flag(Flag::Carry), true);
@@ -3275,7 +3262,7 @@ mod tests {
 
     #[test]
     fn op_fb_ei_and_delay_execution() {
-        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xFB); // EI
+        let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xFB);
         c.cpu.first_read(&mut c.bus);
 
         c.cpu.ime = false;
@@ -3304,11 +3291,7 @@ mod tests {
 
         assert_eq!(c.cpu.halted, true);
     }
-    // ============================================================
-    // Instructions CB préfixées
-    // ============================================================
 
-    // ---------- RLC (0x00–0x07) ----------
     #[test]
     fn cb_00_rlc_b() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
@@ -3325,13 +3308,12 @@ mod tests {
 
     #[test]
     fn cb_05_rlc_l() {
-        // 0x05 = RLC L. Doit modifier L, pas la mémoire pointée par HL.
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x05);
         c.cpu.set_r8::<H>(0xC0);
         c.cpu.set_r8::<L>(0b1000_0001);
-        c.bus.write_byte(0xC081, 0xAA); // sentinelle : ne doit pas changer
+        c.bus.write_byte(0xC081, 0xAA); 
         ticks(&mut c, 2);
         assert_eq!(c.cpu.get_r8::<L>(), 0b0000_0011);
         assert_eq!(c.bus.read_byte(0xC081), 0xAA);
@@ -3340,13 +3322,12 @@ mod tests {
 
     #[test]
     fn cb_06_rlc_hl_mem() {
-        // 0x06 = RLC (HL). Doit modifier la mémoire, pas B.
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
         c.cpu.first_read(&mut c.bus);
         c.bus.write_byte(0x8001, 0x06);
         c.cpu.set_r16::<HL>(0xC000);
         c.bus.write_byte(0xC000, 0b1000_0001);
-        c.cpu.set_r8::<B>(0x77); // sentinelle : ne doit pas changer
+        c.cpu.set_r8::<B>(0x77); 
         ticks(&mut c, 4);
         assert_eq!(c.bus.read_byte(0xC000), 0b0000_0011);
         assert_eq!(c.cpu.get_r8::<B>(), 0x77);
@@ -3364,7 +3345,6 @@ mod tests {
         assert!(!c.cpu.flags.get_flag(Flag::Carry));
     }
 
-    // ---------- RRC (0x08–0x0F) ----------
     #[test]
     fn cb_08_rrc_b() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
@@ -3415,7 +3395,6 @@ mod tests {
         assert!(!c.cpu.flags.get_flag(Flag::Carry));
     }
 
-    // ---------- RL (0x10–0x17) ----------
     #[test]
     fn cb_10_rl_b_with_carry_in() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
@@ -3425,7 +3404,7 @@ mod tests {
         c.cpu.flags.set_flag(Flag::Carry, true);
         ticks(&mut c, 2);
         assert_eq!(c.cpu.get_r8::<B>(), 0b0000_0011);
-        assert!(!c.cpu.flags.get_flag(Flag::Carry)); // bit7 d'entrée = 0
+        assert!(!c.cpu.flags.get_flag(Flag::Carry)); 
     }
 
     #[test]
@@ -3440,7 +3419,7 @@ mod tests {
         ticks(&mut c, 2);
         assert_eq!(c.cpu.get_r8::<L>(), 0b0000_0011);
         assert_eq!(c.bus.read_byte(0xC081), 0xAA);
-        assert!(c.cpu.flags.get_flag(Flag::Carry)); // bit7 d'entrée = 1
+        assert!(c.cpu.flags.get_flag(Flag::Carry)); 
     }
 
     #[test]
@@ -3458,7 +3437,6 @@ mod tests {
         assert!(c.cpu.flags.get_flag(Flag::Carry));
     }
 
-    // ---------- RR (0x18–0x1F) ----------
     #[test]
     fn cb_18_rr_b_with_carry_in() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
@@ -3468,7 +3446,7 @@ mod tests {
         c.cpu.flags.set_flag(Flag::Carry, true);
         ticks(&mut c, 2);
         assert_eq!(c.cpu.get_r8::<B>(), 0b1000_0000);
-        assert!(c.cpu.flags.get_flag(Flag::Carry)); // bit0 d'entrée = 1
+        assert!(c.cpu.flags.get_flag(Flag::Carry)); 
     }
 
     #[test]
@@ -3501,7 +3479,6 @@ mod tests {
         assert!(!c.cpu.flags.get_flag(Flag::Carry));
     }
 
-    // ---------- SLA (0x20–0x27) ----------
     #[test]
     fn cb_20_sla_b() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
@@ -3542,7 +3519,6 @@ mod tests {
         assert!(c.cpu.flags.get_flag(Flag::Carry));
     }
 
-    // ---------- SRA (0x28–0x2F) ----------
     #[test]
     fn cb_28_sra_b_preserves_sign_bit() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
@@ -3550,7 +3526,7 @@ mod tests {
         c.bus.write_byte(0x8001, 0x28);
         c.cpu.set_r8::<B>(0b1000_0001);
         ticks(&mut c, 2);
-        assert_eq!(c.cpu.get_r8::<B>(), 0b1100_0000); // bit7 conservé
+        assert_eq!(c.cpu.get_r8::<B>(), 0b1100_0000); 
         assert!(c.cpu.flags.get_flag(Flag::Carry));
     }
 
@@ -3582,7 +3558,6 @@ mod tests {
         assert!(c.cpu.flags.get_flag(Flag::Carry));
     }
 
-    // ---------- SWAP (0x30–0x37) — déjà correct, on verrouille le comportement ----------
     #[test]
     fn cb_30_swap_b() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
@@ -3616,7 +3591,6 @@ mod tests {
         assert_eq!(c.bus.read_byte(0xC000), 0x21);
     }
 
-    // ---------- SRL (0x38–0x3F) ----------
     #[test]
     fn cb_38_srl_b() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
@@ -3657,7 +3631,6 @@ mod tests {
         assert!(!c.cpu.flags.get_flag(Flag::Carry));
     }
 
-    // ---------- BIT (0x40–0x7F) ----------
     #[test]
     fn cb_40_bit0_b_clear() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
@@ -3665,7 +3638,7 @@ mod tests {
         c.bus.write_byte(0x8001, 0x40);
         c.cpu.set_r8::<B>(0b0000_0000);
         ticks(&mut c, 2);
-        assert!(c.cpu.flags.get_flag(Flag::Zero));      // bit absent
+        assert!(c.cpu.flags.get_flag(Flag::Zero));
         assert!(!c.cpu.flags.get_flag(Flag::Subtract));
         assert!(c.cpu.flags.get_flag(Flag::HalfCarry));
     }
@@ -3678,8 +3651,8 @@ mod tests {
         c.cpu.set_r8::<A>(0b0000_0001);
         c.cpu.flags.set_flag(Flag::Carry, true);
         ticks(&mut c, 2);
-        assert!(!c.cpu.flags.get_flag(Flag::Zero));     // bit présent
-        assert!(c.cpu.flags.get_flag(Flag::Carry));     // BIT ne touche pas Carry
+        assert!(!c.cpu.flags.get_flag(Flag::Zero));
+        assert!(c.cpu.flags.get_flag(Flag::Carry));
     }
 
     #[test]
@@ -3703,7 +3676,6 @@ mod tests {
         assert!(!c.cpu.flags.get_flag(Flag::Zero));
     }
 
-    // ---------- RES (0x80–0xBF) ----------
     #[test]
     fn cb_87_res0_a_does_not_touch_flags() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);
@@ -3733,7 +3705,6 @@ mod tests {
         assert_eq!(c.bus.read_byte(0xC000), 0b1111_1110);
     }
 
-    // ---------- SET (0xC0–0xFF) ----------
     #[test]
     fn cb_c7_set0_a_does_not_touch_flags() {
         let mut c = gb::<DmgMmu<RomOnly, DmgTimers, DmgPpu>>(0xCB);

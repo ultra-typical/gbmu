@@ -12,7 +12,6 @@ impl<M: MemoryMapper> Cpu<M> {
         self.flags.set_flag(Flag::HalfCarry, (Self::get_r8::<Dest>(self) & 0x0F) == 0);
     }
 
-    //Increment the value pointed BY the r16 and update it
     pub fn inc_addr<Addr: Reg16, Value: Reg8>(&mut self, bus: &mut M) {
         Self::inc_r8::<Value>(self, bus);
         Self::write_memory::<Addr, Value>(self, bus);
@@ -25,7 +24,6 @@ impl<M: MemoryMapper> Cpu<M> {
         self.flags.set_flag(Flag::HalfCarry, (Self::get_r8::<Reg>(self) & 0x0F) == 0x0F);
     }
 
-    //Decrement the value pointed BY the r16 and update it
     pub fn dec_addr<Addr: Reg16, Value: Reg8>(&mut self, bus: &mut M) {
         Self::dec_r8::<Value>(self, bus);
         Self::write_memory::<Addr, Value>(self, bus);
