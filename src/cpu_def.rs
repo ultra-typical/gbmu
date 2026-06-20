@@ -51,30 +51,33 @@ impl<M: MemoryMapper> Cpu<M> {
         self.op_index += 1;
         micro_op(self, bus);
 
-        if self.op_index == self.queue.len() {
-            if self.handle_halt_state(bus) == StepStatus::Halted {
-                        self.queue = vec![Cpu::noop];
-                        self.op_index = 0;
-                        return;
-                    }
-            self.handle_halt_bug(bus);
-            self.handle_ime_delay();
+      if self.op_index == self.queue.len() {
+        if self.handle_halt_state(bus) == StepStatus::Halted {
+            self.queue = vec![Cpu::noop];
+            self.op_index = 0;
+            return;
+        }
 
-            if self.handle_ime_state(bus) == StepStatus::Halted {
-                self.queue = vec![Cpu::noop; 5];
+        if self.handle_ime_state(bus) == StepStatus::Halted {
+            self.queue = vec![Cpu::noop; 5];
+        } else {
+            let pc = self.get_r16::<PC>();
+            let instruction_byte: u8 = bus.read_byte(pc);
+            
+            if self.halt_bug {
+                self.halt_bug = false;
             } else {
-                let pc = self.get_r16::<PC>();
-                let instruction_byte: u8 = bus.read_byte(pc);
-                if self.halt_bug {
-                    self.halt_bug = false;
-                } else {
-                    self.set_r16::<PC>(pc.wrapping_add(1));
-                }
-                self.queue = self.instructions[instruction_byte as usize].micro_ops.to_vec().clone();
+                self.set_r16::<PC>(pc.wrapping_add(1));
             }
+            
+            self.queue = self.instructions[instruction_byte as usize].micro_ops.to_vec().clone();
+        }
+        
+            self.handle_ime_delay();
+            
             self.op_index = 0;
         }
-    }
+    }   
 
     pub fn dump_state(&self) -> CpuState {
         CpuState {

@@ -345,7 +345,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
         },
         Instruction {
             opcode: 0x46,
-            micro_ops: vec![Cpu::read_memory::<PC, Z>, Cpu::load_r8_r8::<B, Z>],
+            micro_ops: vec![Cpu::read_memory::<HL, Z>, Cpu::load_r8_r8::<B, Z>],
         },
         Instruction {
             opcode: 0x47,
@@ -377,7 +377,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
         },
         Instruction {
             opcode: 0x4e,
-            micro_ops: vec![Cpu::read_memory::<PC, Z>, Cpu::load_r8_r8::<C, Z>],
+            micro_ops: vec![Cpu::read_memory::<HL, Z>, Cpu::load_r8_r8::<C, Z>],
         },
         Instruction {
             opcode: 0x4f,
@@ -409,7 +409,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
         },
         Instruction {
             opcode: 0x56,
-            micro_ops: vec![Cpu::read_memory::<PC, Z>, Cpu::load_r8_r8::<D, Z>],
+            micro_ops: vec![Cpu::read_memory::<HL, Z>, Cpu::load_r8_r8::<D, Z>],
         },
         Instruction {
             opcode: 0x57,
@@ -441,7 +441,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
         },
         Instruction {
             opcode: 0x5e,
-            micro_ops: vec![Cpu::read_memory::<PC, Z>, Cpu::load_r8_r8::<E, Z>],
+            micro_ops: vec![Cpu::read_memory::<HL, Z>, Cpu::load_r8_r8::<E, Z>],
         },
         Instruction {
             opcode: 0x5f,
@@ -473,7 +473,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
         },
         Instruction {
             opcode: 0x66,
-            micro_ops: vec![Cpu::read_memory::<PC, Z>, Cpu::load_r8_r8::<H, Z>],
+            micro_ops: vec![Cpu::read_memory::<HL, Z>, Cpu::load_r8_r8::<H, Z>],
         },
         Instruction {
             opcode: 0x67,
@@ -505,7 +505,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
         },
         Instruction {
             opcode: 0x6e,
-            micro_ops: vec![Cpu::read_memory::<PC, Z>, Cpu::load_r8_r8::<L, Z>],
+            micro_ops: vec![Cpu::read_memory::<HL, Z>, Cpu::load_r8_r8::<L, Z>],
         },
         Instruction {
             opcode: 0x6f,
@@ -569,7 +569,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
         },
         Instruction {
             opcode: 0x7e,
-            micro_ops: vec![Cpu::read_memory::<PC, Z>, Cpu::load_r8_r8::<A, Z>],
+            micro_ops: vec![Cpu::read_memory::<HL, Z>, Cpu::load_r8_r8::<A, Z>],
         },
         Instruction {
             opcode: 0x7f,
@@ -1233,7 +1233,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
         },
         Instruction {
             opcode: 0xF6,
-            micro_ops: vec![Cpu::read_memory_incr::<PC, Z>, Cpu::xor_r8_r8::<A, Z>],
+            micro_ops: vec![Cpu::read_memory_incr::<PC, Z>, Cpu::or_r8_r8::<A, Z>],
         },
         Instruction {
             opcode: 0xF7,
