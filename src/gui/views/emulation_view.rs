@@ -1,4 +1,5 @@
 use crate::communications::{CpuState, InstructionList, Mode, WatchedAdresses};
+use crate::gui::egui::Id;
 use crate::gui::{
     AppState, CoreGameDevice, CoreGameOptions, DebuggingDevice, EmulationDevice, GbType, SelectionDevice
 };
@@ -29,19 +30,27 @@ impl EmulationDevice {
                     }
                     ui.add_space(10.0);
                 });
-                if ui.button("🐛 Open Debug Panel").clicked() {
-                    if let Err(err) = self.core_game.interface_ct.set_mode(Mode::Debug) {
-                        eprintln!("Communication is cut : falling back to selection view.");
-                        AppState::SelectionHub(self.into())
-                    } else {
-                        AppState::DebuggingHub(self.into())
-                    }
-                } else {
-                    AppState::EmulationHub(self)
-                }
-            })
-            .inner 
-    }
+
+
+            egui::Panel::bottom(Id::new("EmulationViewBottomPanel"))
+                .exact_size(200.0)
+                .show_inside(ui, |ui| {
+                    ui.vertical_centered(|ui| {
+                    ui.add_space(10.0);
+                    if ui.button("🐛").clicked() {
+                            if let Err(err) = self.core_game.interface_ct.set_mode(Mode::Debug) {
+                                eprintln!("Communication is cut : falling back to selection view.");
+                                return AppState::SelectionHub(self.into())
+                            } else {
+                                return AppState::DebuggingHub(self.into())
+                            }
+                        } else {
+                            return AppState::EmulationHub(self)
+                        }
+                    }).inner
+                }).inner
+            }).inner
+        }
 }
 
 impl From<EmulationDevice> for DebuggingDevice {

@@ -1,5 +1,6 @@
 use crate::gui::{AppState, SelectionDevice};
 use crate::{GBMU_FILE};
+use crate::gui::egui::Id;
 use eframe::egui;
 use std::path::{PathBuf, Path};
 
@@ -51,8 +52,18 @@ impl SelectionDevice {
             self.path = path.to_string_lossy().to_string();
         }
 
-        egui::Panel::right("history_panel")
+        egui::Panel::bottom(Id::new("toppannel"))
             .show_inside(ui, |ui| {
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT),|ui| {
+                egui::widgets::global_theme_preference_switch(ui);
+                });
+            });
+
+        egui::Panel::right("history_panel")
+            .resizable(true)
+            .default_size(270.0)
+            .show_inside(ui, |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading("History");
                 let gbmu = GBMU_FILE.lock().unwrap();
                 for entry in &gbmu.history {
@@ -83,6 +94,7 @@ impl SelectionDevice {
                 ui.add_space(6.0);
                 }
             });
+        });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.centered_and_justified(|ui| {
