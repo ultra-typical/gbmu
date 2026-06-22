@@ -1,7 +1,7 @@
 use crate::cpu::defines::Cpu;
 use crate::cpu::defines::Flag;
 use crate::cpu::flags::FlagsOps;
-use crate::cpu_def::*;
+use crate::cpu::*;
 use crate::mmu::MemoryMapper;
 
 impl<M: MemoryMapper> Cpu<M> {

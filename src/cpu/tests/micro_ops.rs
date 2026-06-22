@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::cpu_def::*;
+    use crate::cpu::*;
     use crate::cpu::defines::Flag;
     use crate::mmu::timers::DmgTimers;
     use crate::ppu::DmgPpu;

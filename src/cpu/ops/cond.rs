@@ -1,11 +1,11 @@
 
-use crate::cpu_def::*;
+use crate::cpu::*;
 use crate::{
     cpu::{
         defines::{Cpu, Flag},
         flags::FlagsOps,
     },
-    cpu_def::{PC, Reg16, W, Z},
+    cpu::{PC, Reg16, W, Z},
     mmu::MemoryMapper,
 };
 

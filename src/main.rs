@@ -2,7 +2,6 @@
 mod cli;
 mod communications;
 mod cpu;
-mod cpu_def;
 mod file;
 mod gameboy;
 mod gui;

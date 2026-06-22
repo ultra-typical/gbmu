@@ -1,6 +1,6 @@
 use crate::cpu::defines::Cpu;
 use crate::cpu::defines::Instruction;
-use crate::cpu_def::*;
+use crate::cpu::*;
 use crate::mmu::MemoryMapper;
 
 pub fn build_cb_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {

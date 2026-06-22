@@ -6,7 +6,7 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-use crate::cpu_def::*;
+use crate::cpu::*;
 use crate::communications::InstructionList;
 use crate::communications::WatchedAdresses;
 use crate::communications::{GameCT, Mode, Request};

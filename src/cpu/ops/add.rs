@@ -1,8 +1,8 @@
 use crate::cpu::defines::Flag;
 use crate::cpu::flags::FlagsOps;
-use crate::cpu_def::*;
+use crate::cpu::*;
 use crate::mmu::MemoryMapper;
-use crate::{cpu::defines::Cpu, cpu_def::Reg8};
+use crate::{cpu::defines::Cpu, cpu::Reg8};
 
 impl<M: MemoryMapper> Cpu<M> {
     pub fn add_r8_r8<Dest: Reg8, Src: Reg8>(&mut self, _bus: &mut M) {

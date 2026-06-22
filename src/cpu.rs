@@ -1,3 +1,10 @@
+pub mod cb_instructions;
+pub mod defines;
+pub mod flags;
+pub mod instructions;
+pub mod ops;
+pub mod tests;
+
 use crate::communications::CpuState;
 use crate::cpu::cb_instructions::build_cb_instructions;
 use crate::cpu::defines::Cpu;
@@ -5,6 +12,8 @@ use crate::cpu::defines::{r8, r16};
 use crate::cpu::instructions::build_instructions;
 use crate::mmu::MemoryMapper;
 use std::fmt;
+
+
 
 
 #[derive(Debug, Clone, Copy, PartialEq)]
