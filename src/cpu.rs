@@ -1,73 +1,114 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
-pub mod block0;
-pub mod block1;
-pub mod block2;
-pub mod block3;
-pub mod block_prefix;
-pub mod conditions;
-pub mod flags_registers;
-pub mod registers;
-pub mod utils;
-pub mod ops8;
-
-use std::fmt;
+pub mod cb_instructions;
+pub mod defines;
+pub mod flags;
+pub mod instructions;
+pub mod ops;
+pub mod tests;
 
 use crate::communications::CpuState;
-use crate::cpu::registers::{R8, R16, Registers};
-use crate::mmu::{MemoryMapper};
+use crate::cpu::cb_instructions::build_cb_instructions;
+use crate::cpu::defines::Cpu;
+use crate::cpu::defines::{r8, r16};
+use crate::cpu::instructions::build_instructions;
+use crate::mmu::MemoryMapper;
+use std::fmt;
 
-const BLOCK_MASK: u8 = 0b11000000;
+
+
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum StepStatus {
+pub enum StepStatus {
     Continue,
     Halted,
 }
 
-pub struct Cpu {
-    pub registers: Registers,
-    pub pc: u16,
-    pub ime: bool,
-    pub ime_delay: bool, // mimic hardware delay in EI
-    pub halted: bool,    // for HALT instruction
-    pub halt_bug: bool,
-    tick_to_wait: u8,
-}
-
-impl Default for Cpu {
-    fn default() -> Self {
-        Cpu::new()
-    }
-}
-
-
-impl Cpu {
+impl<M: MemoryMapper> Cpu<M> {
     pub fn new() -> Self {
-        Cpu {
-            pc: 0x0000,
-            registers: Registers::default(),
+        Self {
+            r8: [0; 14],
+            flags: 0,
+            queue: [Cpu::noop; 8],
+            op_index: 0,
+            queue_len: 0,
             ime: false,
             ime_delay: false,
             halted: false,
             halt_bug: false,
-            tick_to_wait: 0,
+            instructions: build_instructions(),
+            cb_instructions: build_cb_instructions(),
         }
     }
 
-    pub fn execute_instruction<M: MemoryMapper>(&mut self, instruction: u8, bus: &mut M) -> u8 {
-        let block = (instruction & BLOCK_MASK) >> 6;
-        match block {
-            0b00 => block0::execute_instruction_block0(self, instruction, bus),
-            0b01 => block1::execute_instruction_block1(self, instruction, bus),
-            0b10 => block2::execute_instruction_block2(self, instruction, bus),
-            0b11 => block3::execute_instruction_block3(self, instruction, bus),
-            _ => unreachable!(),
+    pub fn load_queue(&mut self, ops: &[fn(&mut Cpu<M>, &mut M)]) {
+        self.queue_len = ops.len();
+        self.queue[..self.queue_len].copy_from_slice(&ops[..self.queue_len]);
+        self.op_index = 0;
+    }
+
+    pub fn load_instruction(&mut self, opcode: u8) {
+        let ops = &self.instructions[opcode as usize].micro_ops;
+        self.queue_len = ops.len();
+        self.queue[..self.queue_len].copy_from_slice(&ops[..self.queue_len]);
+        self.op_index = 0;
+    }
+
+    pub fn first_read(&mut self, bus: &mut M) {
+        let pc = self.get_r16::<PC>();
+        let instruction_byte: u8 = bus.read_byte(pc);
+        self.inc_r16::<PC>(bus);
+
+            
+        self.handle_halt_state(bus);
+        self.handle_halt_bug(bus);
+        self.handle_ime_delay();
+
+        self.load_instruction(instruction_byte);
+    }
+
+    pub fn tick(&mut self, bus: &mut M) {
+        let micro_op = &self.queue[self.op_index];
+        self.op_index += 1;
+        micro_op(self, bus);
+
+        if self.op_index == self.queue_len {
+            if self.handle_halt_state(bus) == StepStatus::Halted {
+                self.load_queue(&[Cpu::noop]);
+                return;
+            }
+
+            if self.handle_ime_state(bus) == StepStatus::Halted {
+                self.load_queue(&[Cpu::noop, Cpu::noop, Cpu::noop, Cpu::noop, Cpu::noop]);
+            } else {
+                let pc = self.get_r16::<PC>();
+                let instruction_byte: u8 = bus.read_byte(pc);
+                if self.halt_bug {
+                    self.halt_bug = false;
+                } else {
+                    self.set_r16::<PC>(pc.wrapping_add(1));
+                }
+                
+                self.load_instruction(instruction_byte);
+            }
+                self.handle_ime_delay();
+            }
+    }   
+
+    pub fn dump_state(&self) -> CpuState {
+        CpuState {
+            a: self.get_r8::<A>(),
+            b: self.get_r8::<B>(),
+            c: self.get_r8::<C>(),
+            d: self.get_r8::<D>(),
+            e: self.get_r8::<E>(),
+            h: self.get_r8::<H>(),
+            l: self.get_r8::<L>(),
+            hl: self.get_r16::<HL>(),
+            sp: self.get_r16::<SP>(),
+            pc: self.get_r16::<PC>(),
         }
     }
 
-    fn handle_halt_state<M: MemoryMapper>(&mut self, bus: &mut M) -> StepStatus {
+    pub fn handle_halt_state(&mut self, bus: &mut M) -> StepStatus {
         if self.halted {
             let iflag = bus.read_interrupt_flag();
             let ienable = bus.read_interrupt_enable();
@@ -85,23 +126,23 @@ impl Cpu {
         StepStatus::Continue
     }
 
-    fn handle_ime_state<M: MemoryMapper>(&mut self, bus: &mut M) -> StepStatus {
+    fn handle_ime_state(&mut self, bus: &mut M) -> StepStatus {
         if self.ime {
             if let Some(interrupt) = bus.interrupts_next_request() {
                 self.ime = false;
                 bus.interrupts_clear_request(interrupt);
 
-                let ret_addr = self.pc;
+                let ret_addr = self.get_r16::<PC>();
 
-                let sp1 = self.registers.get_sp().wrapping_sub(1);
-                self.registers.set_sp(sp1);
+                let sp1 = self.get_r16::<SP>().wrapping_sub(1);
+                self.set_r16::<SP>(sp1);
                 bus.write_byte(sp1, (ret_addr >> 8) as u8);
 
                 let sp2 = sp1.wrapping_sub(1);
-                self.registers.set_sp(sp2);
+                self.set_r16::<SP>(sp2);
                 bus.write_byte(sp2, (ret_addr & 0xFF) as u8);
 
-                self.pc = interrupt.vector();
+                self.set_r16::<PC>(interrupt.vector());
                 StepStatus::Halted
             } else {
                 StepStatus::Continue
@@ -111,9 +152,9 @@ impl Cpu {
         }
     }
 
-    fn handle_halt_bug(&mut self) {
+    fn handle_halt_bug(&mut self, bus: &mut M) {
         if self.halt_bug {
-            self.pc = self.pc.wrapping_sub(1);
+            Self::dec_r16::<PC>(self, bus);
             self.halt_bug = false;
         }
     }
@@ -124,399 +165,114 @@ impl Cpu {
             self.ime_delay = false;
         }
     }
-
-    pub fn machine_cycle<M: MemoryMapper>(&mut self, bus: &mut M) -> u8 {
-        if self.handle_halt_state(bus) == StepStatus::Halted {
-            return 4;
-        }
-        if self.handle_ime_state(bus) == StepStatus::Halted {
-            return 20;
-        }
-
-        let instruction_byte = bus.read_byte(self.pc);
-        let tick_to_wait = self.execute_instruction(instruction_byte, bus);
-
-        self.handle_halt_bug();
-        self.handle_ime_delay();
-
-        tick_to_wait
-    }
-
-    pub fn debug_step<M: MemoryMapper>(&mut self, instruction: u8, bus: &mut M) -> u8 {
-        if self.handle_halt_state(bus) == StepStatus::Halted {
-            return 4;
-        }
-        if self.handle_ime_state(bus) == StepStatus::Halted {
-            return 20;
-        }
-
-        let tick_to_wait = self.execute_instruction(instruction, bus);
-
-        self.handle_halt_bug();
-        self.handle_ime_delay();
-
-        tick_to_wait
-    }
-
-    pub fn get_r8_value<M: MemoryMapper>(&self, register: R8, bus: &mut M) -> u8 {
-        match register {
-            R8::HLIndirect => {
-                let addr = self.registers.get_r16_value(R16::HL);
-                bus.read_byte(addr)
-            }
-            _ => self.registers.get_r8_value(register),
-        }
-    }
-
-    pub fn set_r8_value<M: MemoryMapper>(&mut self, register: R8, value: u8, bus: &mut M) {
-        match register {
-            R8::HLIndirect => {
-                let addr = self.registers.get_r16_value(R16::HL);
-                bus.write_byte(addr, value);
-            }
-            _ => self.registers.set_r8_value(register, value),
-        }
-    }
-
-    pub fn dump_state(&self) -> CpuState {
-        CpuState {
-            a: self.registers.get_a(),
-            b: self.registers.get_b(),
-            c: self.registers.get_c(),
-            d: self.registers.get_d(),
-            e: self.registers.get_e(),
-            h: self.registers.get_h(),
-            l: self.registers.get_l(),
-            hl: self.registers.get_hl(),
-            sp: self.registers.get_sp(),
-            pc: self.pc,
-
-        }
-    }
 }
 
-impl fmt::Display for Cpu {
+impl<M: MemoryMapper> fmt::Debug for Cpu<M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X}",
-            self.registers.get_r8_value(R8::A),
-            self.registers.get_flags_u8(),
-            self.registers.get_r8_value(R8::B),
-            self.registers.get_r8_value(R8::C),
-            self.registers.get_r8_value(R8::D),
-            self.registers.get_r8_value(R8::E),
-            self.registers.get_r8_value(R8::H),
-            self.registers.get_r8_value(R8::L),
-            self.registers.get_sp(),
-            self.pc,
-        )
+        f.debug_struct("Cpu")
+            .field("op_index", &self.op_index)
+            .field("r8", &self.r8)
+            .field("flags", &format!("{:08b}", self.flags))
+            .field("queue", &self.queue)
+            .finish()
     }
 }
 
-/*
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::cell::RefCell;
-    use std::fs;
-    use std::io::Write;
-    use std::path::Path;
-    use std::rc::Rc;
+pub trait Reg8 {
+    const USIZE: usize;
+}
 
-    use crate::mmu::interrupt::Interrupt;
-    use crate::mmu::mbc::RomOnly;
-
-    // interrupts tests
-    #[test]
-    fn test_cpu_services_timer_interrupt() {
-        // 1) Set up MMU and manually enable/request the Timer interrupt
-        let mut mmu: Mmu<RomOnly> = Mmu::default();
-        // Enable only Timer (bit 2) in IE
-        mmu.write_byte(0xFFFF, Interrupt::Timer as u8);
-        // Request Timer by writing to IF
-        mmu.write_byte(0xFF0F, Interrupt::Timer as u8);
-
-        // 2) Create CPU with that MMU
-        let bus: Rc<RefCell<Mmu<RomOnly>>> = mmu.into();
-        let mut cpu: Cpu<RomOnly> = Cpu::new(bus.clone());
-
-        // 3) Initialize PC and SP
-        cpu.pc = 0x1234;
-        cpu.registers.set_sp(0xFFFE);
-        // Allow interrupts immediately
-        cpu.ime = true;
-
-        // 4) Perform one step: should service the Timer interrupt
-        cpu.step();
-
-        // 5) After service, SP must have decreased by 2
-        assert_eq!(cpu.registers.get_sp(), 0xFFFC);
-
-        // 6) Check the two bytes on the stack (little-endian: low then high)
-        let mmu = bus.borrow_mut();
-        // Low byte of 0x1234 at address 0xFFFC
-        assert_eq!(mmu.read_byte(0xFFFC), 0x34);
-        // High byte of 0x1234 at address 0xFFFD
-        assert_eq!(mmu.read_byte(0xFFFD), 0x12);
-
-        // 7) CPU should have jumped to the Timer vector (0x50)
-        assert_eq!(cpu.pc, Interrupt::Timer.vector());
-
-        // 8) IME should now be cleared
-        assert!(!cpu.ime);
-
-        // 9) IF’s Timer bit must have been cleared
-        assert_eq!(mmu.read_byte(0xFF0F) & (1 << (Interrupt::Timer as u8)), 0);
-    }
-
-    // HALT tests
-    #[test]
-    fn test_halt_opcode_sets_halted_and_advances_pc() {
-        // Setup: place a HALT (0x76) at address 0x200
-        let mut cpu = Cpu::<RomOnly>::default();
-        cpu.bus.borrow_mut().write_byte( 0x8000, 0x76);
-
-        cpu.pc = 0x8000;
-
-        // Execute one step → should see the HALT instruction
-        cpu.step();
-
-        // After HALT: halted flag set, PC advanced by 1
-        assert!(cpu.halted, "CPU should be halted after executing HALT");
-        assert_eq!(cpu.pc, 0x8001, "PC must point past the HALT opcode");
-    }
-
-    #[test]
-    fn test_step_halt_stays_halted_without_interrupt() {
-        // If halted==true and no pending interrupt, step() must do nothing
-        let mut cpu = Cpu::<RomOnly>::default();
-
-        cpu.halted = true;
-        cpu.pc = 0x123;
-        cpu.ime = false; // IME doesn't matter when no interrupt
-        // Ensure IF & IE = 0
-        cpu.step();
-        assert!(cpu.halted, "Still halted if no interrupt pending");
-        assert_eq!(cpu.pc, 0x123, "PC must not change when halted and idle");
-    }
-
-    #[test]
-    fn test_step_halt_wakes_without_servicing_when_ime_false() {
-        // If halted==true and an interrupt is pending but IME==false,
-        // CPU should wake (halted→false) but *not* service the interrupt.
-        //
-
-        let mut cpu = Cpu::<RomOnly>::default();
-        {
-            let mut mmu = cpu.bus.borrow_mut();
-            mmu.write_byte(0xFF0F, Interrupt::Timer as u8);
-            mmu.write_byte(0xFFFF, Interrupt::Timer as u8);
-            mmu.write_byte(0x300, 0x00);
+pub trait Reg16 {
+    const USIZE: usize;
+}
+macro_rules! implreg8 {
+    ($name:ident) => {
+        pub struct $name {}
+        impl Reg8 for $name {
+            const USIZE: usize = r8::$name as usize;
         }
-        // Make a pending interrupt: Timer bit in IF and IE
-        // Also put a dummy opcode (0x00 = NOP) at PC so we can see it execute.
-        cpu.pc = 0x300;
-        cpu.registers.set_sp(0xFFFE);
-        cpu.halted = true;
-        cpu.ime = false; // Master-enable off
+    };
+}
 
-        cpu.step();
+implreg8!(A);
+implreg8!(B);
+implreg8!(C);
+implreg8!(D);
+implreg8!(E);
+implreg8!(F);
+implreg8!(H);
+implreg8!(L);
+implreg8!(S);
+implreg8!(PcP);
+implreg8!(PcC);
+implreg8!(P);
+implreg8!(W);
+implreg8!(Z);
 
-        // Halt should clear, but with IME=0 and a pending interrupt the halt-bug fires:
-        // we expect the very next byte (0x00 at 0x300) to repeat, so PC stays at 0x300.
-        assert!(!cpu.halted, "CPU must wake up when interrupt pending");
-        assert_eq!(
-            cpu.pc, 0x300,
-            "PC should *not* advance thanks to the halt bug"
-        );
-        // And IF should remain unchanged, since IME==false means no service
-        let mmu = cpu.bus.borrow_mut();
-        assert_ne!(
-            mmu.read_byte(0xFF0F) & (Interrupt::Timer as u8),
-            0,
-            "IF should still contain the pending bit when IME is false"
-        );
-    }
-
-    #[test]
-    fn test_step_halt_wake_and_service_when_ime_true() {
-        // Combination of HALT wake-up + interrupt dispatch in one step:
-        let mut cpu = Cpu::<RomOnly>::default();
-        {
-            let mut mmu = cpu.bus.borrow_mut();
-            mmu.write_byte(0xFF0F, Interrupt::Timer as u8);
-            mmu.write_byte(0xFFFF, Interrupt::Timer as u8);
+macro_rules! implreg16 {
+    ($name:ident) => {
+        pub struct $name {}
+        impl Reg16 for $name {
+            const USIZE: usize = r16::$name as usize;
         }
-        cpu.pc = 0x400;
-        cpu.registers.set_sp(0xFFFE);
-        cpu.halted = true;
-        cpu.ime = true;
+    };
+}
 
-        cpu.step();
+implreg16!(AF);
+implreg16!(BC);
+implreg16!(DE);
+implreg16!(HL);
+implreg16!(SP);
+implreg16!(PC);
+implreg16!(WZ);
 
-        // Should have pushed return addr 0x400, jumped to 0x50, cleared halted & IME
-        assert_eq!(cpu.registers.get_sp(), 0xFFFC);
-        let mmu = cpu.bus.borrow_mut();
-        assert_eq!(mmu.read_byte(0xFFFC), 0x00, "low byte of 0x0400");
-        assert_eq!(mmu.read_byte(0xFFFD), 0x04, "high byte of 0x0400");
-        assert_eq!(cpu.pc, Interrupt::Timer.vector());
-        assert!(!cpu.ime, "IME must be cleared after servicing");
-        assert_eq!(
-            mmu.read_byte(0xFF0F) & (Interrupt::Timer as u8),
-            0,
-            "IF Timer bit must be cleared"
-        );
-    }
-
-    #[test]
-    fn test_halt_bug_repeats_next_byte() {
-        use crate::cpu::registers::R8;
-        use crate::mmu::interrupt::Interrupt;
-
-        // 1) Lay out a tiny program in WRAM (0xC000..):
-        //      0xC000: 0x76       ; HALT
-        //      0xC001: 0x04       ; INC B
-
-        let mut cpu = Cpu::<RomOnly>::default();
-        {
-            let mut mmu = cpu.bus.borrow_mut();
-            mmu.write_byte(0xC000, 0x76);
-            mmu.write_byte(0xC001, 0x04);
-        }
-
-        // 2) Point Cpu at our “program”
-        cpu.pc = 0xC000;
-        cpu.registers.set_r8_value(R8::B, 0);
-
-        // 3) Trigger the halt bug: IME=0, and set IF & IE so (IE&IF)!=0
-        {
-            let mut mmu = cpu.bus.borrow_mut();
-            mmu.write_byte(0xFFFF, Interrupt::Timer as u8); // IE
-            mmu.write_byte(0xFF0F, Interrupt::Timer as u8); // IF
-        }
-        cpu.ime = false;
-
-        // 4) Step 1: execute the HALT itself (sets `halted`, moves PC→0xC001)
-        cpu.step();
-        assert!(cpu.halted, "after HALT, CPU should be halted");
-        assert_eq!(cpu.pc, 0xC001, "PC must advance past HALT");
-
-        // 5) Step 2: wake+bug → should execute the INC B at 0xC001
-        cpu.step();
-        // B should have gone from 0 → 1:
-        assert_eq!(cpu.registers.get_r8_value(R8::B), 1);
-
-        // 6) Step 3: with no more HALT state, just execute INC B again
-        cpu.step();
-        // B should now be 2, confirming the “repeat” of that byte:
-        assert_eq!(cpu.registers.get_r8_value(R8::B), 2);
-    }
-
-    // roms tests
-    fn run_rom_test(rom_path: &str, logfile_name: &str) {
-        let log_dir = Path::new("logfiles");
-        if !log_dir.exists() {
-            fs::create_dir_all(log_dir).expect("Failed to create `logfiles` directory");
-        }
-
-        let rom_data = fs::read(rom_path).expect("Failed to read ROM file");
-        let bus = Mmu::<RomOnly>::new(rom_data, None).unwrap();
-        let mut cpu = Cpu::<RomOnly>::new(bus.into());
-        let mut logfile = fs::File::create(format!("logfiles/{}", logfile_name))
-            .expect("Failed to create logfile");
-
-        let mut last_pc = 0xFFFF;
-        let mut same_pc_count = 0;
-
-        loop {
-            writeln!(logfile, "{}", cpu).expect("Failed to write to logfile");
-            cpu.step();
-
-            if cpu.pc == last_pc {
-                same_pc_count += 1;
-            } else {
-                same_pc_count = 0;
-            }
-
-            last_pc = cpu.pc;
-
-            if same_pc_count > 100 {
-                break; // Assume program has finished
-            }
+impl<M: MemoryMapper> Cpu<M> {
+    
+    fn read_r8_idx(&self, idx: usize) -> u8 {
+        if idx == r8::F {
+            self.flags
+        } else {
+            self.r8[idx]
         }
     }
 
-    #[ignore]
-    #[test]
-    fn test_rom_01_special() {
-        run_rom_test("roms/individual/01-special.gb", "logfile-01-special");
+    fn write_r8_idx(&mut self, idx: usize, value: u8) {
+        if idx == r8::F {
+            self.flags = value & 0xF0;
+        } else {
+            self.r8[idx] = value;
+        }
     }
 
-    #[ignore]
-    #[test]
-    fn test_rom_02_interrupts() {
-        run_rom_test("roms/individual/02-interrupts.gb", "logfile-02-interrupts");
+    fn get_r16_indices(&self, r16_idx: usize) -> (usize, usize) {
+        match r16_idx {
+            r16::AF => (r8::A, r8::F),
+            r16::BC => (r8::B, r8::C),
+            r16::DE => (r8::D, r8::E),
+            r16::HL => (r8::H, r8::L),
+            r16::SP => (r8::S, r8::P),
+            r16::PC => (r8::PcP, r8::PcC),
+            r16::WZ => (r8::W, r8::Z),
+            _ => unreachable!(),
+        }
     }
 
-    #[ignore]
-    #[test]
-    fn test_rom_03_op_sp_hl() {
-        run_rom_test("roms/individual/03-op sp,hl.gb", "logfile-03-op-sp-hl");
+    pub fn get_r8<R: Reg8>(&self) -> u8 {
+        self.read_r8_idx(R::USIZE)
     }
 
-    #[ignore]
-    #[test]
-    fn test_rom_04_op_r_imm() {
-        run_rom_test("roms/individual/04-op r,imm.gb", "logfile-04-op-r-imm");
+    pub fn set_r8<R: Reg8>(&mut self, value: u8) {
+        self.write_r8_idx(R::USIZE, value);
     }
 
-    #[ignore]
-    #[test]
-    fn test_rom_05_op_rp() {
-        run_rom_test("roms/individual/05-op rp.gb", "logfile-05-op-rp");
+    pub fn get_r16<R: Reg16>(&self) -> u16 {
+        let (hi_idx, lo_idx) = self.get_r16_indices(R::USIZE);
+        (self.read_r8_idx(hi_idx) as u16) << 8 | (self.read_r8_idx(lo_idx) as u16)
     }
 
-    #[ignore]
-    #[test]
-    fn test_rom_06_ld_r_r() {
-        run_rom_test("roms/individual/06-ld r,r.gb", "logfile-06-ld-r-r");
-    }
-
-    #[ignore]
-    #[test]
-    fn test_rom_07_jr_jp_call_ret_rst() {
-        run_rom_test(
-            "roms/individual/07-jr,jp,call,ret,rst.gb",
-            "logfile-07-jr-jp-call-ret-rst",
-        );
-    }
-
-    #[ignore]
-    #[test]
-    fn test_rom_08_misc_instrs() {
-        run_rom_test(
-            "roms/individual/08-misc instrs.gb",
-            "logfile-08-misc-instrs",
-        );
-    }
-
-    #[ignore]
-    #[test]
-    fn test_rom_09_op_r_r() {
-        run_rom_test("roms/individual/09-op r,r.gb", "logfile-09-op-r-r");
-    }
-
-    #[ignore]
-    #[test]
-    fn test_rom_10_bit_ops() {
-        run_rom_test("roms/individual/10-bit ops.gb", "logfile-10-bit-ops");
-    }
-
-    #[ignore]
-    #[test]
-    fn test_rom_11_op_a_hl() {
-        run_rom_test("roms/individual/11-op a,(hl).gb", "logfile-11-op-a-hl");
+    pub fn set_r16<R: Reg16>(&mut self, value: u16) {
+        let (hi_idx, lo_idx) = self.get_r16_indices(R::USIZE);
+        self.write_r8_idx(hi_idx, (value >> 8) as u8);
+        self.write_r8_idx(lo_idx, (value & 0xFF) as u8);
     }
 }
-*/

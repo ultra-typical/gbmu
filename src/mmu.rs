@@ -182,6 +182,8 @@ pub trait MemoryMapper {
                     self.update_data(addr as usize, val);
                     self.set_dma_index(0);
                     self.set_dma_source((val as u16) << 8);
+                } else {
+                    self.update_data(addr as usize, val);
                 }
             },
             MemoryRegion::Oam => {
