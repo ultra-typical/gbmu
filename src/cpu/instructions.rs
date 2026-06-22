@@ -160,8 +160,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
         Instruction {
             opcode: 0x20,
             micro_ops: vec![
-                Cpu::read_memory_incr::<PC, Z>,
-                Cpu::check_cond::<CondNZ>,
+                Cpu::read_memory_incr_check::<PC, Z, CondNZ>,
                 Cpu::relative_jump,
             ],
         },
@@ -239,8 +238,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
         Instruction {
             opcode: 0x30,
             micro_ops: vec![
-                Cpu::read_memory_incr::<PC, Z>,
-                Cpu::check_cond::<CondNC>,
+                Cpu::read_memory_incr_check::<PC, Z, CondNC>,
                 Cpu::relative_jump,
             ],
         },
@@ -853,8 +851,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
             opcode: 0xC2,
             micro_ops: vec![
                 Cpu::read_memory_incr::<PC, Z>,
-                Cpu::read_memory_incr::<PC, W>,
-                Cpu::check_cond::<CondNZ>,
+                Cpu::read_memory_incr_check::<PC, W, CondNZ>,
                 Cpu::load_r16_r16::<PC, WZ>,
                 Cpu::noop,
             ],
@@ -924,8 +921,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
             opcode: 0xCA,
             micro_ops: vec![
                 Cpu::read_memory_incr::<PC, Z>,
-                Cpu::read_memory_incr::<PC, W>,
-                Cpu::check_cond::<CondZ>,
+                Cpu::read_memory_incr_check::<PC, W, CondZ>,
                 Cpu::load_r16_r16::<PC, WZ>,
                 Cpu::noop,
             ],
@@ -994,8 +990,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
             opcode: 0xD2,
             micro_ops: vec![
                 Cpu::read_memory_incr::<PC, Z>,
-                Cpu::read_memory_incr::<PC, W>,
-                Cpu::check_cond::<CondNC>,
+                Cpu::read_memory_incr_check::<PC, W, CondNC>,
                 Cpu::load_r16_r16::<PC, WZ>,
                 Cpu::noop,
             ],
@@ -1059,8 +1054,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
             opcode: 0xDA,
             micro_ops: vec![
                 Cpu::read_memory_incr::<PC, Z>,
-                Cpu::read_memory_incr::<PC, W>,
-                Cpu::check_cond::<CondC>,
+                Cpu::read_memory_incr_check::<PC, W, CondC>,
                 Cpu::load_r16_r16::<PC, WZ>,
                 Cpu::noop,
             ],
