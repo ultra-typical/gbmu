@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
+use crate::gui::views::emulation_view::emulation_ui_state::EmulationUiState;
 use std::thread;
 use std::sync::Arc;
 use egui::load::SizedTexture;
@@ -94,6 +95,7 @@ impl FromStr for GbType {
     }
 }
 
+#[derive(Clone)]
 pub struct CoreGameOptions {
     pub boot_rom_path: String,
     pub rom_path: String,
@@ -123,6 +125,7 @@ impl GraphicalApp {
         Self {
             app_state: AppState::EmulationHub(EmulationDevice {
                 core_game: CoreGameDevice::new(options.into()),
+                ui_state: EmulationUiState::default()
             }),
         }
     }
@@ -417,6 +420,7 @@ pub struct CoreGameDevice {
     texture_handler: Option<TextureHandle>,
     key_mapping: KeyMapping,
     pub interface_ct: Box<dyn InterfaceCT>,
+    options: CoreGameOptions,
 }
 
 impl KeyMapping {
@@ -475,16 +479,28 @@ impl CoreGameDevice {
     fn new(options: CoreGameOptions) -> Self {
         let (game_ct, interface_ct) = create_communication_tools();
 
-        let audio_running =  Arc::new(AtomicBool::new(true));
+        let audio_running = Arc::new(AtomicBool::new(true));
 
         Self {
             interface_ct,
-            handler: tokio::spawn(async_launch_game(options, game_ct)),
+            handler: tokio::spawn(async_launch_game(options.clone(), game_ct)),
             buffer: [0; FRAME_SIZE_IN_U8],
             texture_handler: None,
             sized_image: None,
             key_mapping: KeyMapping::default(),
+            options,
         }
+    }
+
+    pub fn reset(&mut self) {
+        self.handler.abort();
+
+        let (game_ct, interface_ct) = create_communication_tools();
+        self.interface_ct = interface_ct;
+        self.handler = tokio::spawn(async_launch_game(self.options.clone(), game_ct));
+
+        self.buffer = [0; FRAME_SIZE_IN_U8];
+        self.sized_image = None;
     }
 }
 
@@ -522,10 +538,13 @@ impl Default for SelectionDevice {
 
 pub struct EmulationDevice {
     pub core_game: CoreGameDevice,
+    pub ui_state: EmulationUiState,
 }
 
 pub struct DebuggingDevice {
     pub core_game: CoreGameDevice,
+    pub ui_state: EmulationUiState,
+
     /*
         Info stored for the GUI to use them;
         These are the responses from the sending/receiving operation

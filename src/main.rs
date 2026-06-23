@@ -60,5 +60,5 @@ async fn main() {
         GraphicalApp::default()
     };
 
-    let _ = eframe::run_native("egui Demo", options, Box::new(|_cc| Ok(Box::new(app))));
+    let _ = eframe::run_native("GBMU", options, Box::new(|_cc| Ok(Box::new(app))));
 }
