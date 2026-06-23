@@ -134,10 +134,17 @@ impl<M: MemoryMapper> GameBoy<M> {
         match request {
             Request::Mode(new_mode) => match new_mode {
                 Mode::Game => {
-                    *mode = Self::game_mode;
+                    println!("game mode set");
+                    *mode = Self::game_mode
                 }
-                Mode::Debug => *mode = Self::debug_mode,
-                Mode::Stop => *mode = Self::stopped_mode,
+                Mode::Debug => {
+                    println!("debug mode set");
+                    *mode =Self::debug_mode
+                }
+                Mode::Stop =>{
+                    println!("stopped mode set");
+                    *mode = Self::stopped_mode
+                }
             },
             Request::Execute(instructions) => {
                 for instruction in instructions {
