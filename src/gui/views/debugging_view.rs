@@ -28,6 +28,7 @@ struct DebuggingDataOut {
     nb_instruction_requested: u8,
     hex_string: String,
     register_new_addr: bool,
+    delete_new_addr: Option<u16>
 }
 
 enum OutState {
@@ -79,6 +80,11 @@ impl DebuggingDevice {
                 Err(err) => {Some(format!("{} is not a valid hex addr", self.hex_string))}
             }
         }
+
+        if let Some(addr) = data.delete_new_addr {
+            self.core_game.interface_ct.remove_watch_address(addr)?;
+        }
+        
         Ok(OutState::Debugging)
     }
 

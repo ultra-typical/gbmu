@@ -86,6 +86,7 @@ pub enum Request {
     Execute(Vec<u8>),
     RenderFrame(u16),
     Watch(u16),
+    StopWatch(u16),
     Step(usize),
     SetInstructionListLength(u8),
 }
