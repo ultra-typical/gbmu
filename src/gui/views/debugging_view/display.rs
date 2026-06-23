@@ -95,7 +95,7 @@ pub fn display_interface(
     if let Some(sized_texture) = data.sized_texture {
         display_game(sized_texture, ui);
     }
-    
+
     DebuggingDataOut {
         step_clicked: stp_btn_clkd,
         delete_new_addr: delete_watched_addr,
@@ -150,6 +150,7 @@ fn get_registers(ui: &mut Ui, debugging_data: &DebuggingDataIn) -> bool {
                 ("D", debugging_data.registers.d),
                 ("E", debugging_data.registers.e),
                 ("H", debugging_data.registers.h),
+                ("L", debugging_data.registers.l)
             ];
 
             for (name, value) in registers_8bit.iter() {
@@ -180,7 +181,6 @@ fn get_registers(ui: &mut Ui, debugging_data: &DebuggingDataIn) -> bool {
 
             // 16-bit registers
             let registers_16bit = [
-                ("L", debugging_data.registers.l as u16),
                 ("HL", debugging_data.registers.hl),
                 ("SP", debugging_data.registers.sp),
                 ("PC", debugging_data.registers.pc),
