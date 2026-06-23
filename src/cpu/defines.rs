@@ -11,6 +11,7 @@ pub enum Flag {
 
 #[derive(Debug, Clone)]
 pub struct Instruction<M: MemoryMapper> {
+    pub name: String,
     pub opcode: u8,
     pub micro_ops: Vec<MicroOp<M>>,
 }

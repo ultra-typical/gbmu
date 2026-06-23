@@ -24,6 +24,7 @@ struct DebuggingDataOut {
     close_btn_clicked: bool,
     step_clicked: bool,
     step_mode_clicked: bool,
+    instruction_to_exec: Option<u8>,
     refresh_register_clicked: bool,
     nb_instruction_requested: u8,
     hex_string: String,

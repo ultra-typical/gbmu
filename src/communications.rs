@@ -19,18 +19,18 @@ pub use interface_tool::InterfaceCT;
 pub use interface_tool::InterfaceCommunicationTool;
 
 #[derive(Default, Debug)]
-pub struct InstructionList(pub Vec<u16>);
+pub struct InstructionList(pub Vec<(u16, String)>);
 
 use std::ops::{Deref, DerefMut};
 
 impl DerefMut for InstructionList {
-    fn deref_mut(&mut self) -> &mut Vec<u16> {
-        &mut self.0
+    fn deref_mut(&mut self) -> &mut Vec<(u16, String)> {
+       &mut self.0
     }
 }
 
 impl Deref for InstructionList {
-    type Target = Vec<u16>;
+    type Target = Vec<(u16, String)>;
 
     fn deref(&self) -> &Self::Target {
         &self.0

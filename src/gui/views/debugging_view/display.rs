@@ -1,5 +1,3 @@
-use std::fmt::Binary;
-
 use crate::{gui::common::display_game};
 
 use eframe::egui::{
@@ -56,6 +54,17 @@ pub fn display_interface(
 
                     ui.add_space(8.0);
 
+
+                    let custom_instr: String = ui
+                        .group(|inner_ui| {
+                            inner_ui.label(RichText::new("Execute Custom Instructions").strong());
+                            inner_ui.label(RichText::new("Executing Custom Instructions WILL break your ROM! Do not use for serious gaming")
+                                                .size(10.0)
+                                                .color(Color32::RED)
+                                                .weak() );
+                            execute_custom_instruction(inner_ui)
+                        }).inner;
+                    
                     let refresh_register_clicked: bool = ui
                         .group(|inner_ui| {
                             inner_ui.label(RichText::new("Registers").strong());
@@ -121,6 +130,12 @@ fn step_mode_button(ui: &mut Ui, is_in_step_mode: bool) -> bool {
 
 fn step_button(ui: &mut Ui) -> bool {
     ui.button("Next Step").clicked()
+}
+
+fn execute_custom_instruction(ui: &mut Ui) -> String {
+    let mut input = String::new();
+    ui.text_edit_singleline(&mut input);
+    input 
 }
 
 fn get_registers(ui: &mut Ui, debugging_data: &DebuggingDataIn) -> bool {
@@ -257,6 +272,7 @@ fn get_next_instructions(ui: &mut Ui, data: &DebuggingDataIn) -> u8 {
                 ui.label(RichText::new("Hex").strong());
                 ui.label(RichText::new("Dec").strong());
                 ui.label(RichText::new("Binary").strong());
+                ui.label(RichText::new("Mnemonic").strong());
             });
 
         ui.separator();
@@ -282,21 +298,28 @@ fn get_next_instructions(ui: &mut Ui, data: &DebuggingDataIn) -> u8 {
 
                                 // Hex value
                                 ui.label(
-                                    RichText::new(format!("0x{:02X}", instruction))
+                                    RichText::new(format!("0x{:02X}", instruction.0))
                                         .monospace()
                                         .color(Color32::from_rgb(100, 200, 255)),
                                 );
 
                                 // Decimal value
                                 ui.label(
-                                    RichText::new(format!("{:3}", instruction))
+                                    RichText::new(format!("{:3}", instruction.0))
                                         .monospace()
                                         .color(Color32::from_rgb(150, 150, 150)),
                                 );
 
                                 // Binary value
                                 ui.label(
-                                    RichText::new(format!("{:08b}", instruction))
+                                    RichText::new(format!("{:08b}", instruction.0))
+                                        .monospace()
+                                        .color(Color32::from_rgb(100, 255, 100)),
+                                );
+
+                                // Mnemonic
+                                ui.label(
+                                    RichText::new(instruction.1.clone())
                                         .monospace()
                                         .color(Color32::from_rgb(100, 255, 100)),
                                 );
@@ -383,18 +406,18 @@ fn watch_address(ui: &mut Ui, data: &DebuggingDataIn) -> (String, bool, Option<u
     } else {
         let mut address_to_remove = None;
         ui.push_id("watched_address", |ui| {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("#").strong());
+                ui.label(RichText::new("    Address").strong());
+                ui.label(RichText::new("    Value (Hex)").strong());
+                ui.label(RichText::new("    Value (Dec)").strong());
+                ui.label(RichText::new("    Binary").strong());
+            });
             ScrollArea::vertical()
                 .auto_shrink([true; 2])
                 .max_height(300.0)
                 .show(ui, |ui| {
                     // Table header
-                    ui.horizontal(|ui| {
-                        ui.label(RichText::new("#").strong());
-                        ui.label(RichText::new("Address").strong());
-                        ui.label(RichText::new("Value (Hex)").strong());
-                        ui.label(RichText::new("Value (Dec)").strong());
-                        ui.label(RichText::new("Binary").strong());
-                    });
 
                     ui.separator();
 
@@ -403,28 +426,28 @@ fn watch_address(ui: &mut Ui, data: &DebuggingDataIn) -> (String, bool, Option<u
                     {
                         ui.horizontal(|ui| {
                             // Index
-                            ui.label(format!("{}", i + 1));
+                            ui.label(format!("  {}", i + 1));
 
                             // Address in hex
                             ui.label(
-                                RichText::new(format!("0x{:04X}", address))
+                                RichText::new(format!(" 0x{:04X}", address))
                                     .monospace()
                                     .color(Color32::from_rgb(100, 200, 255)),
                             );
 
                             // Value in hex
-                            ui.label(RichText::new(format!("0x{:02X}", value)).monospace());
+                            ui.label(RichText::new(format!("    0x{:02X}", value)).monospace());
 
                             // Value in decimal
                             ui.label(
-                                RichText::new(format!("{:3}", value))
+                                RichText::new(format!(" {:3}", value))
                                     .monospace()
                                     .color(Color32::from_rgb(150, 150, 150)),
                             );
 
                             // Value in binary
                             ui.label(
-                                RichText::new(format!("{:08b}", value))
+                                RichText::new(format!("         {:08b}", value))
                                     .monospace()
                                     .color(Color32::from_rgb(100, 255, 100)),
                             );

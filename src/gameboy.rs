@@ -46,13 +46,27 @@ impl<M: MemoryMapper> GameBoy<M> {
     }
 
     fn send_next_instructions(&mut self, ct: &mut Box<dyn GameCT>) {
-        ct.send_next_instructions(InstructionList(
-            (0..self.instructions_to_send)
-                .map(|index: u16| self.cpu.get_r16::<PC>() as usize + index as usize)
-                .map(|addr: usize| self.bus.read_byte(addr as u16) as u16)
-                .collect(),
-        ));
-    }
+    let pc = self.cpu.get_r16::<PC>();
+
+    let instructions: Vec<(u16, String)> = (0..self.instructions_to_send)
+        .map(|index: u16| pc as usize + index as usize)
+        .map(|addr: usize| {
+            let opcode = self.bus.read_byte(addr as u16);
+
+            let name = if opcode == 0xCB {
+                // Préfixe CB : le vrai opcode est dans l'octet suivant
+                let cb_opcode = self.bus.read_byte((addr as u16).wrapping_add(1));
+                self.cpu.cb_instructions[cb_opcode as usize].name.clone()
+            } else {
+                self.cpu.instructions[opcode as usize].name.clone()
+            };
+
+            (opcode as u16, name)
+        })
+        .collect();
+
+    ct.send_next_instructions(InstructionList(instructions));
+}
 
     pub fn ram_dump(mut self) -> Option<Vec<u8>> {
         self.bus.ram_dump()

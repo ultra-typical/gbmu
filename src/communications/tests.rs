@@ -176,27 +176,27 @@ mod instructions {
     #[test]
     fn without_send_the_list_is_unchanged() {
         let (_gct, mut ict) = setup();
-        let mut list = InstructionList(vec![0xAF, 0x01]);
+        let mut list = InstructionList(vec![(0xAF, "test2".to_string()), (0x01, "test2".to_string())]);
         ict.get_next_instructions(&mut list).unwrap();
-        assert_eq!(&*list, &[0xAF, 0x01]);
+        assert_eq!(&*list, &[(0xAF, "test2".to_string()), (0x01, "test2".to_string())]);
     }
 
     #[test]
     fn after_send_the_list_contains_the_sent_opcodes() {
         let (mut gct, mut ict) = setup();
-        gct.send_next_instructions(InstructionList(vec![0xAF, 0x01]));
+        gct.send_next_instructions(InstructionList(vec![(0xAF, "test2".to_string()), (0x01, "test2".to_string())]));
         let mut list = InstructionList::default();
         ict.get_next_instructions(&mut list).unwrap();
-        assert_eq!(&*list, &[0xAF_u16, 0x01]);
+        assert_eq!(&*list, &[(0xAF, "test2".to_string()), (0x01, "test2".to_string())]);
     }
 
     #[test]
     fn get_next_instructions_clears_the_list_before_filling_it() {
         let (mut gct, mut ict) = setup();
-        gct.send_next_instructions(InstructionList(vec![0xAF]));
-        let mut list = InstructionList(vec![0x00, 0x00, 0x00]);
+        gct.send_next_instructions(InstructionList(vec![(0xAF, "test2".to_string())]));
+        let mut list = InstructionList(vec![(0x00, "test2".to_string()), (0x00, "test2".to_string()), (0x00, "test2".to_string())]);
         ict.get_next_instructions(&mut list).unwrap();
-        assert_eq!(&*list, &[0xAF_u16]);
+        assert_eq!(&*list, &[(0xAF, "test2".to_string())]);
     }
 }
 
