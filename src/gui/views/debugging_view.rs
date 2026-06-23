@@ -1,6 +1,9 @@
 mod display;
 
+use core::panic;
+
 use crate::communications::{CpuState, InstructionList, Mode};
+use crate::cpu::ops::add;
 use crate::gui::{AppState, DebuggingDevice, WatchedAdresses};
 
 use eframe::egui::load::SizedTexture;

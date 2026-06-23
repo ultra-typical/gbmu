@@ -176,6 +176,6 @@ impl InterfaceCT for InterfaceCommunicationTool {
     }
 
     fn remove_watch_address(&self, addr_to_delete: u16) -> Result<(), String>  {
-        self.try_send_query(Request::Watch(addr_to_delete))
+        self.try_send_query(Request::StopWatch(addr_to_delete))
     }
 }

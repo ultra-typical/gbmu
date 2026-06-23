@@ -95,16 +95,16 @@ pub fn display_interface(
     if let Some(sized_texture) = data.sized_texture {
         display_game(sized_texture, ui);
     }
-
+    
     DebuggingDataOut {
         step_clicked: stp_btn_clkd,
+        delete_new_addr: delete_watched_addr,
         step_mode_clicked: step_mode_btn_clkd,
         close_btn_clicked,
         refresh_register_clicked,
         nb_instruction_requested,
         hex_string,
         register_new_addr,
-        delete_new_addr: None
     }
 }
 
@@ -142,7 +142,6 @@ fn get_registers(ui: &mut Ui, debugging_data: &DebuggingDataIn) -> bool {
             ui.label(RichText::new("Binary").strong());
             ui.end_row();
 
-            println!("{:?}", debugging_data);
 
             let registers_8bit = [
                 ("A", debugging_data.registers.a),
