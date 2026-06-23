@@ -1,4 +1,4 @@
-use crate::gui::common::display_game;
+use crate::{gui::common::display_game};
 
 use eframe::egui::{
     Align, Button, Color32, DragValue, Grid, Layout, RichText, ScrollArea, Panel,
@@ -20,7 +20,8 @@ pub fn display_interface(
         nb_instruction_requested,
         hex_string,
         register_new_addr,
-    ): (bool, bool, bool, bool, u8, String, bool) = Panel::right("debug_panel")
+        delete_watched_addr
+    ): (bool, bool, bool, bool, u8, String, bool, Option<u16>) = Panel::right("debug_panel")
         .resizable(true)
         .default_size(400.0)
         .min_size(300.0)
@@ -69,7 +70,7 @@ pub fn display_interface(
 
                     ui.add_space(8.0);
 
-                    let (hex_string, register_new_addr) = ui
+                    let (hex_string, register_new_addr , remove_addr) = ui
                         .group(|inner_ui| {
                             inner_ui.label(RichText::new("Memory Watch").strong());
                             watch_address(inner_ui, &data)
@@ -84,6 +85,7 @@ pub fn display_interface(
                         nb_instruction_requested,
                         hex_string,
                         register_new_addr,
+                        remove_addr
                     )
                 })
                 .inner
@@ -102,6 +104,7 @@ pub fn display_interface(
         nb_instruction_requested,
         hex_string,
         register_new_addr,
+        delete_new_addr: None
     }
 }
 
@@ -312,7 +315,7 @@ fn get_next_instructions(ui: &mut Ui, data: &DebuggingDataIn) -> u8 {
     instruction_requested_tuple
 }
 
-fn watch_address(ui: &mut Ui, data: &DebuggingDataIn) -> (String, bool) {
+fn watch_address(ui: &mut Ui, data: &DebuggingDataIn) -> (String, bool, Option<u16>) {
     let mut hex_string = data.hex_string.clone();
     // Input section with better layout
     let register_new_addr: bool = ui
@@ -368,12 +371,14 @@ fn watch_address(ui: &mut Ui, data: &DebuggingDataIn) -> (String, bool) {
     ui.add_space(4.0);
 
     // Display watched addresses with better formatting
-    if data.watched_address.is_empty() {
+    
+    let remove_addr = if data.watched_address.is_empty() {
         ui.label(
             RichText::new("No addresses being watched")
                 .italics()
                 .color(Color32::DARK_GRAY),
         );
+        None
     } else {
         let mut address_to_remove = None;
         ui.push_id("watched_address", |ui| {
@@ -438,23 +443,21 @@ fn watch_address(ui: &mut Ui, data: &DebuggingDataIn) -> (String, bool) {
                         }
                     }
                 });
-            /*
-
-                        if let Some(addr) = address_to_remove
-                        && let Some(index) = data
+                
+                let mut remove_addr: Option<u16> = None;
+                if let Some(addr) = address_to_remove
+                    && let Some(index) = data
                             .watched_address
-                            .addresses_n_values
                             .iter()
                             .position(|(address, _)| *address == addr)
                         {
-                            data.watched_address.addresses_n_values.remove(index);
-                            data.watch_address(address_to_remove.unwrap());
+                            remove_addr = Some(addr);
                         }
-            */
-        });
-    }
+                        remove_addr
+        }).inner
+    };
     ui.add_space(4.0);
-    (hex_string, register_new_addr)
+    (hex_string, register_new_addr, remove_addr)
 
     /*
     // Optional: Quick access to common GameBoy memory regions

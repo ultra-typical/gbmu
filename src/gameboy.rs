@@ -160,7 +160,10 @@ impl<M: MemoryMapper> GameBoy<M> {
             Request::SetInstructionListLength(length) => {
                 self.instructions_to_send = length as u16;
             }
-            _ => unreachable!(),
+            Request::StopWatch(address) => {
+                self.watched_address.remove(&address);
+            }
+             _ => unreachable!(),
         }
     }
 

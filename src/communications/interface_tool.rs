@@ -36,6 +36,7 @@ pub trait InterfaceCT {
     //// Debug instructions
     fn watch_adress(&self, addr_to_watch: u16) -> Result<(), String>;
     fn set_instruction_list_len(&self, list_len: u8) -> Result<(), String>;
+    fn remove_watch_address(&self, addr_to_delete: u16) -> Result<(), String>;
 }
 
 pub struct InterfaceCommunicationTool {
@@ -173,5 +174,8 @@ impl InterfaceCT for InterfaceCommunicationTool {
     fn set_instruction_list_len(&self, list_len: u8) -> Result<(), String>  {
         self.try_send_query(Request::SetInstructionListLength(list_len))
     }
-}
 
+    fn remove_watch_address(&self, addr_to_delete: u16) -> Result<(), String>  {
+        self.try_send_query(Request::Watch(addr_to_delete))
+    }
+}
