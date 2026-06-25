@@ -57,7 +57,6 @@ impl<M: MemoryMapper> GameBoy<M> {
             let (opcode_to_push, name, instr_len) = if opcode == 0xCB {
                 let cb_opcode = self.bus.read_byte(current_pc.wrapping_add(1));
                 let name = self.cpu.cb_instructions[cb_opcode as usize].name.clone();
-                // Correction : On combine 0xCB et le cb_opcode (ex: 0xCB47) pour l'UI
                 (((opcode as u16) << 8) | cb_opcode as u16, name, 2)
             } else {
                 let name = self.cpu.instructions[opcode as usize].name.clone();
