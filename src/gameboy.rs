@@ -17,7 +17,7 @@ use crate::gui::KeyInput;
 use crate::mmu::MemoryMapper;
 
 const FRAME_CYCLES: u32 = 70224;
-const GAME_REFRESH_PERIOD_IN_MILLIS: u64 = 15000; //8000 pour 120 fps
+const GAME_REFRESH_PERIOD_IN_MILLIS: u64 = 16667; //8000 pour 120 fps
 const CUT_TIME_FOR_CAP_FRAMES: u32 = 30; // A faire varier. TODO: Verifier si la meilleur version
 const SLEEP_MARGIN: Duration = Duration::from_micros(50);
 pub struct GameBoy<M: MemoryMapper> {

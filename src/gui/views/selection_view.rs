@@ -59,42 +59,46 @@ impl SelectionDevice {
                 });
             });
 
-        egui::Panel::right("history_panel")
-            .resizable(true)
-            .default_size(270.0)
-            .show_inside(ui, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.heading("History");
-                let gbmu = GBMU_FILE.lock().unwrap();
-                for entry in &gbmu.history {
+    egui::Panel::right("history_panel")
+    .resizable(true)
+    .default_size(270.0)
+    .show_inside(ui, |ui| {
+        ui.heading("History");
 
+        // --- Barre de recherche ---
+        ui.horizontal(|ui| {
+            ui.label("🔍");
+            ui.text_edit_singleline(&mut self.search);
+        });
+        ui.add_space(6.0);
+        ui.separator();
+
+        let search_lower = self.search.to_lowercase();
+
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            let gbmu = GBMU_FILE.lock().unwrap();
+            for entry in gbmu.history.iter().filter(|entry| {
+                search_lower.is_empty()
+                    || entry.rom_name.to_lowercase().contains(&search_lower)
+            }) {
                 let subtitle = format!(
                     "Launches: {} \nLast: {}",
                     entry.launch_count,
                     entry.last_launched.format("%d/%m/%Y %H:%M")
                 );
-
-                let text = format!(
-                    "▶ {}\n{}",
-                    entry.rom_name,
-                    subtitle
-                );
-
+                let text = format!("▶ {}\n{}", entry.rom_name, subtitle);
                 let button = egui::Button::new(
-                    egui::RichText::new(text)
-                        .size(16.0)
+                    egui::RichText::new(text).size(16.0)
                 )
                 .min_size(egui::vec2(220.0, 48.0))
                 .corner_radius(5.0);
-
                 if ui.add(button).clicked() {
                     self.path = entry.rom_path.to_string_lossy().to_string();
                 }
-
                 ui.add_space(6.0);
-                }
-            });
+            }
         });
+    });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.centered_and_justified(|ui| {

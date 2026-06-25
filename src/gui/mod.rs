@@ -508,6 +508,7 @@ pub struct SelectionDevice {
     path: String,
     file_dialog: FileDialog,
     picked_file: Option<PathBuf>,
+    search: String
 }
 
 impl Default for SelectionDevice {
@@ -532,6 +533,7 @@ impl Default for SelectionDevice {
                     }),
                 )
                 .default_file_filter("GameBoy ROMS"),
+            search: String::new()
         }
     }
 }
