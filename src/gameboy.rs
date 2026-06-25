@@ -313,17 +313,6 @@ impl<M: MemoryMapper> GameBoy<M> {
         self.bus.tick_apu();
     }
 
-    pub fn debug_tick(&mut self, key_input: &KeyInput, ct: &mut Box<dyn GameCT>) {
-        self.tick_gb(key_input, ct);
-
-        loop {
-            if self.cpu.op_index == 0 && self.cycles_elapsed == 0 {
-                break;
-            }
-            self.tick_gb(key_input, ct);
-        }
-    }
-
     fn game_mode(&mut self, key_input: &KeyInput, ct: &mut Box<dyn GameCT>) {
         for _ in 0..FRAME_CYCLES {
             self.tick_gb(key_input, ct);
@@ -348,7 +337,9 @@ impl<M: MemoryMapper> GameBoy<M> {
 
     fn stopped_mode(&mut self, key_input: &KeyInput, ct: &mut Box<dyn GameCT>) {
         if self.step_to_execute > 0 {
-            self.debug_tick(key_input, ct);
+            for _ in 0..FRAME_CYCLES {
+                self.tick_gb(key_input, ct)
+            }
         }
         if self.instructions_to_send != 0 {
             self.send_next_instructions(ct);

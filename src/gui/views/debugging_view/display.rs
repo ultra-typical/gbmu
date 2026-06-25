@@ -1,4 +1,4 @@
-use crate::{gui::common::display_game};
+use crate::gui::common::display_game;
 
 use eframe::egui::{
     Align, Button, Color32, DragValue, Grid, Layout, RichText, ScrollArea, Panel,
@@ -149,7 +149,7 @@ fn execute_custom_instruction(ui: &mut egui::Ui, debugging_data: &DebuggingDataI
     
     if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
         result = Some(input.clone());
-        input.clear(); // On vide le tampon local pour la prochaine commande
+        input.clear();
     }
     
     ui.data_mut(|d| d.insert_temp(id, input));
