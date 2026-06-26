@@ -107,7 +107,10 @@ pub trait MemoryMapper {
         self.get_cart().dump()
     }
 
-    fn read_byte(&mut self, addr: u16) -> u8
+    fn set_dma_cycle(&mut self, nb: u8);
+    fn oam_write_direct(&mut self, index: u16, val: u8);
+
+    fn read_byte_raw(&mut self, addr: u16) -> u8
     where
         Self: Sized,
     {
@@ -151,7 +154,29 @@ pub trait MemoryMapper {
         }
     }
 
+    //The goal here was to make so that the CPU access anything else than Hram when DMA is active.
+    //So I made these "wrappers"
+    fn read_byte(&mut self, addr: u16) -> u8
+    where
+        Self: Sized,
+    {
+        if self.dma_active() && MemoryRegion::from(addr) != MemoryRegion::HRam {
+            return 0xFF;
+        }
+        self.read_byte_raw(addr)
+    }
+
     fn write_byte(&mut self, addr: u16, val: u8)
+    where
+        Self: Sized,
+    {
+        if self.dma_active() && MemoryRegion::from(addr) != MemoryRegion::HRam {
+            return;
+        }
+        self.write_byte_raw(addr, val);
+    }
+
+    fn write_byte_raw(&mut self, addr: u16, val: u8)
     where
         Self: Sized,
     {
@@ -183,9 +208,15 @@ pub trait MemoryMapper {
                 } else if matches!(addr, 0xFF40..=0xFF4F) && addr != 0xFF46 {
                     self.get_ppu().write_register(addr, val);
                 } else if addr == 0xFF46 {
-                    self.update_data(addr as usize, val);
-                    self.set_dma_index(0);
-                    self.set_dma_source((val as u16) << 8);
+                    let source_base = (val as u16) << 8;
+
+                    for i in 0..160 {
+                        let src_addr = source_base + i;
+                        let byte = self.read_byte_raw(src_addr);
+                        self.oam_write_direct(i, byte);
+                    }
+
+                    self.set_dma_cycle(160);
                 } else {
                     self.update_data(addr as usize, val);
                 }
@@ -242,9 +273,9 @@ pub trait MemoryMapper {
     {
         if self.get_timer().tick() {
             let interrupt_flags_addr = MemoryRegion::InterruptFlag.to_address();
-            let mut interrupt_flags = self.read_byte(interrupt_flags_addr);
+            let mut interrupt_flags = self.read_byte_raw(interrupt_flags_addr);
             interrupt_flags |= 0b100;
-            self.write_byte(interrupt_flags_addr, interrupt_flags);
+            self.write_byte_raw(interrupt_flags_addr, interrupt_flags);
         }
     }
 
@@ -261,6 +292,8 @@ pub trait MemoryMapper {
     fn tick_ppu(&mut self, ct: &mut Box<dyn GameCT>)
     where
         Self: Sized;
+
+    fn dma_active(&self) -> bool;
 
     fn tick_dma(&mut self);
 }
@@ -281,18 +314,22 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<C, T
     fn read_timers(&mut self, addr: u16) -> u8 {
         self.timers.read(addr)
     }
+    fn dma_active(&self) -> bool {
+        self.dma_clocks_left > 0
+    }
+
     fn tick_dma(&mut self) {
-        let byte = self.read_byte(self.dma_source + self.dma_index as u16);
-
-        let dma_index = self.dma_index;
-
-        self.get_ppu().write_oam(0xFE00 + dma_index as u16, byte);
-
-        self.dma_index += 1;
-
-        if self.dma_index == 160 {
-            self.dma_index = 0xFF;
+        if self.dma_clocks_left > 0 {
+            self.dma_clocks_left -= 1;
         }
+    }
+
+    fn oam_write_direct(&mut self, addr: u16, val: u8) {
+        self.ppu.write_oam(addr, val);
+    }
+
+    fn set_dma_cycle(&mut self, nb: u8) {
+        self.dma_clocks_left = nb;
     }
 
     fn new(
@@ -319,6 +356,7 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<C, T
             button_state: 0x0F,
             dma_source: 0x0,
             dma_index: 0xFF,
+            dma_clocks_left: 0,
         })
     }
 
@@ -411,6 +449,7 @@ pub struct DmgMmu<C: Mbc, T: TimingComponent, P: PixelProcessor> {
     button_state: u8, // for joypad
     dma_source: u16,
     pub dma_index: u8,
+    dma_clocks_left: u8,
 }
 
 impl<C: Mbc, T: TimingComponent, P: PixelProcessor> Default for DmgMmu<C, T, P> {
@@ -435,18 +474,22 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<C, T
     fn read_timers(&mut self, addr: u16) -> u8 {
         self.timers.read(addr)
     }
+    fn dma_active(&self) -> bool {
+        self.dma_clocks_left > 0
+    }
+
     fn tick_dma(&mut self) {
-        let byte = self.read_byte(self.dma_source + self.dma_index as u16);
-
-        let dma_index = self.dma_index;
-
-        self.get_ppu().write_oam(0xFE00 + dma_index as u16, byte);
-
-        self.dma_index += 1;
-
-        if self.dma_index == 160 {
-            self.dma_index = 0xFF;
+        if self.dma_clocks_left > 0 {
+            self.dma_clocks_left -= 1;
         }
+    }
+
+    fn oam_write_direct(&mut self, addr: u16, val: u8) {
+        self.ppu.write_oam(addr, val);
+    }
+
+    fn set_dma_cycle(&mut self, nb: u8) {
+        self.dma_clocks_left = nb;
     }
 
     fn new(
@@ -472,6 +515,7 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<C, T
             button_state: 0x0F,
             dma_source: 0x0,
             dma_index: 0xFF,
+            dma_clocks_left: 0,
         })
     }
 
@@ -543,9 +587,9 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<C, T
     fn tick_timers(&mut self) {
         if self.timers.tick() {
             let interrupt_flags_addr = MemoryRegion::InterruptFlag.to_address();
-            let mut interrupt_flags = self.read_byte(interrupt_flags_addr);
+            let mut interrupt_flags = self.read_byte_raw(interrupt_flags_addr);
             interrupt_flags |= 0b100;
-            self.write_byte(interrupt_flags_addr, interrupt_flags);
+            self.write_byte_raw(interrupt_flags_addr, interrupt_flags);
         }
     }
 
@@ -571,6 +615,7 @@ pub struct CgbMmu<C: Mbc, T: TimingComponent, P: PixelProcessor> {
     button_state: u8, // for joypad
     dma_source: u16,
     pub dma_index: u8,
+    dma_clocks_left: u8,
 }
 
 #[cfg(test)]

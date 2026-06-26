@@ -67,7 +67,7 @@ impl ObjectManager for Oam {
     }
     fn write(&mut self, addr: u16, val: u8) {
         if self.accessed_oam_row != 0xFF {
-            self.trigger_oam_bug_read_increase(self.accessed_oam_row);
+            self.trigger_oam_bug_write(self.accessed_oam_row);
         }
         self.write_raw((addr - OAM_BEGINNING) as u8, val);
     }
