@@ -41,7 +41,7 @@ macro_rules! write_only_register {
                 self.byte = value
             }
             fn raw(&self) -> u8 {
-                0xFF
+                self.byte
             }
         }
     };
