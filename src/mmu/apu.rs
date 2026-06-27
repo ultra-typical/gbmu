@@ -10,8 +10,6 @@ pub mod registers;
 pub mod channels_square;
 pub mod channel3;
 pub mod channel4;
-pub mod registers;
-pub mod sample_buffer;
 
 use crate::mmu::apu::registers::*;
 use channels_square::ChannelSquare;
