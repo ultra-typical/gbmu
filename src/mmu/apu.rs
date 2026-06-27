@@ -96,6 +96,10 @@ impl Apu {
             let sample = (self.channel_one.output() + self.channel_two.output()) / 2.0;
 
             self.sample_buffer.push(sample);
+
+            if self.sample_counter as u64 % 4000 == 0 {
+                // println!("len: {}", self.sample_buffer.len())
+            }
         }
     }
 

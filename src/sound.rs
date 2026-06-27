@@ -7,6 +7,34 @@ use std::time::Duration;
 
 use crate::mmu::apu::sample_buffer;
 
+fn choose_config(device: &Device) -> SupportedStreamConfig {
+    let supported_configs: Vec<_> = device
+        .supported_output_configs()
+        .expect("error while querying configs")
+        .collect();
+
+    let preference = [
+        SampleFormat::F32,
+        SampleFormat::I32,
+        SampleFormat::U32,
+        SampleFormat::I16,
+        SampleFormat::U16,
+        SampleFormat::I8,
+        SampleFormat::U8,
+    ];
+
+    for fmt in preference {
+        if let Some(cfg) = supported_configs.iter().find(|c| c.sample_format() == fmt) {
+            return cfg.clone().with_sample_rate(48000);
+        }
+    }
+
+    supported_configs.into_iter()
+        .next()
+        .expect("no supported config")
+        .with_sample_rate(48000)
+}
+
 // start audio on a thread, and play the audio stream
 pub fn start_audio(buffer: sample_buffer::SampleBuffer, audio_running: Arc<AtomicBool>) {
     std::thread::spawn(move || {
