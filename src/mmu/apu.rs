@@ -151,7 +151,12 @@ impl Apu {
             0xFF1B => self.channel_three.nr31_ln_timer.write(value),
             0xFF1C => self.channel_three.nr32_output_level.write(value),
             0xFF1D => self.channel_three.nr33_period_low.write(value),
-            0xFF1E => self.channel_three.nr34_period_high_crtl.write(value),
+            0xFF1E => {
+                self.channel_three.nr34_period_high_crtl.write(value);
+                if value & 0b1000_0000 != 0 {
+                    self.channel_three.trigger();
+                }
+            },
             0xFF20 => self.channel_four.nr41_length_timer.write(value),
             0xFF21 => self.channel_four.nr42_volume_envelope.write(value),
             0xFF22 => self.channel_four.nr43_freq_and_randomness.write(value),
