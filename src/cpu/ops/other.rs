@@ -316,6 +316,6 @@ impl<M: MemoryMapper> Cpu<M> {
     }
 
     pub fn stop(&mut self, _bus: &mut M) {
-        todo!("stop todo");
+        unreachable!("This should not happen :(")
     }
 }

@@ -219,7 +219,7 @@ impl AnyGameApp {
     pub fn new(game_data: CoreGameOptions) -> Result<Self, String> {
         let rom_data: Vec<u8> = Self::read_rom(&game_data.rom_path);
         let ram_path = game_data.rom_path.to_owned() + ".save";
-        let ram_data: Option<Vec<u8>> = None;
+        let ram_data: Option<Vec<u8>> = Self::read_ram(&ram_path);
         if ram_data.is_some() {
             println!("Backup detected")
         };
