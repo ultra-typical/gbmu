@@ -154,23 +154,15 @@ pub trait MemoryMapper {
         }
     }
 
-    //The goal here was to make so that the CPU access anything else than Hram when DMA is active.
-    //So I made these "wrappers"
-    fn read_byte(&mut self, addr: u16) -> u8
-    where
-        Self: Sized,
-    {
-        if self.dma_active() && MemoryRegion::from(addr) != MemoryRegion::HRam {
+    fn read_byte(&mut self, addr: u16) -> u8 where Self: Sized {
+        if self.get_dma_index() != 0xFF && (MemoryRegion::from(addr) != MemoryRegion::HRam || MemoryRegion::from(addr) != MemoryRegion::Mbc) {
             return 0xFF;
         }
         self.read_byte_raw(addr)
     }
 
-    fn write_byte(&mut self, addr: u16, val: u8)
-    where
-        Self: Sized,
-    {
-        if self.dma_active() && MemoryRegion::from(addr) != MemoryRegion::HRam {
+    fn write_byte(&mut self, addr: u16, val: u8) where Self: Sized {
+        if self.get_dma_index() != 0xFF && (MemoryRegion::from(addr) != MemoryRegion::HRam || MemoryRegion::from(addr) != MemoryRegion::Mbc) {
             return;
         }
         self.write_byte_raw(addr, val);
@@ -289,39 +281,28 @@ pub trait MemoryMapper {
         self.get_apu().step();
     }
 
-    fn tick_ppu(&mut self, ct: &mut Box<dyn GameCT>)
-    where
-        Self: Sized;
-
-    fn dma_active(&self) -> bool;
+    fn tick_ppu(&mut self, ct: &mut Box<dyn GameCT>) where Self: Sized;
 
     fn tick_dma(&mut self);
 }
 
 impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<C, T, P> {
-    fn get_timer(&mut self) -> &mut dyn TimingComponent {
-        &mut self.timers
-    }
-    fn get_dma_index(&mut self) -> u8 {
-        self.dma_index
-    }
-    fn set_dma_index(&mut self, val: u8) {
-        self.dma_index = val
-    }
-    fn write_timers(&mut self, addr: u16, value: u8) {
-        self.timers.write(addr, value)
-    }
-    fn read_timers(&mut self, addr: u16) -> u8 {
-        self.timers.read(addr)
-    }
-    fn dma_active(&self) -> bool {
-        self.dma_clocks_left > 0
-    }
+    fn get_timer(&mut self) -> &mut dyn TimingComponent { &mut self.timers }
+    fn get_dma_index(&mut self) -> u8 { self.dma_index }
+    fn set_dma_index(&mut self, val: u8) { self.dma_index = val }
+    fn write_timers(&mut self, addr: u16, value: u8) { self.timers.write(addr, value) }
+    fn read_timers(&mut self, addr: u16) -> u8 { self.timers.read(addr) }
 
     fn tick_dma(&mut self) {
-        if self.dma_clocks_left > 0 {
-            self.dma_clocks_left -= 1;
-        }
+        let byte = self.read_byte_raw(self.dma_source + self.dma_index as u16);
+
+        let dma_index = self.dma_index;
+
+        self.get_ppu().write_oam(0xFE00 + dma_index as u16, byte);
+
+        self.dma_index+= 1;
+
+        if self.dma_index == 160 { self.dma_index=0xFF; }
     }
 
     fn oam_write_direct(&mut self, addr: u16, val: u8) {
@@ -474,14 +455,17 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<C, T
     fn read_timers(&mut self, addr: u16) -> u8 {
         self.timers.read(addr)
     }
-    fn dma_active(&self) -> bool {
-        self.dma_clocks_left > 0
-    }
 
     fn tick_dma(&mut self) {
-        if self.dma_clocks_left > 0 {
-            self.dma_clocks_left -= 1;
-        }
+        let byte = self.read_byte_raw(self.dma_source + self.dma_index as u16);
+
+        let dma_index = self.dma_index;
+
+        self.get_ppu().write_oam(0xFE00 + dma_index as u16, byte);
+
+        self.dma_index+= 1;
+
+        if self.dma_index == 160 { self.dma_index=0xFF; }
     }
 
     fn oam_write_direct(&mut self, addr: u16, val: u8) {

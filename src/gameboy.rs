@@ -318,11 +318,10 @@ impl<M: MemoryMapper> GameBoy<M> {
         self.cycles_elapsed += 1;
 
         if self.cycles_elapsed.is_multiple_of(4) {
-            if self.bus.dma_active() {
+            if self.bus.get_dma_index() != 0xFF {
                 self.bus.tick_dma();
-            } else {
-                self.cpu.tick(&mut self.bus);
             }
+            self.cpu.tick(&mut self.bus);
             self.cycles_elapsed = 0;
         }
 
