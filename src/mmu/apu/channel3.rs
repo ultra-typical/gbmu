@@ -31,4 +31,22 @@ impl ChannelThree {
         self.freq_timer = (2048 - self.period()) * 2;
         self.sample_position = 0;
     }    
+
+    pub fn step(&mut self) {
+        if self.freq_timer > 0 {
+            self.freq_timer -= 1;
+        }
+
+        if self.freq_timer == 0 {
+            self.freq_timer = (2048 - self.period()) * 2;
+            self.sample_position = (self.sample_position + 1) % 32;
+
+            let byte = self.wave_ram[(self.sample_position / 2) as usize];
+            self.current_sample = if self.sample_position % 2 == 0 {
+                byte >> 4
+            } else {
+                byte & 0x0F
+            };
+        }
+    }
 }
