@@ -6,7 +6,6 @@ use std::io::ErrorKind;
 pub struct EmulatorArguments {
     pub rom_path: Option<String>,
     pub boot_rom: bool,
-    pub sound: bool,
     pub gb_type: GbType,
 }
 
@@ -36,13 +35,11 @@ impl EmulatorArguments {
 
         // boot_with_nintendo_room
         let boot_rom = matches.get_flag("boot_rom");
-        let sound = matches.get_flag("sound");
         let gb_type: &GbType = matches.get_one::<GbType>("type").unwrap();
 
         let unchecked = Self {
             rom_path,
             boot_rom,
-            sound,
             gb_type: gb_type.clone(),
         };
 

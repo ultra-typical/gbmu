@@ -1,6 +1,5 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Device, FromSample, SampleFormat, SizedSample, SupportedOutputConfigs, SupportedStreamConfig};
-use pixels::wgpu::naga::back::msl::Error::Format;
+use cpal::{Device, FromSample, SampleFormat, SizedSample, SupportedStreamConfig};
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
