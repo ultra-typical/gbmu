@@ -5,16 +5,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::sound::start_audio;
 
-pub mod sample_buffer;
-pub mod registers;
-pub mod channels_square;
 pub mod channel3;
 pub mod channel4;
+pub mod channels_square;
+pub mod registers;
+pub mod sample_buffer;
 
 use crate::mmu::apu::registers::*;
-use channels_square::ChannelSquare;
 use channel3::ChannelThree;
 use channel4::ChannelFour;
+use channels_square::ChannelSquare;
 use sample_buffer::SampleBuffer;
 
 const T_CYCLES_PER_SEC: f64 = 4_194_304.0;
@@ -79,7 +79,7 @@ impl Apu {
                 0 | 4 => {
                     self.channel_one.tick_length();
                     self.channel_two.tick_length();
-                },
+                }
                 2 | 6 => {
                     self.channel_one.tick_length();
                     self.channel_two.tick_length();
@@ -88,7 +88,7 @@ impl Apu {
                 7 => {
                     self.channel_one.tick_envelope();
                     self.channel_two.tick_envelope();
-                },
+                }
                 _ => {}
             }
         }
@@ -143,7 +143,7 @@ impl Apu {
                 if value & 0b1000_0000 != 0 {
                     self.channel_one.trigger();
                 }
-            },
+            }
             0xFF16 => self.channel_two.nr1_ln_timer_duty_cycle.write(value),
             0xFF17 => self.channel_two.nr2_volume_envelope.write(value),
             0xFF18 => self.channel_two.nr3_period_low.write(value),

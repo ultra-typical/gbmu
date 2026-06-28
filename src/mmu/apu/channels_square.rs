@@ -82,26 +82,29 @@ impl ChannelSquare {
                     self.shadow_frequency = new_frequency;
 
                     self.write_frequency(new_frequency);
-                    if self.calculate_sweep() > 2047 { self.enabled = false; }
+                    if self.calculate_sweep() > 2047 {
+                        self.enabled = false;
+                    }
                 }
             }
         }
     }
 
     pub fn tick_length(&mut self) {
-        if self.nr4_period_high_ctrl.raw() & 0b0100_0000 != 0
-            && self.length_counter > 0 {
-                self.length_counter -= 1;
-                if self.length_counter == 0 {
-                    self.enabled = false;
-                }
+        if self.nr4_period_high_ctrl.raw() & 0b0100_0000 != 0 && self.length_counter > 0 {
+            self.length_counter -= 1;
+            if self.length_counter == 0 {
+                self.enabled = false;
             }
+        }
     }
 
     pub fn tick_envelope(&mut self) {
         let period = self.nr2_volume_envelope.raw() & 0b0000_0111;
-        
-        if period == 0 { return ; }
+
+        if period == 0 {
+            return;
+        }
 
         if self.envelope_timer > 0 {
             self.envelope_timer -= 1;
@@ -110,11 +113,9 @@ impl ChannelSquare {
         if self.envelope_timer == 0 {
             self.envelope_timer = period;
 
-            if (self.nr2_volume_envelope.raw() & 0b0000_1000) != 0
-                && self.volume < 15 {
+            if (self.nr2_volume_envelope.raw() & 0b0000_1000) != 0 && self.volume < 15 {
                 self.volume += 1;
-            } else if (self.nr2_volume_envelope.raw() & 0b0000_1000) == 0
-                && self.volume > 0 {
+            } else if (self.nr2_volume_envelope.raw() & 0b0000_1000) == 0 && self.volume > 0 {
                 self.volume -= 1;
             }
         }
@@ -135,13 +136,17 @@ impl ChannelSquare {
 
         self.shadow_frequency = self.period();
         self.sweep_timer = self.sweep_period();
-        if self.sweep_timer == 0 { self.sweep_timer = 8; }
+        if self.sweep_timer == 0 {
+            self.sweep_timer = 8;
+        }
         self.sweep_enabled = self.sweep_period() != 0 || self.sweep_shift() != 0;
 
         // if shift != 0, immediately calculate then check overflow at trigger (hardware behavior)
         if self.sweep_shift() != 0 {
             let new_freq = self.calculate_sweep();
-            if new_freq > 2047 { self.enabled = false; }
+            if new_freq > 2047 {
+                self.enabled = false;
+            }
         }
     }
 
