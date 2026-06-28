@@ -1560,24 +1560,3 @@ pub fn get_instruction_length(opcode: u8) -> u16 {
         _ => 1,
     }
 }
-
-pub const DMA_ROUTINE_HRAM_ADDR: u16 = 0xFF80;
-
-pub fn build_dma_routine(source_high_byte: u8) -> [u8; 10] {
-    [
-        0x3E, source_high_byte, // LD A, source_high_byte
-        0xE0, 0x46,              // LDH [$FF46], A   -> déclenche le DMA
-        0x3E, 0x28,              // LD A, 40
-        0x3D,                    // .wait: DEC A
-        0x20, 0xFD,              // JR NZ, .wait
-        0xC9,                    // RET
-    ]
-}
-
-pub fn load_dma_routine_in_hram<M: MemoryMapper>(mmu: &mut M, source_high_byte: u8) -> u16 {
-    let routine = build_dma_routine(source_high_byte);
-    for (offset, byte) in routine.iter().enumerate() {
-        mmu.write_byte(DMA_ROUTINE_HRAM_ADDR + offset as u16, *byte);
-    }
-    DMA_ROUTINE_HRAM_ADDR
-}
