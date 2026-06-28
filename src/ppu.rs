@@ -30,6 +30,8 @@ pub const WIN_SIZE_Y: usize = 144;
 const OAM_DOTS: u32 = 80;
 const SCANLINE_DOTS: u32 = 456;
 
+const LCD_OFF_COLOR: Color = Color::White;
+
 pub trait PixelProcessor {
     fn new() -> Self
     where
@@ -47,6 +49,7 @@ pub trait PixelProcessor {
     fn set_pending_vblank(&mut self, value: bool);
     fn pending_stat(&self) -> bool;
     fn set_pending_stat(&mut self, value: bool);
+
 }
 
 pub trait ObjectManager {
@@ -89,6 +92,7 @@ pub struct Ppu<V: Vram, P: PFetcher<V>, O: ObjectManager> {
     is_first_scanline_after_lcd_on: bool,
     stat_interrupt_line: bool,
     stall_dots: u8,
+    frame_blanked: bool,
     // Memory-mapped registers owned by PPU
     lcdc_byte: u8, // 0xFF40
     scy: u8,       // 0xFF42
@@ -147,6 +151,7 @@ impl<V: Vram, P: PFetcher<V>, O: ObjectManager> PixelProcessor for Ppu<V, P, O> 
             is_first_scanline_after_lcd_on: false,
             stat_interrupt_line: false,
             stall_dots: 0,
+            frame_blanked: false,
             lcdc_byte: 0x00,
             scy: 0x00,
             scx: 0x00,
@@ -229,6 +234,7 @@ impl<V: Vram, P: PFetcher<V>, O: ObjectManager> PixelProcessor for Ppu<V, P, O> 
         if !self.lcd_was_enabled {
             self.is_first_scanline_after_lcd_on = true;
             self.lcd_was_enabled = true;
+            self.frame_blanked = true;
         }
 
         self.dots += 1;
@@ -427,7 +433,7 @@ impl<V: Vram, P: PFetcher<V>, O: ObjectManager> Ppu<V, P, O> {
 
                 let obj_color_index = obj_pixel.get_color_index();
 
-                let final_color = if obj_color_index == 0 {
+                let mut final_color = if obj_color_index == 0 {
                     bg_color
                 } else {
                     let priority = obj_pixel.get_priority();
@@ -441,6 +447,8 @@ impl<V: Vram, P: PFetcher<V>, O: ObjectManager> Ppu<V, P, O> {
 
                 let ly = self.ly as usize;
                 let offset = ly * WIN_SIZE_X + self.x;
+
+                final_color = if self.frame_blanked { LCD_OFF_COLOR } else {final_color };
                 ct.put_pixel_to_frame(offset, final_color);
                 let x = self.x;
                 self.x = x + 1;
@@ -537,6 +545,7 @@ impl<V: Vram, P: PFetcher<V>, O: ObjectManager> Ppu<V, P, O> {
             if self.ly >= WIN_SIZE_Y as u8 {
                 self.update_ppu_mode(PpuMode::VBlank);
                 self.pending_vblank = true;
+                self.frame_blanked = false;
             } else {
                 self.update_ppu_mode(PpuMode::OamSearch);
             }
