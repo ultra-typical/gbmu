@@ -66,9 +66,9 @@ impl ObjectManager for Oam {
         self.read_raw((addr.wrapping_sub(OAM_BEGINNING)) as u8)
 	}
 	fn write(&mut self, addr: u16, val: u8) {
-        if self.accessed_oam_row != 0xFF {
-            self.trigger_oam_bug_write(self.accessed_oam_row);
-        }
+        // if self.accessed_oam_row != 0xFF {
+        //     self.trigger_oam_bug_write(self.accessed_oam_row);
+        // }
         self.write_raw((addr.wrapping_sub(OAM_BEGINNING)) as u8, val);
     }
     fn set_accessed_oam_row(&mut self, value: u8) { self.accessed_oam_row = value; }
