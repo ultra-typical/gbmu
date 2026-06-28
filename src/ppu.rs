@@ -508,7 +508,7 @@ impl<V: Vram, P: PFetcher<V>, O: ObjectManager> Ppu<V, P, O> {
 
     fn advance_to_next_scanline(&mut self) {
         if self.read_lcdc().is_window_enabled()
-            && self.ly >= self.wy
+            && self.wy_equal_ly_condition_met
             && self.wx <= 166
             && self.wly < WIN_SIZE_Y as u8
         {
@@ -590,6 +590,9 @@ impl<V: Vram, P: PFetcher<V>, O: ObjectManager> Ppu<V, P, O> {
 
         self.lcd_was_enabled = false;
         self.stat_interrupt_line = false;
+
+        self.wly = 0;
+        self.wy_equal_ly_condition_met = false;
     }
 
     fn check_lyc_equals_ly(&mut self) {
