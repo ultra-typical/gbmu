@@ -951,7 +951,7 @@ mod tests {
         c.bus.write_byte(0x8001, 0x05);
         c.cpu.flags.set_flag(Flag::Carry, false);
         ticks(&mut c, 3);
-        assert_eq!(c.cpu.get_r16::<PC>(), 0x8009);
+        assert_eq!(c.cpu.get_r16::<PC>(), 0x8008);
     }
 
     #[test]

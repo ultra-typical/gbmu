@@ -109,7 +109,7 @@ pub trait MemoryMapper {
         self.get_cart().dump()
     }
 
-    fn read_byte_raw(&mut self, addr: u16) -> u8
+    fn read_byte(&mut self, addr: u16) -> u8
     where
         Self: Sized,
     {
@@ -153,26 +153,8 @@ pub trait MemoryMapper {
         }
     }
 
-    fn read_byte(&mut self, addr: u16) -> u8
-    where
-        Self: Sized,
-    {
-        if self.get_dma_index() != 0xFF && addr < 0xFF00 {
-            return self.get_dma_last_byte();
-        }
-        self.read_byte_raw(addr)
-    }
 
     fn write_byte(&mut self, addr: u16, val: u8)
-    where
-        Self: Sized,
-    {
-        if self.get_dma_index() != 0xFF && addr < 0xFF00 {
-            return;
-        }
-        self.write_byte_raw(addr, val);
-    }
-    fn write_byte_raw(&mut self, addr: u16, val: u8)
     where
         Self: Sized,
     {
@@ -264,9 +246,9 @@ pub trait MemoryMapper {
     {
         if self.get_timer().tick() {
             let interrupt_flags_addr = MemoryRegion::InterruptFlag.to_address();
-            let mut interrupt_flags = self.read_byte_raw(interrupt_flags_addr);
+            let mut interrupt_flags = self.read_byte(interrupt_flags_addr);
             interrupt_flags |= 0b100;
-            self.write_byte_raw(interrupt_flags_addr, interrupt_flags);
+            self.write_byte(interrupt_flags_addr, interrupt_flags);
         }
     }
 
@@ -280,29 +262,17 @@ pub trait MemoryMapper {
         self.get_apu().step();
     }
 
-    fn tick_ppu(&mut self, ct: &mut Box<dyn GameCT>)
-    where
-        Self: Sized;
+    fn tick_ppu(&mut self, ct: &mut Box<dyn GameCT>) where Self: Sized;
 
     fn tick_dma(&mut self);
 }
 
 impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<C, T, P> {
-    fn get_timer(&mut self) -> &mut dyn TimingComponent {
-        &mut self.timers
-    }
-    fn get_dma_index(&mut self) -> u8 {
-        self.dma_index
-    }
-    fn set_dma_index(&mut self, val: u8) {
-        self.dma_index = val
-    }
-    fn write_timers(&mut self, addr: u16, value: u8) {
-        self.timers.write(addr, value)
-    }
-    fn read_timers(&mut self, addr: u16) -> u8 {
-        self.timers.read(addr)
-    }
+    fn get_timer(&mut self) -> &mut dyn TimingComponent { &mut self.timers }
+    fn get_dma_index(&mut self) -> u8 { self.dma_index }
+    fn set_dma_index(&mut self, val: u8) { self.dma_index = val }
+    fn write_timers(&mut self, addr: u16, value: u8) { self.timers.write(addr, value) }
+    fn read_timers(&mut self, addr: u16) -> u8 { self.timers.read(addr) }
     fn get_dma_last_byte(&mut self) -> u8 {
         self.dma_last_byte
     }
@@ -312,17 +282,15 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<C, T
     }
 
     fn tick_dma(&mut self) {
-        let byte = self.read_byte_raw(self.dma_source + self.dma_index as u16);
+        let byte = self.read_byte(self.dma_source + self.dma_index as u16);
 
         let dma_index = self.dma_index;
 
         self.get_ppu().write_oam(0xFE00 + dma_index as u16, byte);
 
-        self.dma_index += 1;
+        self.dma_index+= 1;
 
-        if self.dma_index == 160 {
-            self.dma_index = 0xFF;
-        }
+        if self.dma_index == 160 { self.dma_index=0xFF; }
     }
 
     fn new(
@@ -350,7 +318,7 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<C, T
             dma_source: 0x0,
             dma_index: 0xFF,
             dma_last_byte: 0,
-            dma_delay: 0,
+            dma_delay: 0
         })
     }
 
@@ -444,7 +412,7 @@ pub struct DmgMmu<C: Mbc, T: TimingComponent, P: PixelProcessor> {
     dma_source: u16,
     pub dma_index: u8,
     dma_last_byte: u8,
-    dma_delay: u8,
+    dma_delay: u8
 }
 
 impl<C: Mbc, T: TimingComponent, P: PixelProcessor> Default for DmgMmu<C, T, P> {
@@ -454,6 +422,7 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> Default for DmgMmu<C, T, P> 
 }
 
 impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<C, T, P> {
+
     fn set_dma_last_byte(&mut self, val: u8) {
         self.dma_last_byte = val;
     }
@@ -478,17 +447,15 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<C, T
     }
 
     fn tick_dma(&mut self) {
-        let byte = self.read_byte_raw(self.dma_source + self.dma_index as u16);
-
+        let byte = self.read_byte(self.dma_source + self.dma_index as u16);
+        
         let dma_index = self.dma_index;
 
         self.get_ppu().write_oam(0xFE00 + dma_index as u16, byte);
 
-        self.dma_index += 1;
+        self.dma_index+= 1;
 
-        if self.dma_index == 160 {
-            self.dma_index = 0xFF;
-        }
+        if self.dma_index == 160 { self.dma_index=0xFF; }
     }
 
     fn new(
@@ -586,9 +553,9 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<C, T
     fn tick_timers(&mut self) {
         if self.timers.tick() {
             let interrupt_flags_addr = MemoryRegion::InterruptFlag.to_address();
-            let mut interrupt_flags = self.read_byte_raw(interrupt_flags_addr);
+            let mut interrupt_flags = self.read_byte(interrupt_flags_addr);
             interrupt_flags |= 0b100;
-            self.write_byte_raw(interrupt_flags_addr, interrupt_flags);
+            self.write_byte(interrupt_flags_addr, interrupt_flags);
         }
     }
 
@@ -614,7 +581,7 @@ pub struct CgbMmu<C: Mbc, T: TimingComponent, P: PixelProcessor> {
     button_state: u8, // for joypad
     dma_source: u16,
     pub dma_index: u8,
-    dma_last_byte: u8,
+    dma_last_byte: u8
 }
 
 #[cfg(test)]
