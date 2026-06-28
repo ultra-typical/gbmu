@@ -190,7 +190,8 @@ impl Mbc for Mbc2 {
         match addr {
             0x0000..0x4000 => self.rom_banks[0][addr as usize],
             0x4000..0x8000 => {
-                self.rom_banks[max(self.rom_bank_register as usize, 1)][(addr - 0x4000) as usize]
+                let bank = max(self.rom_bank_register as usize, 1) % self.rom_banks.len();
+                self.rom_banks[bank][(addr - 0x4000) as usize]
             }
             0xA000..0xC000 => {
                 if self.ram_gate_register {
