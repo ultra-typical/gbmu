@@ -96,7 +96,7 @@ impl Apu {
             self.sample_counter -= CYCLES_PER_SAMPLE;
 
             let mixed = (self.channel_one.output() + self.channel_two.output()) / 2.0;
-            let sample = (mixed * self.volume).clamp(0.0, 2.0);
+            let sample = (mixed * self.volume).clamp(-1.0, 1.0);
 
             self.sample_buffer.push(sample);
         }

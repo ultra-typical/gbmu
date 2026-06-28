@@ -36,6 +36,7 @@ pub trait InterfaceCT {
     fn render_frame(&self) -> Result<(), String>;
     fn render_frames(&self, frame_nb: u16) -> Result<(), String>;
     fn set_speed(&self, speed: u8) -> Result<(), String>;
+    fn set_volume(&self, volume: u8) -> Result<(), String>;
 
     //// Debug instructions
     fn watch_adress(&self, addr_to_watch: u16) -> Result<(), String>;
@@ -185,6 +186,10 @@ impl InterfaceCT for InterfaceCommunicationTool {
 
     fn set_speed(&self, speed: u8) -> Result<(), String> {
         self.try_send_query(Request::SetSpeed(speed))
+    }
+
+    fn set_volume(&self, volume: u8) -> Result<(), String> {
+        self.try_send_query(Request::SetVolume(volume))
     }
 
     //// Debug instructions

@@ -173,7 +173,10 @@ impl EmulationDevice {
                             .suffix("x")
                             .show_value(true);
                         if ui.add_sized(vec2(140.0, 20.0), slider).changed() {
-                            println!("googoogaga")
+                            let _ = self
+                                .core_game
+                                .interface_ct
+                                .set_volume(self.ui_state.volume as u8);
                         }
                     });
                 });
