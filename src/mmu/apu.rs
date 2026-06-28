@@ -38,6 +38,7 @@ pub struct Apu {
     frame_seq_counter: u64,
     frame_seq_step: u8,
     sample_buffer: SampleBuffer,
+    volume: f32, // 1.0 = 100%
 }
 
 impl Apu {
@@ -60,6 +61,7 @@ impl Apu {
             frame_seq_counter: 0,
             frame_seq_step: 0,
             sample_buffer,
+            volume: 1.0,
         }
     }
 
@@ -93,7 +95,8 @@ impl Apu {
         if self.sample_counter >= CYCLES_PER_SAMPLE {
             self.sample_counter -= CYCLES_PER_SAMPLE;
 
-            let sample = (self.channel_one.output() + self.channel_two.output()) / 2.0;
+            let mixed = (self.channel_one.output() + self.channel_two.output()) / 2.0;
+            let sample = (mixed * self.volume).clamp(0.0, 2.0);
 
             self.sample_buffer.push(sample);
         }
@@ -168,6 +171,10 @@ impl Apu {
             }
             _ => {}
         }
+    }
+
+    pub fn set_volume(&mut self, percent: u8) {
+        self.volume = percent as f32 / 100.0;
     }
 }
 
