@@ -448,7 +448,7 @@ impl<V: Vram, P: PFetcher<V>, O: ObjectManager> Ppu<V, P, O> {
                 let ly = self.ly as usize;
                 let offset = ly * WIN_SIZE_X + self.x;
 
-                final_color = if self.frame_blanked { LCD_OFF_COLOR } else {final_color };
+                final_color = if self.frame_blanked { LCD_OFF_COLOR } else { final_color };
                 ct.put_pixel_to_frame(offset, final_color);
                 let x = self.x;
                 self.x = x + 1;
