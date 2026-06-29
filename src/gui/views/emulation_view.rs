@@ -234,7 +234,7 @@ impl From<SelectionDevice> for EmulationDevice {
             gbtype: GbType::Dmg,
             rom_path,
             boot_rom: true,
-            boot_rom_path: "boot-roms/dmg.bin".into(),
+            // boot_rom_path: "boot-roms/dmg.bin".into(),
         };
         let mut core_game = CoreGameDevice::new(options);
         core_game.key_mapping = original.key_mapping;

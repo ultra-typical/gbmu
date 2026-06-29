@@ -76,14 +76,14 @@ impl MemoryRegion {
 pub trait MemoryMapper {
     fn write_timers(&mut self, addr: u16, value: u8);
     fn new(
-        wrapped_boot_rom: Option<[u8; 0x100]>,
+        wrapped_boot_rom: Option<[u8; 0x900]>,
         rom_data: Vec<u8>,
         ram_data: Option<Vec<u8>>,
     ) -> Result<Self, String>
     where
         Self: Sized;
     fn get_boot_enable(&self) -> bool;
-    fn get_boot_rom(&self) -> &[u8; 0x0100];
+    fn get_boot_rom(&self) -> &[u8; 0x0900];
     fn get_button_state(&self) -> &u8;
     fn get_cart(&mut self) -> &mut dyn Mbc;
     fn get_timer(&mut self) -> &mut dyn TimingComponent;
@@ -294,7 +294,7 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<C, T
     }
 
     fn new(
-        wrapped_boot_rom: Option<[u8; 0x100]>,
+        wrapped_boot_rom: Option<[u8; 0x900]>,
         rom_data: Vec<u8>,
         ram_data: Option<Vec<u8>>,
     ) -> Result<Self, String>
@@ -302,7 +302,7 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<C, T
         Self: Sized,
     {
         let boot_enable = wrapped_boot_rom.is_some();
-        let boot_rom = wrapped_boot_rom.unwrap_or([0xFF; 0x0100]);
+        let boot_rom = wrapped_boot_rom.unwrap_or([0xFF; 0x0900]);
         Ok(Self {
             apu: Apu::new(),
             data: Box::new([0xFF; 0x10000]),
@@ -348,7 +348,7 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<C, T
         &mut self.interrupts
     }
 
-    fn get_boot_rom(&self) -> &[u8; 0x0100] {
+    fn get_boot_rom(&self) -> &[u8; 0x0900] {
         &self.boot_rom
     }
 
@@ -406,7 +406,7 @@ pub struct DmgMmu<C: Mbc, T: TimingComponent, P: PixelProcessor> {
     apu: Apu,
     pub ppu: P,
     boot_enable: bool,
-    boot_rom: [u8; 0x0100],
+    boot_rom: [u8; 0x0900],
     dpad_state: u8,   // for joypad
     button_state: u8, // for joypad
     dma_source: u16,
@@ -448,7 +448,7 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<C, T
 
     fn tick_dma(&mut self) {
         let byte = self.read_byte(self.dma_source + self.dma_index as u16);
-        
+
         let dma_index = self.dma_index;
 
         self.get_ppu().write_oam(0xFE00 + dma_index as u16, byte);
@@ -459,7 +459,7 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<C, T
     }
 
     fn new(
-        wrapped_boot_rom: Option<[u8; 0x100]>,
+        wrapped_boot_rom: Option<[u8; 0x900]>,
         rom_data: Vec<u8>,
         ram_data: Option<Vec<u8>>,
     ) -> Result<Self, String>
@@ -467,7 +467,7 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<C, T
         Self: Sized,
     {
         let boot_enable = wrapped_boot_rom.is_some();
-        let boot_rom = wrapped_boot_rom.unwrap_or([0xFF; 0x0100]);
+        let boot_rom = wrapped_boot_rom.unwrap_or([0xFF; 0x0900]);
         Ok(CgbMmu {
             apu: Apu::new(),
             data: Box::new([0xFF; 0x10000]),
@@ -511,7 +511,7 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<C, T
         &mut self.interrupts
     }
 
-    fn get_boot_rom(&self) -> &[u8; 0x0100] {
+    fn get_boot_rom(&self) -> &[u8; 0x0900] {
         &self.boot_rom
     }
 
@@ -576,7 +576,7 @@ pub struct CgbMmu<C: Mbc, T: TimingComponent, P: PixelProcessor> {
     apu: Apu,
     pub ppu: P,
     boot_enable: bool,
-    boot_rom: [u8; 0x0100],
+    boot_rom: [u8; 0x0900],
     dpad_state: u8,   // for joypad
     button_state: u8, // for joypad
     dma_source: u16,

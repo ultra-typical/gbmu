@@ -103,7 +103,7 @@ impl FromStr for GbType {
 
 #[derive(Clone)]
 pub struct CoreGameOptions {
-    pub boot_rom_path: String,
+    // pub boot_rom_path: String,
     pub rom_path: String,
     pub boot_rom: bool,
     pub gbtype: GbType,
@@ -112,7 +112,7 @@ pub struct CoreGameOptions {
 impl From<EmulationAppOptions> for CoreGameOptions {
     fn from(value: EmulationAppOptions) -> Self {
         Self {
-            boot_rom_path: "boot-roms/dmg.bin".into(),
+            // boot_rom_path: "boot-roms/dmg.bin".into(),
             rom_path: value.rom_path,
             boot_rom: value.boot_rom,
             gbtype: GbType::Dmg, // TODO -> need to do feature to choose which type
@@ -175,10 +175,23 @@ impl AnyGameApp {
             println!("Backup detected")
         };
         let boot_rom_data = if game_data.boot_rom {
-            let boot_bytes = std::fs::read(game_data.boot_rom_path).expect("cannot read boot rom");
-            assert!(boot_bytes.len() == 0x100, "boot rom must be 256 bytes");
-
-            let mut boot_rom = [0u8; 0x0100];
+            let boot_bytes = match game_data.gbtype {
+                GbType::Dmg => {
+                    println!("dmg");
+                    let boot_rom_path: String = "boot-roms/dmg.bin".to_string();
+                    let boot_bytes = std::fs::read(boot_rom_path).expect("cannot read boot rom");
+                    assert!(boot_bytes.len() == 0x100, "boot rom must be 256 bytes");
+                    boot_bytes
+                },
+                GbType::Cgb => {
+                    println!("cgb");
+                    let boot_rom_path: String = "boot-roms/cgb.bin".to_string();
+                    let boot_bytes = std::fs::read(boot_rom_path).expect("cannot read boot rom");
+                    assert!(boot_bytes.len() == 0x900, "boot rom must be 2304 bytes");
+                    boot_bytes
+                }
+            };
+            let mut boot_rom = [0u8; 0x0900];
             boot_rom.copy_from_slice(&boot_bytes);
             Some(boot_rom)
         } else {

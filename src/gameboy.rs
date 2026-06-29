@@ -80,7 +80,7 @@ impl<M: MemoryMapper> GameBoy<M> {
     }
 
     pub fn new(
-        boot_rom_data: Option<[u8; 0x100]>,
+        boot_rom_data: Option<[u8; 0x900]>,
         rom_data: Vec<u8>,
         ram_data: Option<Vec<u8>>,
     ) -> Result<GameBoy<M>, String> {
