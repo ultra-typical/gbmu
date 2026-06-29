@@ -1,3 +1,4 @@
+use std::ops::{RangeInclusive};
 use std::sync::RwLock;
 
 pub mod apu;
@@ -74,6 +75,7 @@ impl MemoryRegion {
 }
 
 pub trait MemoryMapper {
+    const RANGE_BOOT_ROM: RangeInclusive<u16>;
     fn write_timers(&mut self, addr: u16, value: u8);
     fn new(
         wrapped_boot_rom: Option<[u8; 0x900]>,
@@ -113,7 +115,7 @@ pub trait MemoryMapper {
     where
         Self: Sized,
     {
-        if self.get_boot_enable() && addr <= 0x00FF {
+        if self.get_boot_enable() && Self::RANGE_BOOT_ROM.contains(&addr) {
             return self.get_boot_rom()[addr as usize];
         }
 
@@ -268,6 +270,7 @@ pub trait MemoryMapper {
 }
 
 impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<C, T, P> {
+    const RANGE_BOOT_ROM: RangeInclusive<u16> = 0x0000..=0x00FF;
     fn get_timer(&mut self) -> &mut dyn TimingComponent { &mut self.timers }
     fn get_dma_index(&mut self) -> u8 { self.dma_index }
     fn set_dma_index(&mut self, val: u8) { self.dma_index = val }
@@ -422,7 +425,7 @@ impl<C: Mbc, T: TimingComponent, P: PixelProcessor> Default for DmgMmu<C, T, P> 
 }
 
 impl<C: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<C, T, P> {
-
+    const RANGE_BOOT_ROM: RangeInclusive<u16> = 0x0000..=0x08FF;
     fn set_dma_last_byte(&mut self, val: u8) {
         self.dma_last_byte = val;
     }

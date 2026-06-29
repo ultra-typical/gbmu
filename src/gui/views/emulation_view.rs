@@ -231,7 +231,7 @@ impl From<SelectionDevice> for EmulationDevice {
     fn from(original: SelectionDevice) -> Self {
         let rom_path = original.path;
         let options = CoreGameOptions {
-            gbtype: GbType::Dmg,
+            gbtype: GbType::Cgb,
             rom_path,
             boot_rom: true,
             // boot_rom_path: "boot-roms/dmg.bin".into(),
