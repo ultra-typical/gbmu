@@ -442,7 +442,8 @@ pub struct SelectionDevice {
     picked_file: Option<PathBuf>,
     search: String,
     listening: Option<&'static str>,
-    key_mapping: KeyMapping
+    key_mapping: KeyMapping,
+    launch_cgb: bool
 }
 
 impl Default for SelectionDevice {
@@ -469,7 +470,8 @@ impl Default for SelectionDevice {
                 .default_file_filter("GameBoy ROMS"),
             search: String::new(),
             listening: None,
-            key_mapping: KeyMapping::default()
+            key_mapping: KeyMapping::default(),
+            launch_cgb: false,
         }
     }
 }

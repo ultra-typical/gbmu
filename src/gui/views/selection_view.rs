@@ -172,6 +172,12 @@ impl SelectionDevice {
 
                     });
                     ui.separator();
+                
+                    ui.vertical(|ui| {
+                        ui.heading("Settings");
+                        ui.add_space(4.0);
+                        ui.checkbox(&mut self.launch_cgb, "Launch Gameboy Color");
+                    });
 
                     ui.horizontal(|ui| {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
