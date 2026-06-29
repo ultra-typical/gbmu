@@ -64,6 +64,7 @@ impl From<&KeyInput> for bool {
     }
 }
 
+#[derive(Clone)]
 pub struct KeyMapping {
     pub a: Key,
     pub b: Key,
