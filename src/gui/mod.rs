@@ -175,24 +175,24 @@ impl AnyGameApp {
             println!("Backup detected")
         };
         let boot_rom_data = if game_data.boot_rom {
-            let boot_bytes = match game_data.gbtype {
+            let mut boot_rom = [0u8; 0x0900];
+            match game_data.gbtype {
                 GbType::Dmg => {
                     println!("dmg");
                     let boot_rom_path: String = "boot-roms/dmg.bin".to_string();
                     let boot_bytes = std::fs::read(boot_rom_path).expect("cannot read boot rom");
                     assert!(boot_bytes.len() == 0x100, "boot rom must be 256 bytes");
-                    boot_bytes
+                    boot_rom[..0x100].copy_from_slice(&boot_bytes);
                 },
                 GbType::Cgb => {
                     println!("cgb");
                     let boot_rom_path: String = "boot-roms/cgb.bin".to_string();
                     let boot_bytes = std::fs::read(boot_rom_path).expect("cannot read boot rom");
                     assert!(boot_bytes.len() == 0x900, "boot rom must be 2304 bytes");
-                    boot_bytes
+                    boot_rom.copy_from_slice(&boot_bytes);
+
                 }
             };
-            let mut boot_rom = [0u8; 0x0900];
-            boot_rom.copy_from_slice(&boot_bytes);
             Some(boot_rom)
         } else {
             None
