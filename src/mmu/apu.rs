@@ -65,6 +65,7 @@ impl Apu {
     pub fn step(&mut self) {
         self.channel_one.step();
         self.channel_two.step();
+        self.channel_three.step();
 
         self.sample_counter += 1.0;
         self.frame_seq_counter += 1;
