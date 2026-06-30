@@ -34,7 +34,7 @@ impl ChannelThree {
         if !self.dac_enabled() {
             self.enabled = false;
         }
-    }    
+    }
 
     pub fn step(&mut self) {
         if self.freq_timer > 0 {
