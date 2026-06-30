@@ -11,5 +11,5 @@ gb-test-roms
 callgrind.*
 rtc3test
 utils
-
+**/*.gb.save
 CLAUDE.md
