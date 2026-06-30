@@ -165,23 +165,22 @@ impl SelectionDevice {
                     });
                 });
                 ui.separator();
+            });
+        ui.separator();
 
-                    });
-                    ui.separator();
-                
-                    ui.vertical(|ui| {
-                        ui.heading("Settings");
-                        ui.add_space(4.0);
-                        ui.checkbox(&mut self.launch_cgb, "Launch Gameboy Color");
-                    });
+        ui.vertical(|ui| {
+            ui.heading("Settings");
+            ui.add_space(4.0);
+            ui.checkbox(&mut self.launch_cgb, "Launch Gameboy Color");
+        });
 
-                    ui.horizontal(|ui| {
-                ui.horizontal(|ui| {
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        egui::widgets::global_theme_preference_switch(ui);
-                    });
+        ui.horizontal(|ui| {
+            ui.horizontal(|ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    egui::widgets::global_theme_preference_switch(ui);
                 });
             });
+        });
 
         egui::Panel::right("history_panel")
             .resizable(true)

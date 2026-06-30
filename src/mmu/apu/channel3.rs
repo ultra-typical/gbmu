@@ -30,7 +30,7 @@ impl ChannelThree {
 
         self.freq_timer = (2048 - self.period()) * 2;
         self.sample_position = 0;
-    }    
+    }
 
     pub fn step(&mut self) {
         if self.freq_timer > 0 {

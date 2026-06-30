@@ -1,4 +1,4 @@
-use std::ops::{RangeInclusive};
+use std::ops::RangeInclusive;
 use std::sync::RwLock;
 
 pub mod apu;

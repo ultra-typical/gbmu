@@ -125,7 +125,7 @@ impl Apu {
             0xFF30..=0xFF3F => {
                 let index = (addr - 0xFF30) as usize;
                 self.channel_three.wave_ram[index]
-            },
+            }
             _ => 0xFF,
         }
     }
@@ -159,7 +159,7 @@ impl Apu {
                 if value & 0b1000_0000 != 0 {
                     self.channel_three.trigger();
                 }
-            },
+            }
             0xFF20 => self.channel_four.nr41_length_timer.write(value),
             0xFF21 => self.channel_four.nr42_volume_envelope.write(value),
             0xFF22 => self.channel_four.nr43_freq_and_randomness.write(value),

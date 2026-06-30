@@ -182,14 +182,13 @@ impl AnyGameApp {
                     let boot_bytes = std::fs::read(boot_rom_path).expect("cannot read boot rom");
                     assert!(boot_bytes.len() == 0x100, "boot rom must be 256 bytes");
                     boot_rom[..0x100].copy_from_slice(&boot_bytes);
-                },
+                }
                 GbType::Cgb => {
                     println!("cgb");
                     let boot_rom_path: String = "boot-roms/cgb.bin".to_string();
                     let boot_bytes = std::fs::read(boot_rom_path).expect("cannot read boot rom");
                     assert!(boot_bytes.len() == 0x900, "boot rom must be 2304 bytes");
                     boot_rom.copy_from_slice(&boot_bytes);
-
                 }
             };
             Some(boot_rom)
