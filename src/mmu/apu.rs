@@ -76,10 +76,12 @@ impl Apu {
                 0 | 4 => {
                     self.channel_one.tick_length();
                     self.channel_two.tick_length();
+                    self.channel_three.tick_length();
                 }
                 2 | 6 => {
                     self.channel_one.tick_length();
                     self.channel_two.tick_length();
+                    self.channel_three.tick_length();
                     self.channel_one.tick_sweep();
                 }
                 7 => {
@@ -92,7 +94,7 @@ impl Apu {
         if self.sample_counter >= CYCLES_PER_SAMPLE {
             self.sample_counter -= CYCLES_PER_SAMPLE;
 
-            let mixed = (self.channel_one.output() + self.channel_two.output()) / 2.0;
+            let mixed = (self.channel_one.output() + self.channel_two.output() + self.channel_three.output()) / 3.0;
             let sample = (mixed * self.volume).clamp(-1.0, 1.0);
 
             self.sample_buffer.push(sample);
