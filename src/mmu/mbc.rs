@@ -196,9 +196,9 @@ impl Mbc for Mbc2 {
             }
             0xA000..0xC000 => {
                 if self.ram_gate_register {
-                    self.ram_banks[0][(addr & 0b1111_1111) as usize]
+                    0xF0 | self.ram_banks[0][(addr & 0b1_1111_1111) as usize]
                 } else {
-                    0
+                    0xFF
                 }
             }
             _ => unreachable!(),
@@ -209,7 +209,7 @@ impl Mbc for Mbc2 {
         match addr {
             0x0000..0x4000 => {
                 if addr & 0b1_0000_0000 == 0 {
-                    self.ram_gate_register = (val & 0b1111) == 0b1010
+                    self.ram_gate_register = (val & 0b1111) == 0b1010;
                 } else {
                     let new_value = val & 0b1111;
                     self.rom_bank_register = (new_value == 0) as u8 + new_value;
@@ -218,7 +218,7 @@ impl Mbc for Mbc2 {
             0x4000..0x8000 => {} // do nothing
             0xA000..0xC000 => {
                 if self.ram_gate_register {
-                    self.ram_banks[0][(addr & 0b1_1111_1111) as usize] = val;
+                    self.ram_banks[0][(addr & 0b1_1111_1111) as usize] = val & 0x0F;
                 }
             }
             _ => unreachable!(),
