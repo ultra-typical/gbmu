@@ -18,7 +18,7 @@ struct DebuggingDataIn<'a> {
     error_message: Option<&'a String>,
     sized_texture: Option<SizedTexture>,
     instruction_to_exec: Option<String>,
-    fps: u128
+    fps: u128,
 }
 
 #[derive(Debug)]
@@ -147,7 +147,7 @@ impl DebuggingDevice {
             None
         };
 
-        let fps = self.core_game.interface_ct.get_fps()?;
+        let fps_count = self.core_game.interface_ct.get_fps()?;
 
         Ok(DebuggingDataIn {
             is_step: (self.is_step || self.ui_state.is_paused),
@@ -159,7 +159,7 @@ impl DebuggingDevice {
             error_message,
             hex_string: &self.hex_string,
             instruction_to_exec: self.instruction_to_exec.clone(),
-            fps: fps
+            fps: fps_count,
         })
     }
 
