@@ -155,8 +155,12 @@ impl EmulationDevice {
 
                                         if ui.add(ok_btn).clicked() {
                                             self.ui_state.show_save_popup = false;
-                                            let _ =
-                                                self.core_game.interface_ct.set_mode(Mode::Game);
+                                            if !self.ui_state.is_paused {
+                                                let _ = self
+                                                    .core_game
+                                                    .interface_ct
+                                                    .set_mode(Mode::Game);
+                                            }
                                             let _ = self.core_game.interface_ct.request_save_state(
                                                 SaveState {
                                                     preview: self.core_game.buffer,
@@ -166,8 +170,12 @@ impl EmulationDevice {
                                         }
                                         if ui.add(cancel_btn).clicked() {
                                             self.ui_state.show_save_popup = false;
-                                            let _ =
-                                                self.core_game.interface_ct.set_mode(Mode::Game);
+                                            if !self.ui_state.is_paused {
+                                                let _ = self
+                                                    .core_game
+                                                    .interface_ct
+                                                    .set_mode(Mode::Game);
+                                            }
                                         }
                                     });
                                 },
