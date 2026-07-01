@@ -79,7 +79,7 @@ impl DebuggingDevice {
         }
 
         if data.step_clicked {
-            self.core_game.interface_ct.execute_next_instructions(1)?;
+            self.core_game.interface_ct.execute_next_instructions(4)?;
         }
 
         if self.nb_instruction != data.nb_instruction_requested as usize {

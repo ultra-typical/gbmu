@@ -50,7 +50,8 @@ impl<M: MemoryMapper> GameBoy<M> {
         ct.send_cpu_state(&self.cpu.dump_state());
     }
 
-    fn send_next_instructions(&mut self, ct: &mut Box<dyn GameCT>, mut current_pc: u16) {
+    fn send_next_instructions(&mut self, ct: &mut Box<dyn GameCT>) {
+        let mut current_pc = self.cpu.get_r16::<PC>();
         let mut instructions: Vec<(u16, String)> = Vec::new();
 
         for _ in 0..self.instructions_to_send {
@@ -311,49 +312,53 @@ impl<M: MemoryMapper> GameBoy<M> {
         self.bus.update_keys(dpad, buttons)
     }
 
-    pub fn tick_gb(&mut self, key_input: &KeyInput, ct: &mut Box<dyn GameCT>) -> CpuQueueState {
+    pub fn tick_gb(&mut self, key_input: &KeyInput, ct: &mut Box<dyn GameCT>) {
         self.manage_input(key_input);
         self.bus.tick_timers();
         self.cycles_elapsed += 1;
-        let mut queue_state = CpuQueueState::ExecutingInstructions;
+
         if self.cycles_elapsed.is_multiple_of(4) {
             if self.bus.get_dma_index() != 0xFF {
                 self.bus.tick_dma();
             }
-            queue_state = self.cpu.tick(&mut self.bus);
+            self.cpu.tick(&mut self.bus);
             self.cycles_elapsed = 0;
         }
 
         self.bus.tick_ppu(ct);
         self.bus.tick_apu();
-        queue_state
     }
 
     fn game_mode(&mut self, key_input: &KeyInput, ct: &mut Box<dyn GameCT>) {
         for _ in 0..FRAME_CYCLES {
             self.tick_gb(key_input, ct);
         }
+
+        if self.instructions_to_send != 0 {
+            self.send_next_instructions(ct);
+        }
     }
 
     fn debug_mode(&mut self, key_input: &KeyInput, ct: &mut Box<dyn GameCT>) {
         for _ in 0..FRAME_CYCLES {
-            if let CpuQueueState::NewInstructionFetched(addr) = self.tick_gb(key_input, ct) {
-                self.send_next_instructions(ct, addr);
-            }
-            self.send_watched_adress(ct);
-            self.send_registers(ct);
+            self.tick_gb(key_input, ct)
         }
+
+        if self.instructions_to_send != 0 {
+            self.send_next_instructions(ct);
+        }
+        self.send_watched_adress(ct);
+        self.send_registers(ct);
     }
 
     fn stopped_mode(&mut self, key_input: &KeyInput, ct: &mut Box<dyn GameCT>) {
-        while self.step_to_execute > 0 {
-            loop {
-                if let CpuQueueState::NewInstructionFetched(addr) = self.tick_gb(key_input, ct) {
-                    self.send_next_instructions(ct, addr);
-                    break;
-                }
+        if self.step_to_execute > 0 {
+            for _ in 0..FRAME_CYCLES {
+                self.tick_gb(key_input, ct)
             }
-            self.step_to_execute -= 1;
+        }
+        if self.instructions_to_send != 0 {
+            self.send_next_instructions(ct);
         }
         self.send_watched_adress(ct);
         self.send_registers(ct);

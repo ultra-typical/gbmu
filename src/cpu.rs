@@ -20,12 +20,6 @@ pub enum StepStatus {
     Halted,
 }
 
-#[derive(PartialEq)]
-pub enum CpuQueueState {
-    NewInstructionFetched(u16),
-    ExecutingInstructions,
-}
-
 impl<M: MemoryMapper> Cpu<M> {
     pub fn new() -> Self {
         Self {
@@ -68,7 +62,7 @@ impl<M: MemoryMapper> Cpu<M> {
         self.load_instruction(instruction_byte);
     }
 
-    pub fn tick(&mut self, bus: &mut M) -> CpuQueueState {
+    pub fn tick(&mut self, bus: &mut M) {
         let micro_op = &self.queue[self.op_index];
         self.op_index += 1;
         micro_op(self, bus);
@@ -76,12 +70,13 @@ impl<M: MemoryMapper> Cpu<M> {
         if self.op_index == self.queue_len {
             if self.handle_halt_state(bus) == StepStatus::Halted {
                 self.load_queue(&[Cpu::noop]);
+                return;
             }
 
-            let pc = self.get_r16::<PC>();
             if self.handle_ime_state(bus) == StepStatus::Halted {
                 self.load_queue(&[Cpu::noop, Cpu::noop, Cpu::noop, Cpu::noop, Cpu::noop]);
             } else {
+                let pc = self.get_r16::<PC>();
                 let instruction_byte: u8 = bus.read_byte(pc);
                 if self.halt_bug {
                     self.halt_bug = false;
@@ -92,9 +87,6 @@ impl<M: MemoryMapper> Cpu<M> {
                 self.load_instruction(instruction_byte);
             }
             self.handle_ime_delay();
-            CpuQueueState::NewInstructionFetched(pc)
-        } else {
-            CpuQueueState::ExecutingInstructions
         }
     }
 
