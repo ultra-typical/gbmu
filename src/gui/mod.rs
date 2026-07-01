@@ -46,7 +46,6 @@ impl eframe::App for GraphicalApp {
         let debut = Instant::now();
 
         self.app_state = match std::mem::replace(&mut self.app_state, AppState::Default) {
-            AppState::StartingHub(device) => device.starting_view(_ui, _frame),
             AppState::SelectionHub(device) => device.selection_view(_ui, _frame),
             AppState::EmulationHub(device) => device.emulation_view(_ui, _frame),
             AppState::DebuggingHub(device) => device.debug_view(_ui, _frame),
@@ -152,7 +151,6 @@ pub struct StartingHubDevice {}
 
 #[allow(clippy::large_enum_variant)]
 pub enum AppState {
-    StartingHub(StartingHubDevice),
     SelectionHub(SelectionDevice),
     EmulationHub(EmulationDevice),
     DebuggingHub(DebuggingDevice),
@@ -506,6 +504,6 @@ pub struct DebuggingDevice {
 
 impl Default for AppState {
     fn default() -> Self {
-        Self::StartingHub(Default::default())
+        Self::SelectionHub(SelectionDevice::default())
     }
 }
