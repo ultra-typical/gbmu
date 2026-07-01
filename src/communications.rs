@@ -5,9 +5,12 @@ mod interface_tool;
 #[cfg(test)]
 mod tests;
 
-use std::sync::{
-    Arc, Mutex,
-    atomic::{AtomicBool, AtomicIsize},
+use std::{
+    path::PathBuf,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, AtomicIsize},
+    },
 };
 use tokio::sync::mpsc::channel;
 use tokio::sync::watch;
@@ -85,6 +88,7 @@ pub enum Request {
     Execute(String),
     RenderFrame(u16),
     Watch(u16),
+    SaveState(PathBuf),
     StopWatch(u16),
     Step(usize),
     SetInstructionListLength(u8),

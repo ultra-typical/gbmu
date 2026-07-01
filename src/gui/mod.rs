@@ -3,7 +3,7 @@
 
 mod common;
 pub mod keymapping;
-mod views;
+pub mod views;
 
 use crate::GBMU_FILE;
 use crate::communications::{
@@ -18,6 +18,7 @@ use crate::mmu::{CgbMmu, DmgMmu};
 use egui::load::SizedTexture;
 use egui::{ColorImage, TextureOptions, vec2};
 use egui_file_dialog::{FileDialog, Filter};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -401,7 +402,6 @@ pub struct CoreGameDevice {
 impl Drop for CoreGameDevice {
     fn drop(&mut self) {
         println!("this was droped");
-        self.handler.abort();
     }
 }
 
@@ -472,6 +472,7 @@ pub struct SelectionDevice {
     listening: Option<&'static str>,
     key_mapping: KeyMapping,
     launch_cgb: bool,
+    save_state_previews: HashMap<String, egui::TextureHandle>,
 }
 
 impl Default for SelectionDevice {
@@ -500,6 +501,7 @@ impl Default for SelectionDevice {
             listening: None,
             key_mapping: GBMU_FILE.lock().unwrap().settings.keymapping.clone(),
             launch_cgb: false,
+            save_state_previews: HashMap::new(),
         }
     }
 }

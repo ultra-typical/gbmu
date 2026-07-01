@@ -4,6 +4,8 @@ use crate::gameboy::instructions::get_instruction_length;
 use crate::gui::keymapping::KeyInput;
 use std::collections::HashSet;
 
+use std::fs::File;
+use std::io::Write;
 use std::thread;
 use std::time::Duration;
 use std::time::Instant;
@@ -220,6 +222,25 @@ impl<M: MemoryMapper> GameBoy<M> {
             }
             Request::SetVolume(volume) => {
                 self.bus.get_apu().set_volume(volume);
+            }
+            Request::SaveState(path) => {
+                let dump = path.join("dump");
+
+                let Some(cart_dump) = self.bus.get_cart().dump() else {
+                    eprintln!("Could not save state: no cartridge data available");
+                    return;
+                };
+
+                match File::create(&dump) {
+                    Ok(mut file) => {
+                        if let Err(e) = file.write_all(&cart_dump) {
+                            eprintln!("Could not write dump to {:?}: {e}", dump);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Could not create file {:?}: {e}", dump);
+                    }
+                }
             }
             _ => unreachable!(),
         }

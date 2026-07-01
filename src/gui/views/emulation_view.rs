@@ -1,14 +1,21 @@
 pub mod emulation_ui_state;
+use chrono::Local;
 use egui::vec2;
 use egui::{Color32, RichText};
 
 use crate::GBMU_FILE;
-use crate::communications::{CpuState, InstructionList, Mode, WatchedAdresses};
+use crate::communications::{CpuState, FRAME_SIZE_IN_U8, InstructionList, Mode, WatchedAdresses};
 use crate::gui::egui::Id;
 use crate::gui::{
     AppState, CoreGameDevice, CoreGameOptions, DebuggingDevice, EmulationDevice, GbType,
     SelectionDevice,
 };
+
+#[derive(Debug)]
+pub struct SaveState {
+    pub preview: [u8; FRAME_SIZE_IN_U8],
+    pub name: String,
+}
 
 use crate::gui::views::emulation_view::emulation_ui_state::EmulationUiState;
 
@@ -113,7 +120,58 @@ impl EmulationDevice {
                             .min_size(vec2(110.0, 28.0)),
                         );
                         if save_state_button.clicked() {
-                            todo!("save state")
+                            let _ = self.core_game.interface_ct.set_mode(Mode::Stop);
+                            self.ui_state.save_name.clear();
+                            self.ui_state.save_name = format!(
+                                "{} - {}",
+                                self.core_game
+                                    .options
+                                    .rom_path
+                                    .split('/')
+                                    .next_back()
+                                    .unwrap_or("Unknow ROM"),
+                                Local::now().format("%Y-%m-%d %H:%M:%S")
+                            );
+                            self.ui_state.show_save_popup = true;
+                        }
+
+                        if self.ui_state.show_save_popup {
+                            egui::Modal::new(egui::Id::new("save_state_modal")).show(
+                                ui.ctx(),
+                                |ui| {
+                                    ui.heading("Name your save-state");
+
+                                    ui.text_edit_singleline(&mut self.ui_state.save_name);
+
+                                    ui.horizontal(|ui| {
+                                        let ok_btn =
+                                            egui::Button::new(RichText::new("Ok").strong())
+                                                .corner_radius(egui::CornerRadius::same(6))
+                                                .fill(Color32::DARK_GREEN);
+                                        let cancel_btn =
+                                            egui::Button::new(RichText::new("Cancel").strong())
+                                                .corner_radius(egui::CornerRadius::same(6))
+                                                .fill(Color32::DARK_RED);
+
+                                        if ui.add(ok_btn).clicked() {
+                                            self.ui_state.show_save_popup = false;
+                                            let _ =
+                                                self.core_game.interface_ct.set_mode(Mode::Game);
+                                            let _ = self.core_game.interface_ct.request_save_state(
+                                                SaveState {
+                                                    preview: self.core_game.buffer,
+                                                    name: self.ui_state.save_name.clone(),
+                                                },
+                                            );
+                                        }
+                                        if ui.add(cancel_btn).clicked() {
+                                            self.ui_state.show_save_popup = false;
+                                            let _ =
+                                                self.core_game.interface_ct.set_mode(Mode::Game);
+                                        }
+                                    });
+                                },
+                            );
                         }
 
                         ui.add_space(8.0);

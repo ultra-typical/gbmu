@@ -1,4 +1,6 @@
 use super::FRAME_SIZE_IN_U8;
+use std::fs::{self, File};
+use std::io::Write;
 use std::sync::atomic::Ordering;
 use std::sync::{
     Arc, Mutex,
@@ -8,6 +10,7 @@ use tokio::sync::mpsc::Sender;
 use tokio::sync::watch;
 
 use crate::gui::keymapping::KeyInput;
+use crate::gui::views::emulation_view::SaveState;
 
 use super::CpuState;
 use super::InstructionList;
@@ -20,6 +23,7 @@ pub trait InterfaceCT {
     fn send_input(&self, input: KeyInput) -> Result<(), String>;
     fn get_new_image(&mut self, buffer: &mut [u8; FRAME_SIZE_IN_U8]) -> Result<Option<()>, String>;
     fn get_fps(&self) -> Result<u128, String>;
+    fn request_save_state(&self, save_state: SaveState) -> Result<(), String>;
 
     // Debug
     fn get_cpu_state(&mut self, state: &mut CpuState) -> Result<(), String>;
@@ -87,6 +91,25 @@ impl InterfaceCommunicationTool {
 }
 
 impl InterfaceCT for InterfaceCommunicationTool {
+    fn request_save_state(&self, save_state: SaveState) -> Result<(), String> {
+        let home = dirs::home_dir().ok_or_else(|| "Could not find home directory".to_string())?;
+
+        let dir = home.join(".gbmu").join(&save_state.name);
+
+        fs::create_dir_all(&dir)
+            .map_err(|e| format!("Could not create directory {:?}: {e}", dir))?;
+
+        let preview_path = dir.join("preview");
+
+        let mut file = File::create(&preview_path)
+            .map_err(|e| format!("Could not create file {:?}: {e}", preview_path))?;
+
+        file.write_all(&save_state.preview)
+            .map_err(|e| format!("Could not write preview data to {:?}: {e}", preview_path))?;
+
+        self.try_send_query(Request::SaveState(dir))
+    }
+
     // Emulation
     fn send_input(&self, input: KeyInput) -> Result<(), String> {
         self.input_sender
