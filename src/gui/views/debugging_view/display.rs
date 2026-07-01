@@ -1,4 +1,4 @@
-use crate::{gui::common::display_game};
+use crate::gui::common::display_game;
 
 use eframe::egui::{
     Align, Button, Color32, DragValue, Grid, Layout, Panel, RichText, ScrollArea, TextEdit, Ui,
