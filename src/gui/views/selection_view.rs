@@ -2,6 +2,7 @@ use crate::GBMU_FILE;
 use crate::gui::egui::Id;
 use crate::gui::{AppState, SelectionDevice};
 use eframe::egui;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 enum OutState {
@@ -10,6 +11,56 @@ enum OutState {
 }
 
 impl SelectionDevice {
+    fn list_save_states(&self) -> Vec<PathBuf> {
+        let Some(home) = dirs::home_dir() else {
+            return Vec::new();
+        };
+        let gbmu_dir = home.join(".gbmu");
+
+        let Ok(entries) = fs::read_dir(&gbmu_dir) else {
+            return Vec::new();
+        };
+
+        entries
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path())
+            .filter(|path| path.is_dir())
+            .collect()
+    }
+
+    fn get_or_load_preview(
+        &mut self,
+        ctx: &egui::Context,
+        save_dir: &Path,
+    ) -> Option<egui::TextureHandle> {
+        let name = save_dir.file_name()?.to_string_lossy().to_string();
+
+        if let Some(texture) = self.save_state_previews.get(&name) {
+            return Some(texture.clone());
+        }
+
+        let preview_path = save_dir.join("preview");
+        let bytes = fs::read(&preview_path).ok()?;
+
+        const WIDTH: usize = 160;
+        const HEIGHT: usize = 144;
+
+        if bytes.len() != WIDTH * HEIGHT * 3 {
+            eprintln!(
+                "Preview size mismatch for '{name}': expected {} bytes, got {}",
+                WIDTH * HEIGHT * 3,
+                bytes.len()
+            );
+            return None;
+        }
+
+        let color_image = egui::ColorImage::from_rgb([WIDTH, HEIGHT], &bytes);
+        let texture = ctx.load_texture(&name, color_image, egui::TextureOptions::NEAREST);
+
+        self.save_state_previews.insert(name, texture.clone());
+        Some(texture)
+    }
+
     fn try_capture_key(&mut self, ctx: &egui::Context) {
         let Some(action) = self.listening else { return };
 
@@ -99,14 +150,13 @@ impl SelectionDevice {
             self.path = path.to_string_lossy().to_string();
         }
 
-        egui::Panel::bottom(Id::new("toppannel"))
+        egui::Panel::bottom(Id::new("bot"))
             .resizable(true)
             .default_size(220.0)
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
-                    let half_width = ui.available_width() / 2.0 - 8.0;
-
-                    ui.allocate_ui(egui::vec2(half_width, ui.available_height()), |ui| {
+                    let keymappings_width = 150.0;
+                    ui.allocate_ui(egui::vec2(keymappings_width, ui.available_height()), |ui| {
                         ui.vertical(|ui| {
                             ui.heading("Keymappings");
                             ui.add_space(12.0);
@@ -159,12 +209,70 @@ impl SelectionDevice {
                     });
 
                     ui.separator();
+                    ui.allocate_ui(
+                        egui::vec2(ui.available_width(), ui.available_height()),
+                        |ui| {
+                            ui.vertical(|ui| {
+                                ui.heading("Save States selector");
+                                ui.add_space(4.0);
 
-                    ui.vertical(|ui| {
-                        ui.heading("Save States selector");
-                        ui.add_space(4.0);
-                        // show a scrollable list of save states
-                    });
+                                let save_states = self.list_save_states();
+
+                                egui::ScrollArea::vertical()
+                                    .id_salt("save_states_scroll")
+                                    .auto_shrink([false, true])
+                                    .show(ui, |ui| {
+                                        for save_dir in &save_states {
+                                            let name = save_dir
+                                                .file_name()
+                                                .map(|n| n.to_string_lossy().to_string())
+                                                .unwrap_or_else(|| "Unknown".to_string());
+
+                                            ui.horizontal(|ui| {
+                                                if let Some(texture) =
+                                                    self.get_or_load_preview(ui.ctx(), save_dir)
+                                                {
+                                                    ui.add(
+                                                        egui::Image::new(&texture)
+                                                            .fit_to_exact_size(egui::vec2(
+                                                                64.0, 57.6,
+                                                            )),
+                                                    );
+                                                } else {
+                                                    let (rect, _) = ui.allocate_exact_size(
+                                                        egui::vec2(64.0, 57.6),
+                                                        egui::Sense::hover(),
+                                                    );
+                                                    ui.painter().rect_filled(
+                                                        rect,
+                                                        2.0,
+                                                        ui.visuals().extreme_bg_color,
+                                                    );
+                                                }
+
+                                                ui.vertical(|ui| {
+                                                    ui.label(&name);
+                                                    if ui.small_button("Load").clicked() {
+                                                        todo!("Load save state")
+                                                    }
+                                                    if ui.small_button("Delete").clicked() {
+                                                        if let Err(e) = fs::remove_dir_all(save_dir)
+                                                        {
+                                                            eprintln!(
+                                                                "Could not delete '{name}': {e}"
+                                                            );
+                                                        } else {
+                                                            self.save_state_previews.remove(&name);
+                                                        }
+                                                    }
+                                                });
+                                            });
+                                            ui.add_space(4.0);
+                                        }
+                                    });
+                            });
+                        },
+                    );
                 });
                 ui.separator();
             });
