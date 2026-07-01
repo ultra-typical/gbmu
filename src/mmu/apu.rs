@@ -66,6 +66,7 @@ impl Apu {
         self.channel_one.step();
         self.channel_two.step();
         self.channel_three.step();
+        self.channel_four.step();
 
         self.sample_counter += 1.0;
         self.frame_seq_counter += 1;
@@ -78,16 +79,19 @@ impl Apu {
                     self.channel_one.tick_length();
                     self.channel_two.tick_length();
                     self.channel_three.tick_length();
+                    self.channel_four.tick_length();
                 }
                 2 | 6 => {
                     self.channel_one.tick_length();
                     self.channel_two.tick_length();
                     self.channel_three.tick_length();
+                    self.channel_four.tick_length();
                     self.channel_one.tick_sweep();
                 }
                 7 => {
                     self.channel_one.tick_envelope();
                     self.channel_two.tick_envelope();
+                    self.channel_four.tick_envelope();
                 }
                 _ => {}
             }
@@ -97,8 +101,9 @@ impl Apu {
 
             let mixed = (self.channel_one.output()
                 + self.channel_two.output()
-                + self.channel_three.output())
-                / 3.0;
+                + self.channel_three.output()
+                + self.channel_four.output())
+                / 4.0;
             let sample = (mixed * self.volume).clamp(-1.0, 1.0);
 
             self.sample_buffer.push(sample);
@@ -169,7 +174,12 @@ impl Apu {
             0xFF20 => self.channel_four.nr41_length_timer.write(value),
             0xFF21 => self.channel_four.nr42_volume_envelope.write(value),
             0xFF22 => self.channel_four.nr43_freq_and_randomness.write(value),
-            0xFF23 => self.channel_four.nr44_control.write(value),
+            0xFF23 => {
+                self.channel_four.nr44_control.write(value);
+                if value & 0b1000_0000 != 0 {
+                    self.channel_four.trigger();
+                }
+            }
             0xFF24 => self.nr50_master_vol_and_vin_panning.write(value),
             0xFF25 => self.nr51_sound_panning.write(value),
             0xFF26 => self.nr52_audio_master_control.write(value),
