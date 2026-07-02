@@ -75,19 +75,25 @@ fn map_rom_into_bank(rom_image: &[u8]) -> Result<Vec<[u8; ROM_BANK_SIZE]>, Strin
     Ok(banks)
 }
 
+fn map_n_ram_banks<const N: usize>(ram_nb: usize, saved_ram: Option<Vec<u8>>) -> Vec<[u8; N]> {
+    if let Some(saved_ram) = saved_ram {
+        saved_ram
+            .chunks(N)
+            .map(|chunk| chunk.try_into().expect("Invalid size of saved ram file"))
+            .collect()
+    } else {
+        (0..ram_nb).map(|_| [0u8; N]).collect()
+    }
+}
+
 fn map_ram_banks(
     rom_image: &[u8],
     saved_ram: Option<Vec<u8>>,
 ) -> Result<Vec<[u8; RAM_BANK_SIZE]>, String> {
     let supposed_ram_bank_size = get_ram_bank_size(rom_image)?;
     println!("ram banks count {}", supposed_ram_bank_size);
-    let Some(saved_ram) = saved_ram else {
-        return Ok(vec![[0u8; RAM_BANK_SIZE]; supposed_ram_bank_size]);
-    };
-    let ram_banks: Vec<[u8; RAM_BANK_SIZE]> = saved_ram
-        .chunks(RAM_BANK_SIZE)
-        .map(|chunk| chunk.try_into().expect("Invalid size of saved ram file"))
-        .collect();
+
+    let ram_banks = map_n_ram_banks(supposed_ram_bank_size, saved_ram);
 
     if ram_banks.len() == supposed_ram_bank_size {
         Ok(ram_banks)
@@ -180,12 +186,12 @@ pub struct Mbc2 {
     rom_banks: Vec<[u8; ROM_BANK_SIZE]>,
     ram_gate_register: bool,
     rom_bank_register: u8,
-    ram_banks: Vec<[u8; RAM_BANK_SIZE]>,
+    ram_banks: Vec<u8>,
 }
 
 impl Mbc for Mbc2 {
     fn dump(&self) -> Option<Vec<u8>> {
-        self.ram_banks.concat().into()
+        Some(self.ram_banks.clone())
     }
     fn read(&self, addr: u16) -> u8 {
         match addr {
@@ -196,7 +202,7 @@ impl Mbc for Mbc2 {
             }
             0xA000..0xC000 => {
                 if self.ram_gate_register {
-                    0xF0 | self.ram_banks[0][(addr & 0b1_1111_1111) as usize]
+                    0xF0 | self.ram_banks[(addr & 0b1_1111_1111) as usize]
                 } else {
                     0xFF
                 }
@@ -218,7 +224,7 @@ impl Mbc for Mbc2 {
             0x4000..0x8000 => {} // do nothing
             0xA000..0xC000 => {
                 if self.ram_gate_register {
-                    self.ram_banks[0][(addr & 0b1_1111_1111) as usize] = val & 0x0F;
+                    self.ram_banks[(addr & 0b1_1111_1111) as usize] = val & 0x0F;
                 }
             }
             _ => unreachable!(),
@@ -231,12 +237,12 @@ impl Mbc for Mbc2 {
     {
         println!("New Mbc2");
         let rom_banks = map_rom_into_bank(&rom_image)?;
-        let ram_banks = map_ram_banks(&rom_image, saved_ram);
+        let ram_banks: [u8; 0x200] = map_n_ram_banks(1, saved_ram)[0];
         Ok(Mbc2 {
             rom_banks,
             ram_gate_register: false,
             rom_bank_register: 0b0001,
-            ram_banks: vec![[0; RAM_BANK_SIZE]; 1],
+            ram_banks: ram_banks.into(),
         })
     }
 }
