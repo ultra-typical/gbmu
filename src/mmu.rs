@@ -1,5 +1,3 @@
-use std::sync::RwLock;
-
 pub mod apu;
 pub mod interrupt;
 pub mod mbc;
@@ -11,7 +9,6 @@ use crate::mmu::apu::Apu;
 use crate::mmu::interrupt::Interrupt;
 use crate::mmu::interrupt::InterruptController;
 use crate::mmu::mbc::Mbc;
-use crate::mmu::oam::Oam;
 use crate::mmu::timers::TimingComponent;
 use crate::ppu::PixelProcessor;
 
@@ -328,7 +325,6 @@ impl<M: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<M, T
             cart: M::new(rom_data, ram_data)?,
             interrupts: InterruptController::new(),
             timers: T::new(),
-            oam: RwLock::new(Oam::default()),
             ppu: P::new(),
             boot_enable,
             boot_rom,
@@ -421,7 +417,6 @@ pub struct DmgMmu<M: Mbc, T: TimingComponent, P: PixelProcessor> {
     cart: M,
     interrupts: InterruptController,
     timers: T,
-    oam: RwLock<Oam>,
     apu: Apu,
     pub ppu: P,
     boot_enable: bool,
