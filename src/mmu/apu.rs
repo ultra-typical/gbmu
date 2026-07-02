@@ -122,7 +122,9 @@ impl Apu {
                 / 4.0;
             let sample = (mixed * self.volume).clamp(-1.0, 1.0);
 
-            self.sample_buffer.push(sample);
+            if self.sample_buffer.audio_starting.load(Ordering::Relaxed) {
+                self.sample_buffer.push(sample);
+            }
         }
     }
 

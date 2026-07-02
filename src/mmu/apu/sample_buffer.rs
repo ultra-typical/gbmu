@@ -2,17 +2,20 @@
 #![allow(dead_code)]
 
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Default)]
 pub struct SampleBuffer {
     buffer: Arc<Mutex<VecDeque<f32>>>,
+    pub audio_starting: Arc<AtomicBool>,
 }
 
 impl SampleBuffer {
     pub fn new() -> Self {
         SampleBuffer {
             buffer: Arc::new(Mutex::new(VecDeque::new())),
+            audio_starting: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -22,6 +25,10 @@ impl SampleBuffer {
     }
 
     pub fn pop(&self) -> Option<f32> {
+        if !self.audio_starting.load(Ordering::Relaxed) {
+            self.audio_starting.store(true, Ordering::Relaxed);
+        }
+
         let mut buffer = self.buffer.lock().unwrap();
         buffer.pop_front()
     }
