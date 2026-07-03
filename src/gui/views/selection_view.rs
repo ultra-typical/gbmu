@@ -1,6 +1,6 @@
 use crate::GBMU_FILE;
 use crate::gui::egui::Id;
-use crate::gui::{AppState, SelectionDevice};
+use crate::gui::{AppState, GbType, SelectionDevice};
 use eframe::egui;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -290,7 +290,36 @@ impl SelectionDevice {
                 ui.heading("Settings");
                 ui.add_space(6.0);
                 ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.launch_cgb, "Launch Gameboy Color");
+                    egui::ComboBox::from_label("Select GameBoy Type to force")
+                        .selected_text(&self.forced_launch_text)
+                        .show_ui(ui, |ui| {
+                            if ui
+                                .selectable_value(&mut self.forced_launch, None, "None")
+                                .changed()
+                            {
+                                self.forced_launch_text = "None".to_string();
+                            }
+                            if ui
+                                .selectable_value(
+                                    &mut self.forced_launch,
+                                    Some(GbType::Dmg),
+                                    "Gameboy",
+                                )
+                                .changed()
+                            {
+                                self.forced_launch_text = "Gameboy".to_string();
+                            }
+                            if ui
+                                .selectable_value(
+                                    &mut self.forced_launch,
+                                    Some(GbType::Cgb),
+                                    "GameBoy Color",
+                                )
+                                .changed()
+                            {
+                                self.forced_launch_text = "GameBoy Color".to_string();
+                            }
+                        });
                 });
                 ui.add_space(6.0);
                 ui.horizontal(|ui| {

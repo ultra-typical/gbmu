@@ -315,22 +315,20 @@ impl From<EmulationDevice> for DebuggingDevice {
     }
 }
 
+enum ForcedType {
+    Cgb,
+    Dmg,
+    None,
+}
+
 impl From<SelectionDevice> for EmulationDevice {
     fn from(original: SelectionDevice) -> Self {
         let rom_path = original.path;
-        let gb_type = match original.launch_cgb {
-            true => GbType::Cgb,
-            false => GbType::Dmg,
-        };
-        let boot_rom_path = match gb_type {
-            GbType::Cgb => Some("boot-roms/cgb.bin".into()),
-            GbType::Dmg => Some("boot-roms/dmg.bin".into()),
-        };
         let options = CoreGameOptions {
-            gb_type: Some(gb_type),
+            gb_type: original.forced_launch,
             rom_path,
             boot_rom: true,
-            boot_rom_path,
+            boot_rom_path: None,
         };
         let mut core_game = CoreGameDevice::new(options);
         core_game.key_mapping = original.key_mapping;
@@ -361,7 +359,14 @@ impl From<DebuggingDevice> for SelectionDevice {
 impl From<EmulationDevice> for SelectionDevice {
     fn from(value: EmulationDevice) -> Self {
         let key_mapping = value.core_game.key_mapping.clone();
+        let gbtype_text = match value.core_game.options.gb_type.clone() {
+            Some(GbType::Cgb) => "GamBoy Color",
+            Some(GbType::Dmg) => "GameBoy",
+            None => "None",
+        };
         Self {
+            forced_launch: value.core_game.options.gb_type.clone(),
+            forced_launch_text: gbtype_text.to_string(),
             key_mapping,
             ..Default::default()
         }

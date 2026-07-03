@@ -214,9 +214,9 @@ impl AnyGameApp {
 
         let gb_type = game_data.define_gb_type(&supported_gb_types);
 
-        if !supported_gb_types.contains(&gb_type) {
-            return Err(format!("Cartridge doesn't support type {}", gb_type));
-        }
+        // if !supported_gb_types.contains(&gb_type) {
+        //     return Err(format!("Cartridge doesn't support type {}", gb_type));
+        // }
 
         // boot_rom path
         let boot_rom_path = match game_data.boot_rom_path {
@@ -526,7 +526,8 @@ pub struct SelectionDevice {
     search: String,
     listening: Option<&'static str>,
     key_mapping: KeyMapping,
-    launch_cgb: bool,
+    forced_launch: Option<GbType>,
+    forced_launch_text: String,
     save_state_previews: HashMap<String, egui::TextureHandle>,
 }
 
@@ -555,7 +556,8 @@ impl Default for SelectionDevice {
             search: String::new(),
             listening: None,
             key_mapping: GBMU_FILE.lock().unwrap().settings.keymapping.clone(),
-            launch_cgb: false,
+            forced_launch: None,
+            forced_launch_text: "None".to_string(),
             save_state_previews: HashMap::new(),
         }
     }
