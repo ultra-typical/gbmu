@@ -152,24 +152,7 @@ impl SelectionDevice {
 
         egui::Panel::bottom(Id::new("settingspanel"))
             .resizable(true)
-            .default_size(120.0)
             .show_inside(ui, |ui| {
-                ui.vertical(|ui| {
-                    ui.heading("Settings");
-                    ui.add_space(6.0);
-                });
-
-                ui.add_space(12.0);
-                ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.launch_cgb, "Launch Gameboy Color");
-                });
-                ui.add_space(12.0);
-                ui.horizontal(|ui| {
-                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                        ui.label("Theme :");
-                        egui::widgets::global_theme_preference_switch(ui);
-                    });
-                });
                 ui.add_space(6.0);
             });
 
@@ -304,14 +287,27 @@ impl SelectionDevice {
             .resizable(true)
             .default_size(250.0)
             .show_inside(ui, |ui| {
+                ui.heading("Settings");
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut self.launch_cgb, "Launch Gameboy Color");
+                });
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                        ui.label("Theme :");
+                        egui::widgets::global_theme_preference_switch(ui);
+                    });
+                });
+                ui.add_space(6.0);
+                ui.separator();
                 ui.heading("History");
-
+                ui.add_space(12.0);
                 ui.horizontal(|ui| {
                     ui.label("🔍");
                     ui.text_edit_singleline(&mut self.search);
                 });
-                ui.add_space(6.0);
-                ui.separator();
+                ui.add_space(12.0);
 
                 let search_lower = self.search.to_lowercase();
 
