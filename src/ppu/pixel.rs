@@ -14,7 +14,11 @@ impl<C: ColorType> Pixel<C> {
     }
 
     pub fn new_obj(color: C, color_index: u8, priority: bool) -> Self {
-        Pixel { color, color_index, priority }
+        Pixel {
+            color,
+            color_index,
+            priority,
+        }
     }
 
     pub fn get_color(&self) -> &C {

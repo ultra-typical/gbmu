@@ -670,7 +670,8 @@ impl<P: PFetcher<DmgVram, DmgColor>, O: ObjectManager> PixelProcessor
             && self.x + 7 >= self.wx as usize
             && !self.is_wx_glitch_happened
         {
-            let glitched_pixel = Pixel::new_bg(DmgColor::apply_background_palette_bgp(0, self.bgp), 0);
+            let glitched_pixel =
+                Pixel::new_bg(DmgColor::apply_background_palette_bgp(0, self.bgp), 0);
             self.bg_fifo.push(glitched_pixel);
             self.is_wx_glitch_happened = true;
         }
@@ -905,7 +906,8 @@ impl<P: PFetcher<CgbVram, CgbColor>, O: ObjectManager> PixelProcessor
             && self.x + 7 >= self.wx as usize
             && !self.is_wx_glitch_happened
         {
-            let glitched_pixel = Pixel::new_bg(CgbColor::apply_background_palette_bgp(0, self.bgp), 0);
+            let glitched_pixel =
+                Pixel::new_bg(CgbColor::apply_background_palette_bgp(0, self.bgp), 0);
             self.bg_fifo.push(glitched_pixel);
             self.is_wx_glitch_happened = true;
         }
