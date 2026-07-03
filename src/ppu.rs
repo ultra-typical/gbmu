@@ -897,8 +897,8 @@ impl<P: PFetcher<CgbVram, CgbColor>, O: ObjectManager> PixelProcessor
             8
         };
 
-        let is_dmg_mode = *IS_BOOT_ROM_FINISHED.lock().unwrap()
-            && *ROM_COMPTABILITY.lock().unwrap();
+        let is_dmg_mode =
+            *IS_BOOT_ROM_FINISHED.lock().unwrap() && *ROM_COMPTABILITY.lock().unwrap();
 
         if self.fetching_sprite {
             if let Some(index) = self.current_sprite_to_fetch
