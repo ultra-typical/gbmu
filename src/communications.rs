@@ -52,6 +52,8 @@ pub struct CpuState {
     pub hl: u16,
     pub sp: u16,
     pub pc: u16,
+    pub halt: bool,
+    pub ime: bool
 }
 
 #[derive(Default, Debug)]

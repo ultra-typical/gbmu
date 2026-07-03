@@ -213,14 +213,10 @@ fn get_registers(ui: &mut Ui, debugging_data: &DebuggingDataIn) -> bool {
                         .color(Color32::from_rgb(150, 150, 150)),
                 );
 
-                ui.label(
-                    RichText::new(format!("{:08b}", value))
-                        .monospace()
-                        .color(Color32::from_rgb(100, 255, 100)),
-                );
 
                 ui.end_row();
             }
+
 
             ui.separator();
             ui.separator();
@@ -254,6 +250,32 @@ fn get_registers(ui: &mut Ui, debugging_data: &DebuggingDataIn) -> bool {
 
                 ui.end_row();
             }
+            
+            ui.end_row();
+
+            ui.label(
+            RichText::new(format!("IME"))
+            .monospace()
+            .color(Color32::from_rgb(150, 150, 150)),
+            );
+
+            ui.label(
+            RichText::new(format!("{}", debugging_data.registers.ime))
+            .monospace()
+            .color(Color32::from_rgb(100, 255, 100)),
+            );
+            ui.end_row();
+            ui.label(
+            RichText::new(format!("HALT"))
+            .monospace()
+            .color(Color32::from_rgb(150, 150, 150)),
+            );
+
+            ui.label(
+            RichText::new(format!("{}", debugging_data.registers.ime))
+            .monospace()
+            .color(Color32::from_rgb(100, 255, 100)),
+            );
         });
     refresh_button_is_clicked
 }
