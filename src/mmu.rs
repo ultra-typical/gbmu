@@ -264,7 +264,7 @@ pub trait MemoryMapper {
         self.get_apu().step();
     }
 
-    fn tick_ppu(&mut self, ct: &mut Box<dyn GameCT>)
+    fn tick_ppu(&mut self, ct: &mut Box<dyn GameCT>, _is_interrupted: bool)
     where
         Self: Sized;
 
@@ -351,7 +351,7 @@ impl<M: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<M, T
         })
     }
 
-    fn tick_ppu(&mut self, ct: &mut Box<dyn GameCT>)
+    fn tick_ppu(&mut self, ct: &mut Box<dyn GameCT>, _is_interrupted: bool)
     where
         Self: Sized,
     {
@@ -522,44 +522,59 @@ impl<M: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<M, T
             hdma_mode: HdmaMode::Hblank,
             was_hblank: false,
             hdma_blocks_remaining: 0x00,
+            hdma_pending_this_period: false
         })
     }
 
-    fn tick_ppu(&mut self, ct: &mut Box<dyn GameCT>)
-    where
-        Self: Sized,
-    {
-        let is_hblank = self.ppu.lcd_status().get_ppu_mode() == PpuMode::HBlank;
-        if is_hblank && !self.was_hblank && self.hdma_active && self.hdma_mode == HdmaMode::Hblank {
-            self.get_interrupts().write_interrupt_enable(0x00);
-            self.get_interrupts().write_interrupt_flag(0x00);
-            for _ in 0..=15 {
-                let src = self.hdma_source;
-                let data = self.get_cart().read(src);
-                let dest = self.hdma_dest;
-                self.get_ppu().write_hdma_value(dest, data);
-                self.hdma_dest = self.hdma_dest.wrapping_add(1);
-                self.hdma_source = self.hdma_source.wrapping_add(1);
-            }
-            self.hdma_blocks_remaining -= 1;
+    fn tick_ppu(&mut self, ct: &mut Box<dyn GameCT>, is_halted: bool)
+where
+    Self: Sized,
+{
+    let is_hblank = self.ppu.lcd_status().get_ppu_mode() == PpuMode::HBlank;
+    let entered_hblank = is_hblank && !self.was_hblank;
+    self.was_hblank = is_hblank;
 
-            if self.hdma_blocks_remaining == 0 {
-                self.hdma_active = false;
-            }
-            self.get_interrupts().write_interrupt_enable(0x01);
-            self.get_interrupts().write_interrupt_flag(0x01);
-        }
-        self.was_hblank = is_hblank;
-        self.ppu.tick(ct);
-        if self.ppu.pending_vblank() {
-            self.interrupts_request(Interrupt::VBlank);
-            self.ppu.set_pending_vblank(false);
-        }
-        if self.ppu.pending_stat() {
-            self.interrupts_request(Interrupt::LcdStat);
-            self.ppu.set_pending_stat(false);
-        }
+    if entered_hblank {
+        self.hdma_pending_this_period = true;
     }
+
+    if self.hdma_pending_this_period
+        && !is_halted
+        && self.hdma_active
+        && self.hdma_mode == HdmaMode::Hblank
+    {
+
+        let old_ie = self.get_interrupts().read_interrupt_enable();
+        let old_if = self.get_interrupts().read_interrupt_flag();
+        self.get_interrupts().write_interrupt_enable(0x00);
+        self.get_interrupts().write_interrupt_flag(0x00);
+        for _ in 0..=15 {
+            let src = self.hdma_source;
+            let data = self.get_cart().read(src);
+            let dest = self.hdma_dest;
+            self.get_ppu().write_hdma_value(dest, data);
+            self.hdma_dest = self.hdma_dest.wrapping_add(1);
+            self.hdma_source = self.hdma_source.wrapping_add(1);
+        }
+
+        self.get_interrupts().write_interrupt_enable(old_ie);
+        self.get_interrupts().write_interrupt_flag(old_if);
+        self.hdma_blocks_remaining -= 1;
+        if self.hdma_blocks_remaining == 0 {
+            self.hdma_active = false;
+        }
+        self.hdma_pending_this_period = false;     
+    }
+    self.ppu.tick(ct);
+    if self.ppu.pending_vblank() {
+        self.interrupts_request(Interrupt::VBlank);
+        self.ppu.set_pending_vblank(false);
+    }
+    if self.ppu.pending_stat() {
+        self.interrupts_request(Interrupt::LcdStat);
+        self.ppu.set_pending_stat(false);
+    }
+}
 
     fn get_cart(&mut self) -> &mut dyn Mbc {
         &mut self.cart
@@ -645,6 +660,8 @@ impl<M: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<M, T
         self.hdma_length = length;
         self.hdma_blocks_remaining = blocks;
         if val & 0x80 == 0 {
+            let old_ie = self.get_interrupts().read_interrupt_enable();
+            let old_if = self.get_interrupts().read_interrupt_flag();
             self.get_interrupts().write_interrupt_enable(0x00);
             self.get_interrupts().write_interrupt_flag(0x00);
             self.hdma_mode = HdmaMode::Gdma;
@@ -661,8 +678,8 @@ impl<M: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<M, T
             }
             self.hdma_length = 0;
             self.hdma_active = false;
-            self.get_interrupts().write_interrupt_enable(0x01);
-            self.get_interrupts().write_interrupt_flag(0x01);
+            self.get_interrupts().write_interrupt_enable(old_ie);
+            self.get_interrupts().write_interrupt_flag(old_if);
         } else {
             self.hdma_active = true;
             self.hdma_mode = HdmaMode::Hblank;
@@ -670,12 +687,12 @@ impl<M: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<M, T
     }
 
     fn handle_read_hdma5(&mut self) -> u8 {
-        if self.hdma_active {
-            ((self.hdma_length - 1) as u8) & 0x7F
-        } else {
-            0xFF
+            if self.hdma_active {
+                ((self.hdma_blocks_remaining - 1) as u8) & 0x7F
+            } else {
+                0xFF
+            }
         }
-    }
 
     fn hdma_mode(&mut self) -> &HdmaMode {
         &self.hdma_mode
@@ -707,6 +724,7 @@ pub struct CgbMmu<M: Mbc, T: TimingComponent, P: PixelProcessor> {
     hdma_mode: HdmaMode,
     was_hblank: bool,
     hdma_blocks_remaining: u16,
+    hdma_pending_this_period: bool,
 }
 
 #[cfg(test)]

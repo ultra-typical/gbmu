@@ -410,7 +410,7 @@ impl<M: MemoryMapper> GameBoy<M> {
             queue_state = self.cpu.tick(&mut self.bus);
             self.cycles_elapsed = 0;
         }
-        self.bus.tick_ppu(ct);
+        self.bus.tick_ppu(ct, self.cpu.halted);
         self.bus.tick_apu();
         queue_state
     }
