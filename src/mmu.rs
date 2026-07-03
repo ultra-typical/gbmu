@@ -80,6 +80,25 @@ pub enum HardwareKind {
 
 pub trait MemoryMapper {
     fn hardware_kind(&self) -> HardwareKind;
+
+    fn set_speed_reg(&mut self, value: bool)
+    where
+        Self: Sized,
+    {
+        let mut reg = value as u8;
+        reg |= self.read_byte(0xFF4D) & 0b1;
+        self.write_byte(0xFF4D, reg);
+    }
+
+    fn reset_div_timer(&mut self) {
+        self.get_timer().set_div(0);
+    }
+    fn button_held_and_selected(&mut self) -> bool;
+    fn interrupt_is_pending(&mut self) -> bool {
+        self.get_interrupts().next_request().is_none()
+    }
+
+    fn speed_switch_is_requested(&mut self) -> bool;
     fn write_timers(&mut self, addr: u16, value: u8);
     fn new(
         wrapped_boot_rom: Option<[u8; 0x900]>,
@@ -109,7 +128,6 @@ pub trait MemoryMapper {
     fn set_dma_index(&mut self, val: u8);
     fn get_dma_last_byte(&mut self) -> u8;
     fn set_dma_last_byte(&mut self, val: u8);
-
     fn read_timers(&mut self, addr: u16) -> u8;
 
     fn ram_dump(&mut self) -> Option<Vec<u8>> {
@@ -131,10 +149,11 @@ pub trait MemoryMapper {
             MemoryRegion::Vram => self.get_ppu().read_vram(addr),
             MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
-                self.get_data()[mirror as usize]
+                self.get_ppu().read_wram_value(mirror)
             }
             MemoryRegion::Timers => self.read_timers(addr),
             MemoryRegion::Audio => self.get_apu().read(addr),
+            MemoryRegion::Wram => self.get_ppu().read_wram_value(addr),
             MemoryRegion::WaveRam => self.get_apu().read(addr),
             MemoryRegion::Io => {
                 if addr == 0xFF00 {
@@ -148,7 +167,10 @@ pub trait MemoryMapper {
                         result &= self.get_button_state();
                     }
                     0b1100_0000 | selection | result
-                } else if matches!(addr, 0xFF40..=0xFF6B) && addr != 0xFF46 && addr != 0xFF55 {
+                } else if (matches!(addr, 0xFF40..=0xFF6B) || addr == 0xFF70)
+                    && addr != 0xFF46
+                    && addr != 0xFF55
+                {
                     self.get_ppu().read_register(addr)
                 } else if addr == 0xFF55 {
                     self.handle_read_hdma5()
@@ -181,10 +203,11 @@ pub trait MemoryMapper {
             }
             MemoryRegion::Mram => {
                 let mirror = addr - 0x2000;
-                self.update_data(mirror as usize, val);
+                self.get_ppu().write_wram_value(mirror, val);
             }
             MemoryRegion::Timers => self.get_timer().write(addr, val),
             MemoryRegion::Audio => self.get_apu().write(addr, val),
+            MemoryRegion::Wram => self.get_ppu().write_wram_value(addr, val),
             MemoryRegion::WaveRam => self.get_apu().write(addr, val),
             MemoryRegion::Io => {
                 if addr == 0xFF00 {
@@ -193,7 +216,10 @@ pub trait MemoryMapper {
                     let val = 0b1100_0000 | selection_bits | current_inputs;
                     self.update_data(0xFF00, val);
                     self.update_joypad_register();
-                } else if matches!(addr, 0xFF40..=0xFF6B) && addr != 0xFF46 && addr != 0xFF55 {
+                } else if (matches!(addr, 0xFF40..=0xFF6B) || addr == 0xFF70)
+                    && addr != 0xFF46
+                    && addr != 0xFF55
+                {
                     self.get_ppu().write_register(addr, val);
                 } else if addr == 0xFF46 {
                     self.set_dma_last_byte(val);
@@ -298,6 +324,10 @@ impl<M: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<M, T
 
     fn addr_is_in_boot_rom(addr: u16) -> bool {
         (0..0x0100).contains(&addr)
+    }
+
+    fn speed_switch_is_requested(&mut self) -> bool {
+        false
     }
 
     fn get_timer(&mut self) -> &mut dyn TimingComponent {
@@ -407,6 +437,12 @@ impl<M: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for DmgMmu<M, T
         &self.dpad_state
     }
 
+    fn button_held_and_selected(&mut self) -> bool {
+        let value: u8 = self.read_byte(0xFF00);
+
+        (value & 0b1111) == 0b1111
+    }
+
     fn get_boot_enable(&self) -> bool {
         self.boot_enable
     }
@@ -471,6 +507,10 @@ impl<M: Mbc, T: TimingComponent, P: PixelProcessor> Default for DmgMmu<M, T, P> 
 impl<M: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<M, T, P> {
     fn hardware_kind(&self) -> HardwareKind {
         HardwareKind::Cgb
+    }
+
+    fn speed_switch_is_requested(&mut self) -> bool {
+        self.read_byte(0xFF4D) & 0b1 == 1
     }
 
     fn addr_is_in_boot_rom(addr: u16) -> bool {
@@ -575,7 +615,7 @@ impl<M: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<M, T
             self.get_interrupts().write_interrupt_flag(0x00);
             for _ in 0..=15 {
                 let src = self.hdma_source;
-                let data = self.get_cart().read(src);
+                let data = self.read_hdma_source(src);
                 let dest = self.hdma_dest;
                 self.get_ppu().write_hdma_value(dest, data);
                 self.hdma_dest = self.hdma_dest.wrapping_add(1);
@@ -623,6 +663,12 @@ impl<M: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<M, T
 
     fn get_dpad_state(&self) -> &u8 {
         &self.dpad_state
+    }
+
+    fn button_held_and_selected(&mut self) -> bool {
+        let value: u8 = self.read_byte(0xFF00);
+
+        (value & 0b1111) == 0b1111
     }
 
     fn get_boot_enable(&self) -> bool {
@@ -695,11 +741,7 @@ impl<M: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<M, T
             for i in 0..self.hdma_length {
                 let current_dest = self.hdma_dest + i;
                 let current_src = self.hdma_source + i;
-                let current_data = if (0x0000..0xBFFF).contains(&current_src) {
-                    self.get_cart().read(current_src)
-                } else {
-                    self.get_data()[current_src as usize]
-                };
+                let current_data = self.read_hdma_source(current_src);
                 self.get_ppu().write_hdma_value(current_dest, current_data);
             }
             self.hdma_length = 0;
@@ -726,6 +768,16 @@ impl<M: Mbc, T: TimingComponent, P: PixelProcessor> MemoryMapper for CgbMmu<M, T
 
     fn hdma_active(&mut self) -> bool {
         self.hdma_active
+    }
+}
+
+impl<M: Mbc, T: TimingComponent, P: PixelProcessor> CgbMmu<M, T, P> {
+    fn read_hdma_source(&mut self, addr: u16) -> u8 {
+        match addr {
+            0x0000..=0x7FFF | 0xA000..=0xBFFF => self.cart.read(addr),
+            0xC000..=0xDFFF => self.ppu.read_wram_value(addr),
+            _ => 0xFF,
+        }
     }
 }
 

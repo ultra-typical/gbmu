@@ -300,7 +300,6 @@ impl PFetcher<DmgVram, DmgColor> for PixelFetcher<DmgVram, DmgColor> {
         _compatibility: bool,
         _boot_enable: bool,
     ) -> u8 {
-        println!("mauvais get_tile_id");
         let tilemap_base: std::ops::Range<u16> = if use_window {
             lcd_control.window_tile_map_area()
         } else {

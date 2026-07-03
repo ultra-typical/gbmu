@@ -156,7 +156,11 @@ impl<M: MemoryMapper + Serialize + std::fmt::Debug> GameBoy<M> {
             if self.should_get_fps {
                 ct.update_fps(Self::calculate_fps(&mut before))?;
             }
-            let wanted_duration = Duration::from_micros(GAME_REFRESH_PERIOD_IN_MILLIS / self.speed);
+            let mut wanted_duration =
+                Duration::from_micros(GAME_REFRESH_PERIOD_IN_MILLIS / self.speed);
+            if self.cpu.is_in_fast_mode {
+                wanted_duration /= 2
+            }
             let duration_elapsed = debut.elapsed();
             self.cap_frame(wanted_duration, duration_elapsed);
         }
@@ -424,13 +428,16 @@ impl<M: MemoryMapper + Serialize + std::fmt::Debug> GameBoy<M> {
             queue_state = self.cpu.tick(&mut self.bus);
             self.cycles_elapsed = 0;
         }
-        let ppu_state = self.bus.tick_ppu(ct, self.cpu.halted);
-        self.bus.tick_apu();
+        let mut ppu_state = PpuMode::OamSearch;
+        if !self.cpu.is_in_fast_mode || self.cycles_elapsed.is_multiple_of(2) {
+            ppu_state = self.bus.tick_ppu(ct, self.cpu.halted);
+            self.bus.tick_apu();
+        }
         (queue_state, ppu_state)
     }
 
     fn game_mode(&mut self, key_input: &KeyInput, ct: &mut Box<dyn GameCT>) {
-        for _ in 0..FRAME_CYCLES {
+        for _ in 0..(FRAME_CYCLES + self.cpu.is_in_fast_mode as u32 * FRAME_CYCLES) {
             self.tick_gb(key_input, ct);
         }
     }

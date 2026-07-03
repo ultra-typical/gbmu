@@ -87,6 +87,9 @@ pub trait PixelProcessor {
     fn hdma3(&self) -> u8;
     fn hdma4(&self) -> u8;
     fn write_hdma_value(&mut self, addr: u16, value: u8);
+
+    fn write_wram_value(&mut self, addr: u16, value: u8);
+    fn read_wram_value(&mut self, addr: u16) -> u8;
 }
 
 pub trait ObjectManager {
@@ -564,6 +567,14 @@ impl<V: Vram, P: PFetcher<V, C>, O: ObjectManager, C: ColorType + Copy> Ppu<V, P
 impl<P: PFetcher<DmgVram, DmgColor>, O: ObjectManager> PixelProcessor
     for Ppu<DmgVram, P, O, DmgColor>
 {
+    fn read_wram_value(&mut self, addr: u16) -> u8 {
+        self.wram.read(addr)
+    }
+
+    fn write_wram_value(&mut self, addr: u16, value: u8) {
+        self.wram.write(addr, value)
+    }
+
     fn lcd_status(&self) -> &LcdStatus {
         &self.lcd_status
     }
@@ -872,6 +883,14 @@ impl<P: PFetcher<DmgVram, DmgColor>, O: ObjectManager> PixelProcessor
 impl<P: PFetcher<CgbVram, CgbColor>, O: ObjectManager> PixelProcessor
     for Ppu<CgbVram, P, O, CgbColor>
 {
+    fn read_wram_value(&mut self, addr: u16) -> u8 {
+        self.wram.read(addr)
+    }
+
+    fn write_wram_value(&mut self, addr: u16, value: u8) {
+        self.wram.write(addr, value)
+    }
+
     fn lcd_status(&self) -> &LcdStatus {
         &self.lcd_status
     }
@@ -1167,6 +1186,7 @@ impl<P: PFetcher<CgbVram, CgbColor>, O: ObjectManager> PixelProcessor
         self.hdma4
     }
     fn write_hdma_value(&mut self, addr: u16, value: u8) {
-        self.vram.write_with_custom_vbk(addr, value, 0x00);
+        let vbk = self.vram.vbk();
+        self.vram.write_with_custom_vbk(addr, value, vbk);
     }
 }

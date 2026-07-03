@@ -41,6 +41,9 @@ impl<M: MemoryMapper> Cpu<M> {
             halt_bug: false,
             instructions: build_instructions(),
             cb_instructions: build_cb_instructions(),
+            stopped: false,
+            stopped_for: 0,
+            is_in_fast_mode: false,
         }
     }
 
@@ -69,11 +72,49 @@ impl<M: MemoryMapper> Cpu<M> {
         self.load_instruction(instruction_byte);
     }
 
+    /// Keeps the CPU frozen while `stopped` is set, and decides when to wake
+    /// it back up. This mirrors `handle_halt_state` in shape, but STOP's
+    /// wake conditions are different from HALT's:
+    ///
+    /// - If `stopped_for` is non-zero, we're in the short forced pause after
+    ///   a CGB speed switch (see `stop` in ops.rs). We don't try to model
+    ///   the real ~2050 M-cycle timing, just burn `stopped_for` ticks.
+    /// - Otherwise this is a "true" STOP: on real hardware the only thing
+    ///   that ends it is a joypad button transitioning to held. We check
+    ///   that condition every tick via `button_held_and_selected`.
+    pub fn handle_stop_state(&mut self, bus: &mut M) -> StepStatus {
+        if !self.stopped {
+            return StepStatus::Continue;
+        }
+
+        if self.stopped_for > 0 {
+            self.stopped_for -= 1;
+            if self.stopped_for == 0 {
+                self.stopped = false;
+            }
+            return StepStatus::Halted;
+        }
+
+        // `button_held_and_selected` is misleadingly named: it returns
+        // `true` when NOTHING is currently held.
+        if bus.button_held_and_selected() {
+            return StepStatus::Halted;
+        }
+
+        self.stopped = false;
+        StepStatus::Continue
+    }
+
     pub fn tick(&mut self, bus: &mut M) -> CpuQueueState {
         let micro_op = &self.queue[self.op_index];
         self.op_index += 1;
         micro_op(self, bus);
         if self.op_index == self.queue_len {
+            if self.handle_stop_state(bus) == StepStatus::Halted {
+                self.load_queue(&[Cpu::noop]);
+                return CpuQueueState::NewInstructionFetched(self.get_r16::<PC>());
+            }
+
             if self.handle_halt_state(bus) == StepStatus::Halted {
                 self.load_queue(&[Cpu::noop]);
                 return CpuQueueState::NewInstructionFetched(self.get_r16::<PC>());

@@ -16,42 +16,50 @@ pub struct Wram {
 impl Wram {
     pub fn new() -> Self {
         Self {
-            bank0: vec![0x00; 0x100],
-            bank1: vec![0x00; 0x100],
-            bank2: vec![0x00; 0x100],
-            bank3: vec![0x00; 0x100],
-            bank4: vec![0x00; 0x100],
-            bank5: vec![0x00; 0x100],
-            bank6: vec![0x00; 0x100],
-            bank7: vec![0x00; 0x100],
+            bank0: vec![0x00; 0x1000],
+            bank1: vec![0x00; 0x1000],
+            bank2: vec![0x00; 0x1000],
+            bank3: vec![0x00; 0x1000],
+            bank4: vec![0x00; 0x1000],
+            bank5: vec![0x00; 0x1000],
+            bank6: vec![0x00; 0x1000],
+            bank7: vec![0x00; 0x1000],
             svbk_wbk: 0x00,
         }
     }
 
     pub fn read(&mut self, addr: u16) -> u8 {
-        match self.svbk_wbk() {
-            0x00 => self.bank0[addr as usize],
-            0x01 => self.bank1[addr as usize],
-            0x02 => self.bank2[addr as usize],
-            0x03 => self.bank3[addr as usize],
-            0x04 => self.bank4[addr as usize],
-            0x05 => self.bank5[addr as usize],
-            0x06 => self.bank6[addr as usize],
-            0x07 => self.bank7[addr as usize],
-            _ => 0x00,
+        match addr {
+            0xC000..=0xCFFF => self.bank0[(addr - 0xC000) as usize],
+            0xD000..=0xDFFF => match self.svbk_wbk() {
+                0x00 => self.bank1[(addr - 0xD000) as usize],
+                0x01 => self.bank1[(addr - 0xD000) as usize],
+                0x02 => self.bank2[(addr - 0xD000) as usize],
+                0x03 => self.bank3[(addr - 0xD000) as usize],
+                0x04 => self.bank4[(addr - 0xD000) as usize],
+                0x05 => self.bank5[(addr - 0xD000) as usize],
+                0x06 => self.bank6[(addr - 0xD000) as usize],
+                0x07 => self.bank7[(addr - 0xD000) as usize],
+                _ => 0,
+            },
+            _ => 0,
         }
     }
 
     pub fn write(&mut self, addr: u16, data: u8) {
-        match self.svbk_wbk() {
-            0x00 => self.bank0[addr as usize] = data,
-            0x01 => self.bank1[addr as usize] = data,
-            0x02 => self.bank2[addr as usize] = data,
-            0x03 => self.bank3[addr as usize] = data,
-            0x04 => self.bank4[addr as usize] = data,
-            0x05 => self.bank5[addr as usize] = data,
-            0x06 => self.bank6[addr as usize] = data,
-            0x07 => self.bank7[addr as usize] = data,
+        match addr {
+            0xC000..=0xCFFF => self.bank0[(addr - 0xC000) as usize] = data,
+            0xD000..=0xDFFF => match self.svbk_wbk() {
+                0x00 => self.bank1[(addr - 0xD000) as usize] = data,
+                0x01 => self.bank1[(addr - 0xD000) as usize] = data,
+                0x02 => self.bank2[(addr - 0xD000) as usize] = data,
+                0x03 => self.bank3[(addr - 0xD000) as usize] = data,
+                0x04 => self.bank4[(addr - 0xD000) as usize] = data,
+                0x05 => self.bank5[(addr - 0xD000) as usize] = data,
+                0x06 => self.bank6[(addr - 0xD000) as usize] = data,
+                0x07 => self.bank7[(addr - 0xD000) as usize] = data,
+                _ => {}
+            },
             _ => {}
         }
     }

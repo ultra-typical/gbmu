@@ -1464,7 +1464,7 @@ pub fn build_instructions<M: MemoryMapper>() -> Vec<Instruction<M>> {
         Instruction {
             name: "UNUSED".to_string(),
             opcode: 0xF4,
-            micro_ops: vec![],
+            micro_ops: vec![Cpu::noop],
         },
         Instruction {
             name: "PUSH AF".to_string(),

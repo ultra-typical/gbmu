@@ -232,13 +232,12 @@ impl AnyGameApp {
     pub fn new(game_data: CoreGameOptions) -> Result<Self, String> {
         let rom_data: Vec<u8> = Self::read_rom(&game_data.rom_path);
 
-        // type
         let mbc_code = rom_data[0x0147];
-        let supported_gb_types = GbType::supported_types(rom_data[0x0143]);
+        let cgb_flag = rom_data[0x0143];
+        let supported_gb_types = GbType::supported_types(cgb_flag);
 
         let gb_type = game_data.define_gb_type(&supported_gb_types);
 
-        // boot_rom path
         let boot_rom_path = match game_data.boot_rom_path {
             Some(path) => path,
             None => match gb_type {
@@ -247,8 +246,8 @@ impl AnyGameApp {
             },
         };
 
-        let rom_compatibility =
-            game_data.gb_type == Some(GbType::Cgb) && boot_rom_path == "boot-roms/cgb.bin";
+        let rom_compatibility = gb_type == GbType::Cgb && !matches!(cgb_flag, 0x80 | 0xC0);
+
         // ram_path
         let ram_path = game_data.rom_path.to_owned() + ".save";
         let ram_data: Option<Vec<u8>> = Self::read_ram(&ram_path);

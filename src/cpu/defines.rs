@@ -51,6 +51,11 @@ pub struct Cpu<M: MemoryMapper> {
     pub ime_delay: bool, // mimic hardware delay in EI
     pub halted: bool,    // for HALT instruction
     pub halt_bug: bool,
+
+    pub stopped: bool,
+    pub stopped_for: usize,
+
+    pub is_in_fast_mode: bool,
 }
 
 #[allow(non_upper_case_globals)]

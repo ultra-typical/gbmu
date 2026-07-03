@@ -153,6 +153,10 @@ impl Mbc for Mbc1 {
                     % self.banks.len()][addr as usize - ROM_BANK_SIZE]
             }
             0xA000..0xC000 => {
+                if !self.ram_gate_register || self.ram_banks.is_empty() {
+                    return 0xFF;
+                }
+
                 if self.ram_gate_register {
                     self.ram_banks[(self.mode_register as usize
                         * (self.bank_register_2 & 0b11) as usize)
@@ -180,6 +184,10 @@ impl Mbc for Mbc1 {
                 self.mode_register = (val & 0b1) == 0b1;
             }
             0xA000..0xC000 => {
+                if !self.ram_gate_register || self.ram_banks.is_empty() {
+                    return;
+                }
+
                 if self.ram_gate_register {
                     let index = (self.mode_register as usize * self.bank_register_2 as usize)
                         % self.ram_banks.len();

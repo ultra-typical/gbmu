@@ -315,5 +315,70 @@ impl<M: MemoryMapper> Cpu<M> {
         Self::write_memory::<Addr, Reg>(self, bus);
     }
 
-    pub fn stop(&mut self, _bus: &mut M) {}
+    fn switch_speed(&mut self) {
+        self.is_in_fast_mode ^= true;
+    }
+
+    /// Ports the decision tree from SameBoy's `stop()` / `enter_stop_mode()`
+    /// / `leave_stop_mode()` (Core/sm83_cpu.c), simplified where exact
+    /// M-cycle timing isn't worth the extra state (we're told timing
+    /// fidelity isn't a priority here).
+    ///
+    /// The four things that decide what STOP actually does:
+    /// - `button_held`: is a joypad line currently pulled low (a button
+    ///   physically held down) at the moment STOP executes?
+    /// - `speed_switch_requested`: did the game arm KEY1 bit 0, and is no
+    ///   button held (a held button always wins)?
+    /// - `interrupt_pending`: is (IE & IF) already non-zero?
+    /// - `immediate_exit`: `speed_switch_requested || button_held` — both
+    ///   cases never result in a "real", indefinite STOP.
+    pub fn stop(&mut self, bus: &mut M) {
+        // `button_held_and_selected` is misleadingly named: it returns
+        // `true` when NOTHING is currently held, not when something is.
+        let button_held = !bus.button_held_and_selected();
+
+        let speed_switch_requested = bus.speed_switch_is_requested() && !button_held;
+        let immediate_exit = speed_switch_requested || button_held;
+        let interrupt_pending = bus.interrupts_next_request().is_some();
+
+        // Real STOP mode (DIV reset, CPU asleep) is only entered if no
+        // button is currently held. If one is, this is the documented
+        // hardware glitch: STOP mode is skipped entirely.
+        if !button_held {
+            self.stopped = true;
+            bus.reset_div_timer();
+        }
+
+        // STOP is a 2-byte opcode; the 2nd byte is normally skipped over.
+        // But if an interrupt is *already* pending when STOP executes, the
+        // CPU does NOT skip it: on the next tick, that byte gets fetched
+        // and executed as a real instruction. This is the actual mechanism
+        // behind the "STOP must be followed by NOP" folklore.
+        if !interrupt_pending {
+            self.inc_r16::<PC>(bus);
+        }
+
+        if speed_switch_requested {
+            self.switch_speed();
+            // Bit 0 (the switch request) is cleared automatically once the
+            // switch has been carried out.
+            bus.write_byte(0xFF4D, 0);
+
+            // Real hardware freezes for ~2050 M-cycles here. We don't
+            // model the exact CGB timing (out of scope), just a short
+            // forced pause so nothing can rely on the switch being
+            // instantaneous.
+            self.stopped_for = if interrupt_pending { 0 } else { 8 };
+        }
+
+        // If nothing is keeping us "properly" stopped (a button-held
+        // glitch, or a speed switch that didn't need to freeze because an
+        // interrupt was already pending), resume right away.
+        if immediate_exit && self.stopped_for == 0 {
+            self.stopped = false;
+            if !interrupt_pending {
+                self.halted = true;
+            }
+        }
+    }
 }
