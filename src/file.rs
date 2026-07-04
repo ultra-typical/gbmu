@@ -57,19 +57,20 @@ impl GbmuFile {
         let path_main_file = dirs::home_dir()
             .expect("Could not find home directory")
             .join(".gbmu/gbmu.json");
-        let path_save_state_dir = dirs::home_dir()
-            .expect("Could not find home directory")
-            .join(".gbmu/save_states/");
-        let path_save_dir = dirs::home_dir()
-            .expect("Could not find home directory")
-            .join(".gbmu/saves/");
+        // let path_save_state_dir = dirs::home_dir()
+        //     .expect("Could not find home directory")
+        //     .join(".gbmu/save_states/");
+        // let path_save_dir = dirs::home_dir()
+        //     .expect("Could not find home directory")
+        //     .join(".gbmu/saves/");
         let gbmu_file = Self::open_gbmu_file(path_main_file).unwrap();
-        let _save_state_entries = Self::get_entries_or_create_directory(&path_save_state_dir)
-            .expect("Error while getting entries in save state directory");
-        let _save_entries = Self::get_entries_or_create_directory(&path_save_dir)
-            .expect("Error while getting entries in save directory");
+        // let _save_state_entries = Self::get_entries_or_create_directory(&path_save_state_dir)
+        // .expect("Error while getting entries in save state directory");
+        // let _save_entries = Self::get_entries_or_create_directory(&path_save_dir)
+        //     .expect("Error while getting entries in save directory");
         gbmu_file
     }
+
     #[allow(clippy::field_reassign_with_default)]
     fn open_gbmu_file(path: PathBuf) -> Result<GbmuFile, std::io::Error> {
         match File::open(&path) {
