@@ -82,8 +82,8 @@ pub enum Mode {
     Game,
     Debug,
     Stop,
-    Snapshot,
-    Frame
+    ByTick,
+    ByFrame,
 }
 
 #[derive(Debug)]

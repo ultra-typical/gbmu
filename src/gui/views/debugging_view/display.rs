@@ -3,7 +3,7 @@ use crate::gui::{common::display_game, views::emulation_view::emulation_ui_state
 use eframe::egui::{
     Align, Button, Color32, DragValue, Grid, Layout, Panel, RichText, ScrollArea, TextEdit, Ui,
 };
-use egui::vec2;
+use egui::{Stroke, vec2};
 
 use super::{DebuggingDataIn, DebuggingDataOut};
 
@@ -15,7 +15,6 @@ pub fn display_interface(
     let mut close_btn_clicked = false;
     let mut changed_mode = None;
     let mut instruction_to_exec = None;
-    let mut stp_btn_clkd = false;
     let mut refresh_register_clicked = true;
     let mut nb_instruction_requested = 0;
     let mut hex_string = String::new();
@@ -48,10 +47,9 @@ pub fn display_interface(
                     ui.add_space(8.0);
 
                     ui.group(|inner_ui| {
-                        inner_ui.label(RichText::new("Step Control").strong());
+                        inner_ui.label(RichText::new("Running Mode").strong());
 
                         changed_mode = step_mode_button(inner_ui, data.actual_mode);
-                        stp_btn_clkd = step_button(inner_ui);
                     });
 
                     ui.add_space(8.0);
@@ -96,7 +94,6 @@ pub fn display_interface(
 
     DebuggingDataOut {
         changed_mode,
-        step_clicked: stp_btn_clkd,
         delete_new_addr: delete_watched_addr,
         close_btn_clicked,
         refresh_register_clicked,
@@ -108,59 +105,67 @@ pub fn display_interface(
 }
 
 fn step_mode_button(ui: &mut Ui, actual_mode: &GameModeState) -> Option<GameModeState> {
-    let mut pause_color = Color32::BLACK;
-    let mut tick_color =  Color32::BLACK;
-    let mut frame_color =  Color32::BLACK;
-    match actual_mode {
-        &GameModeState::Monitoring =>  {
-            pause_color = Color32::BLUE;
-        }
-        &GameModeState::Tick =>  {
-            tick_color = Color32::BLUE;
-        }
-        &GameModeState::Frame =>  {
-            frame_color = Color32::BLUE;
+    let selected_stroke = Stroke::new(2.0, Color32::from_rgb(100, 255, 100));
+    let unselected_stroke = Stroke::new(1.0, Color32::WHITE);
 
+    let stroke_for = |mode: &GameModeState| {
+        if actual_mode == mode {
+            selected_stroke
+        } else {
+            unselected_stroke
         }
-        _ => {}
-    }
+    };
 
     let mut return_data = None;
 
-    ui.horizontal(|hui|  {
+    ui.horizontal(|hui| {
+        let run_btn = hui.add(
+            egui::Button::new(RichText::new("Running").color(Color32::WHITE).strong())
+                .fill(Color32::DARK_GRAY)
+                .stroke(stroke_for(&GameModeState::Running))
+                .corner_radius(egui::CornerRadius::same(6))
+                .min_size(vec2(100.0, 28.0)),
+        );
+        let debug_btn = hui.add(
+            egui::Button::new(RichText::new("DebugMode").color(Color32::WHITE).strong())
+                .fill(Color32::DARK_GRAY)
+                .stroke(stroke_for(&GameModeState::Paused))
+                .corner_radius(egui::CornerRadius::same(6))
+                .min_size(vec2(100.0, 28.0)),
+        );
+        let tick_btn = hui.add(
+            egui::Button::new(RichText::new("tick by tick").color(Color32::WHITE).strong())
+                .fill(Color32::DARK_GRAY)
+                .stroke(stroke_for(&GameModeState::Tick))
+                .corner_radius(egui::CornerRadius::same(6))
+                .min_size(vec2(100.0, 28.0)),
+        );
+        let frame_btn = hui.add(
+            egui::Button::new(
+                RichText::new("frame by frame")
+                    .color(Color32::WHITE)
+                    .strong(),
+            )
+            .fill(Color32::DARK_GRAY)
+            .stroke(stroke_for(&GameModeState::Frame))
+            .corner_radius(egui::CornerRadius::same(6))
+            .min_size(vec2(100.0, 28.0)),
+        );
 
-        let pause_btn = hui.add(egui::Button::new(
-            RichText::new("monitoring").color(Color32::WHITE).strong(),
-        )
-            .fill(pause_color)
-            .corner_radius(egui::CornerRadius::same(6))
-            .min_size(vec2(100.0, 28.0)),
-        );
-        let tick_btn = hui.add(egui::Button::new(
-            RichText::new("tick by tick").color(Color32::WHITE).strong(),
-        )
-            .fill(tick_color)
-            .corner_radius(egui::CornerRadius::same(6))
-            .min_size(vec2(100.0, 28.0)),
-        );
-        let frame_btn = hui.add(egui::Button::new(
-            RichText::new("frame by frame").color(Color32::WHITE).strong(),
-        )
-            .fill(frame_color)
-            .corner_radius(egui::CornerRadius::same(6))
-            .min_size(vec2(100.0, 28.0)),
-        );
-        return_data = if pause_btn.clicked() {
-            Some(GameModeState::Monitoring)
+        // Le test des clics reste DANS la closure, là où les boutons existent encore
+        return_data = if debug_btn.clicked() {
+            Some(GameModeState::Paused)
         } else if tick_btn.clicked() {
             Some(GameModeState::Tick)
         } else if frame_btn.clicked() {
             Some(GameModeState::Frame)
+        } else if run_btn.clicked() {
+            Some(GameModeState::Running)
         } else {
             None
-        }
-}
-    );
+        };
+    });
+
     return_data
 }
 
@@ -239,6 +244,11 @@ fn get_registers(ui: &mut Ui, debugging_data: &DebuggingDataIn) -> bool {
                         .color(Color32::from_rgb(150, 150, 150)),
                 );
 
+                ui.label(
+                    RichText::new(format!("{:08b}", value))
+                        .monospace()
+                        .color(Color32::from_rgb(100, 255, 100)),
+                );
                 ui.end_row();
             }
 

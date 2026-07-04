@@ -22,11 +22,9 @@ struct DebuggingDataIn<'a> {
     fps: u128,
 }
 
-
 #[derive(Debug)]
 struct DebuggingDataOut {
     close_btn_clicked: bool,
-    step_clicked: bool,
     changed_mode: Option<GameModeState>,
     instruction_to_exec: Option<String>,
     refresh_register_clicked: bool,
@@ -58,18 +56,22 @@ impl DebuggingDevice {
     fn execute_changes(&mut self, data: DebuggingDataOut) -> Result<OutState, String> {
         let changed_mode = data.changed_mode;
         if let Some(new_mode) = data.changed_mode {
-            self.core_game.interface_ct.set_mode(
-                match new_mode {
-                    GameModeState::Tick => Mode::Stop,
-                    GameModeState::Monitoring => Mode::Debug,
-                    GameModeState::Game => Mode::Game,
-                    GameModeState::Frame => Mode::Frame,
-                }
-            )?;
+            self.core_game.interface_ct.set_mode(match new_mode {
+                GameModeState::Tick => Mode::ByTick,
+                GameModeState::Running => Mode::Game,
+                GameModeState::Paused => Mode::Debug,
+                GameModeState::Frame => Mode::ByFrame,
+            })?;
             self.ui_state.game_state = new_mode;
         }
 
         if data.close_btn_clicked {
+            if self.ui_state.game_state == GameModeState::Tick
+                || self.ui_state.game_state == GameModeState::Frame
+            {
+                self.core_game.interface_ct.set_mode(Mode::Stop)?;
+            }
+            self.core_game.interface_ct.set_mode(Mode::Game)?;
             return Ok(OutState::Emulating);
         }
 
@@ -77,10 +79,6 @@ impl DebuggingDevice {
             self.core_game
                 .interface_ct
                 .get_cpu_state(&mut self.registers)?;
-        }
-
-        if data.step_clicked {
-            self.core_game.interface_ct.execute_next_instructions(1)?;
         }
 
         if self.nb_instruction != data.nb_instruction_requested as usize {

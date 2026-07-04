@@ -104,11 +104,12 @@ impl EmulationDevice {
                         ui.separator();
                         ui.add_space(8.0);
 
-                        let (pause_label, pause_color) = if self.ui_state.game_state != GameModeState::Game {
-                            ("▶  Resume", Color32::from_rgb(120, 200, 120))
-                        } else {
-                            ("⏸  Pause", Color32::from_rgb(230, 170, 90))
-                        };
+                        let (pause_label, pause_color) =
+                            if self.ui_state.game_state != GameModeState::Running {
+                                ("▶  Resume", Color32::from_rgb(120, 200, 120))
+                            } else {
+                                ("⏸  Pause", Color32::from_rgb(230, 170, 90))
+                            };
                         let pause_button = ui.add(
                             egui::Button::new(
                                 RichText::new(pause_label).color(Color32::WHITE).strong(),
@@ -119,13 +120,12 @@ impl EmulationDevice {
                         );
 
                         if pause_button.clicked() {
-                            self.ui_state.game_state = if GameModeState::Game == self.ui_state.game_state {
-                                self.core_game.interface_ct.set_mode(Mode::Stop);
-                                GameModeState::Monitoring
-                            } else {
-                                self.core_game.interface_ct.set_mode(Mode::Game);
-                                GameModeState::Game
-                            }
+                            self.ui_state.game_state =
+                                if GameModeState::Running == self.ui_state.game_state {
+                                    GameModeState::Paused
+                                } else {
+                                    GameModeState::Running
+                                }
                         }
 
                         ui.add_space(8.0);
@@ -140,7 +140,7 @@ impl EmulationDevice {
                             .min_size(vec2(110.0, 28.0)),
                         );
                         if save_state_button.clicked() {
-                            let _ = self.core_game.interface_ct.set_mode(Mode::Snapshot);
+                            let _ = self.core_game.interface_ct.set_mode(Mode::Stop);
                             self.ui_state.save_name.clear();
                             self.ui_state.save_name = format!(
                                 "{} - {}",
@@ -181,19 +181,15 @@ impl EmulationDevice {
                                                     name: self.ui_state.save_name.clone(),
                                                 },
                                             );
-                                            let _ = self
-                                                .core_game
-                                                .interface_ct
-                                                .set_mode(Mode::Game);
-                                            self.ui_state.game_state = GameModeState::Game;
+                                            let _ =
+                                                self.core_game.interface_ct.set_mode(Mode::Game);
+                                            self.ui_state.game_state = GameModeState::Running;
                                         }
                                         if ui.add(cancel_btn).clicked() {
                                             self.ui_state.show_save_popup = false;
-                                            let _ = self
-                                                .core_game
-                                                .interface_ct
-                                                .set_mode(Mode::Game);
-                                            self.ui_state.game_state = GameModeState::Game;
+                                            let _ =
+                                                self.core_game.interface_ct.set_mode(Mode::Game);
+                                            self.ui_state.game_state = GameModeState::Running;
                                         }
                                     });
                                 },
@@ -245,7 +241,7 @@ impl EmulationDevice {
                         );
                         if reset_button.clicked() {
                             self.core_game.reset();
-                            self.ui_state.game_state = GameModeState::Game;
+                            self.ui_state.game_state = GameModeState::Running;
                         }
 
                         ui.add_space(8.0);
@@ -274,7 +270,7 @@ impl EmulationDevice {
         }
 
         if open_debugger {
-            if self.ui_state.game_state != GameModeState::Game {
+            if self.ui_state.game_state != GameModeState::Running {
                 return match self.core_game.interface_ct.set_mode(Mode::Stop) {
                     Ok(()) => AppState::DebuggingHub(self.into()),
                     Err(_) => {
@@ -283,7 +279,7 @@ impl EmulationDevice {
                     }
                 };
             }
-            return match self.core_game.interface_ct.set_mode(Mode::Debug) {
+            return match self.core_game.interface_ct.set_mode(Mode::Game) {
                 Ok(()) => AppState::DebuggingHub(self.into()),
                 Err(_) => {
                     eprintln!("Communication is cut : falling back to selection view.");
