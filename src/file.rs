@@ -57,8 +57,7 @@ impl GbmuFile {
         let path_main_file = dirs::home_dir()
             .expect("Could not find home directory")
             .join(".gbmu/gbmu.json");
-        let gbmu_file = Self::open_gbmu_file(path_main_file).unwrap();
-        gbmu_file
+        Self::open_gbmu_file(path_main_file).unwrap()
     }
 
     #[allow(clippy::field_reassign_with_default)]
