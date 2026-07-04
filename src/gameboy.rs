@@ -475,7 +475,7 @@ impl<M: MemoryMapper + Serialize + std::fmt::Debug> GameBoy<M> {
     }
 
     fn game_mode(&mut self, key_input: &KeyInput, ct: &mut Box<dyn GameCT>) {
-        for _ in 0..(FRAME_CYCLES + self.cpu.is_in_fast_mode as u32 * FRAME_CYCLES) {
+        for _ in 0..FRAME_CYCLES {
             self.tick_gb(key_input, ct);
         }
     }
