@@ -10,7 +10,7 @@ mod ppu;
 mod sound;
 
 use crate::{cli::EmulatorArguments, file::GbmuFile, gui::EmulationAppOptions};
-use discord_presence::Client;
+use discord_presence::{Client, DiscordError};
 use gui::GraphicalApp;
 use std::{
     sync::{LazyLock, Mutex},
@@ -109,7 +109,16 @@ async fn main() {
 
     let arguments_clone = arguments.clone();
     tokio::spawn(async move {
-        setup_rich_presence(&arguments_clone).expect("Failed to setup rich presence");
+        if let Err(setup_rich_presence) = setup_rich_presence(&arguments_clone) {
+            match setup_rich_presence.downcast_ref::<DiscordError>() {
+                Some(DiscordError::NotStarted) => {
+                    eprintln!("Discord client not started. Please ensure Discord is running and try again for the presence to work.");
+                }
+                _ => {
+                    eprintln!("Failed to setup rich presence: {:?}", setup_rich_presence);
+                }
+            }
+        }
     });
 
     let app = if let Some(rom_path) = arguments.rom_path {
