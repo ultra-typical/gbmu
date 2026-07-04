@@ -48,7 +48,7 @@ pub trait PFetcher<V, C: ColorType + Copy> {
     fn new() -> Self
     where
         Self: Sized;
-    fn push_pixel(&self, _cram: &Cram, _bgp: u8) -> Option<[Pixel<C>; 8]> {
+    fn push_pixel(&self, _cram: &Cram, _bgp: u8, _dmg_compat: bool) -> Option<[Pixel<C>; 8]> {
         Some([Pixel::<C>::new_bg(C::new(0, 0), false, 0); 8])
     }
     fn get_tile_data_high(
@@ -134,7 +134,7 @@ impl PFetcher<DmgVram, DmgColor> for PixelFetcher<DmgVram, DmgColor> {
         self.dot_counter = self.dot_counter.wrapping_add(1);
 
         if self.fetcher_state == FetcherState::PushPixel && fifo.is_empty() {
-            let tile: Option<[Pixel<DmgColor>; 8]> = self.push_pixel(cram, bgp);
+            let tile: Option<[Pixel<DmgColor>; 8]> = self.push_pixel(cram, bgp, false);
 
             self.fetcher_x += 1;
             self.fetcher_state = FetcherState::GetTileId;
@@ -168,7 +168,7 @@ impl PFetcher<DmgVram, DmgColor> for PixelFetcher<DmgVram, DmgColor> {
                         self.get_tile_data_high(vram, ly, scy, wly, lcd_control, use_window);
                     if self.first_fetch_done {
                         if fifo.is_empty() {
-                            let tile: Option<[Pixel<DmgColor>; 8]> = self.push_pixel(cram, bgp);
+                            let tile: Option<[Pixel<DmgColor>; 8]> = self.push_pixel(cram, bgp, false);
 
                             self.fetcher_x += 1;
                             self.fetcher_state = FetcherState::GetTileId;
@@ -269,7 +269,7 @@ impl PFetcher<DmgVram, DmgColor> for PixelFetcher<DmgVram, DmgColor> {
         }
     }
 
-    fn push_pixel(&self, _cram: &Cram, bgp: u8) -> Option<[Pixel<DmgColor>; 8]> {
+    fn push_pixel(&self, _cram: &Cram, bgp: u8, _dmg_compat: bool) -> Option<[Pixel<DmgColor>; 8]> {
         let mut tile_pixels = [Pixel::<DmgColor>::default(); 8];
         for i in 0..8 {
             let bit_index = 7 - i;
@@ -338,10 +338,11 @@ impl PFetcher<CgbVram, CgbColor> for PixelFetcher<CgbVram, CgbColor> {
         compatibility: bool,
         boot_enable: bool,
     ) -> Option<[Pixel<CgbColor>; 8]> {
+        let dmg_compat = compatibility && !boot_enable;
         self.dot_counter = self.dot_counter.wrapping_add(1);
 
         if self.fetcher_state == FetcherState::PushPixel && fifo.is_empty() {
-            let tile: Option<[Pixel<CgbColor>; 8]> = self.push_pixel(cram, bgp);
+            let tile: Option<[Pixel<CgbColor>; 8]> = self.push_pixel(cram, bgp, dmg_compat);
 
             self.fetcher_x += 1;
             self.fetcher_state = FetcherState::GetTileId;
@@ -375,7 +376,7 @@ impl PFetcher<CgbVram, CgbColor> for PixelFetcher<CgbVram, CgbColor> {
                         self.get_tile_data_high(vram, ly, scy, wly, lcd_control, use_window);
                     if self.first_fetch_done {
                         if fifo.is_empty() {
-                            let tile: Option<[Pixel<CgbColor>; 8]> = self.push_pixel(cram, bgp);
+                            let tile: Option<[Pixel<CgbColor>; 8]> = self.push_pixel(cram, bgp, dmg_compat);
 
                             self.fetcher_x += 1;
                             self.fetcher_state = FetcherState::GetTileId;
@@ -484,7 +485,7 @@ impl PFetcher<CgbVram, CgbColor> for PixelFetcher<CgbVram, CgbColor> {
         }
     }
 
-    fn push_pixel(&self, bg_cram: &Cram, _bgp: u8) -> Option<[Pixel<CgbColor>; 8]> {
+    fn push_pixel(&self, bg_cram: &Cram, bgp: u8, dmg_compat: bool) -> Option<[Pixel<CgbColor>; 8]> {
         let mut tile_pixels = [Pixel::<CgbColor>::default(); 8];
         let x_flip = (self.bg_attribute >> 5) & 1 != 0;
         for i in 0..8 {
@@ -494,8 +495,17 @@ impl PFetcher<CgbVram, CgbColor> for PixelFetcher<CgbVram, CgbColor> {
             let color_index = (high_weight_bit << 1) | low_weight_bit;
             let palette_index = self.bg_attribute & 0b111;
             let priority = ((self.bg_attribute >> 7) & 1) != 0;
-            let color =
-                CgbColor::apply_background_palette_cram(bg_cram, palette_index, color_index);
+            // In DMG compatibility mode the color index goes through BGP
+            // before indexing CRAM palette 0, but transparency/priority
+            // decisions keep using the raw index.
+            let cram_index = if dmg_compat {
+                (bgp >> (color_index * 2)) & 0b11
+            } else {
+                color_index
+            };
+            let mut color =
+                CgbColor::apply_background_palette_cram(bg_cram, palette_index, cram_index);
+            color.base_index = color_index;
             let pixel = Pixel::new_bg(color, priority, 0);
 
             tile_pixels[i as usize] = pixel;

@@ -945,6 +945,8 @@ impl<P: PFetcher<CgbVram, CgbColor>, O: ObjectManager> PixelProcessor
                     self.x,
                     &self.obj_cram,
                     self.opri,
+                    self.obp0,
+                    self.obp1,
                     is_dmg_mode,
                 );
 
@@ -978,6 +980,8 @@ impl<P: PFetcher<CgbVram, CgbColor>, O: ObjectManager> PixelProcessor
                         self.x,
                         &self.obj_cram,
                         self.opri,
+                        self.obp0,
+                        self.obp1,
                         is_dmg_mode,
                     );
 

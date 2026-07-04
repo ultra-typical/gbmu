@@ -105,6 +105,8 @@ impl ObjPiso<CgbColor> {
         cram: &Cram,
         oam_index: u8,
         opri: u8,
+        obp: u8,
+        is_dmg_mode: bool,
     ) {
         for i in 0..8 {
             let pos = (sprite_x as i16 + i as i16 - 8) - scanline_x as i16;
@@ -138,8 +140,17 @@ impl ObjPiso<CgbColor> {
             if current_pixel_color_value == 0
                 || opri & 0b00000001 == 0 && current_pixel_oam_index > oam_index
             {
-                let color =
-                    CgbColor::apply_background_palette_cram(cram, palette_index, color_index);
+                // In DMG compatibility mode the color index goes through
+                // OBP0/OBP1 before indexing CRAM, but transparency keeps
+                // using the raw index.
+                let cram_index = if is_dmg_mode {
+                    (obp >> (color_index * 2)) & 0b11
+                } else {
+                    color_index
+                };
+                let mut color =
+                    CgbColor::apply_background_palette_cram(cram, palette_index, cram_index);
+                color.base_index = color_index;
                 self.pixels[pos as usize] = Pixel::new_obj(color, priority, oam_index);
             }
         }

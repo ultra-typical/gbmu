@@ -396,10 +396,24 @@ impl<M: MemoryMapper + Serialize + std::fmt::Debug> GameBoy<M> {
         self.bus.write_byte(0xFF53, 0xFF);
         self.bus.write_byte(0xFF54, 0xFF);
         self.bus.write_byte(0xFF56, 0x3E);
+        // The CGB boot ROM fills palette RAM before handing control to the
+        // game; DMG-only games never write CRAM themselves, so without this
+        // the whole screen stays black in compatibility mode.
+        const GRAYSCALE: [u16; 4] = [0x7FFF, 0x6318, 0x318C, 0x0000];
+        self.bus.write_byte(0xFF68, 0x80);
+        for color in GRAYSCALE {
+            self.bus.write_byte(0xFF69, (color & 0xFF) as u8);
+            self.bus.write_byte(0xFF69, (color >> 8) as u8);
+        }
+        self.bus.write_byte(0xFF6A, 0x80);
+        for _ in 0..2 {
+            for color in GRAYSCALE {
+                self.bus.write_byte(0xFF6B, (color & 0xFF) as u8);
+                self.bus.write_byte(0xFF6B, (color >> 8) as u8);
+            }
+        }
         self.bus.write_byte(0xFF68, 0xFF);
-        self.bus.write_byte(0xFF69, 0xFF);
         self.bus.write_byte(0xFF6A, 0xFF);
-        self.bus.write_byte(0xFF6B, 0xFF);
         self.bus.write_byte(0xFF70, 0xF8);
         self.bus.write_byte(0xFFFF, 0x00);
     }

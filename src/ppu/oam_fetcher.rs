@@ -180,6 +180,8 @@ impl OamFetcher<CgbVram, CgbColor> {
         scanline_x: usize,
         obj_cram: &Cram,
         opri: u8,
+        obp0: u8,
+        obp1: u8,
         is_dmg_mode: bool,
     ) -> bool {
         self.dot_counter = self.dot_counter.wrapping_add(1);
@@ -204,7 +206,7 @@ impl OamFetcher<CgbVram, CgbColor> {
                     return false;
                 }
                 FetcherState::PushPixel => {
-                    self.push_pixel(piso, sprite, scanline_x, obj_cram, opri, is_dmg_mode);
+                    self.push_pixel(piso, sprite, scanline_x, obj_cram, opri, obp0, obp1, is_dmg_mode);
                     self.fetcher_state = FetcherState::GetTileId;
 
                     return true;
@@ -282,6 +284,7 @@ impl OamFetcher<CgbVram, CgbColor> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn push_pixel(
         &mut self,
         piso: &mut ObjPiso<CgbColor>,
@@ -289,10 +292,13 @@ impl OamFetcher<CgbVram, CgbColor> {
         scanline_x: usize,
         cram: &Cram,
         opri: u8,
+        obp0: u8,
+        obp1: u8,
         is_dmg_mode: bool,
     ) {
         let (priority, _, x_flip, palette_index) =
             self.extract_attributes(sprite.attributes, is_dmg_mode);
+        let obp = if palette_index & 1 == 1 { obp1 } else { obp0 };
         let oam_index = sprite.oam_index;
         piso.merge(
             self.tile_data_low,
@@ -305,6 +311,8 @@ impl OamFetcher<CgbVram, CgbColor> {
             cram,
             oam_index,
             opri,
+            obp,
+            is_dmg_mode,
         );
     }
 }
