@@ -84,7 +84,7 @@ impl EmulatorArguments {
                     Err(String::from(path) + " : Invalid path")
                 }
                 ErrorKind::Unsupported => Err(String::from(path) + " : Unsuported stats read"),
-                other => Err(format!("Unexpected error: {:?} — {}", other, e)),
+                other => Err(format!("Unexpected error: {:?}, {}", other, e)),
             },
         }
     }

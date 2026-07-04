@@ -1,221 +1,176 @@
 # Interrupt System Implementation
-## Overview
-Interrupts allow hardware components to signal the CPU that an important event has occured. Instead of constantly polling for events (wasting CPU cycles), the hardware can "interrupt" the CPU's normal execution to handle time-sensitive tasks.
 
-## The Game Boy's 5 Interrupt Types
-Listed in priority order (highest to lowest):
-1. **V-Blank (bit 0)**: Triggered when the PPU finishes drawing frame (scanline 144). This is the safe window to modify VRAM without visual artifacts.
-2. **LCD STAT (bit 1)**: Triggered by various PPU conditions (mode changes, scanline coincidence).
-3. **Timer (bit 2)**: Triggered when the internal timer overflows.
-4. **Serial (bit 3)**: Triggered when a serial transfer completes (link cable communication).
-5. **Joypad (bit 4)**: Triggered when a button is pressed.
+## Overview
+Interrupts let hardware components signal the CPU that an important event has occurred. Instead of constantly polling for events and wasting cycles, a component can flag an interrupt, and the CPU services it between instructions. This module owns the two interrupt registers and decides which pending interrupt has priority. The actual servicing (saving PC, jumping to the vector, toggling IME) lives in the CPU, which drives this controller through a small API.
+
+## The Five Interrupt Types
+Listed in priority order, highest first:
+1. **V-Blank (bit 0)**: raised when the PPU finishes drawing a frame (scanline 144). The safe window to touch VRAM.
+2. **LCD STAT (bit 1)**: raised by various PPU conditions (mode changes, scanline coincidence).
+3. **Timer (bit 2)**: raised when TIMA overflows.
+4. **Serial (bit 3)**: raised when a serial transfer completes.
+5. **Joypad (bit 4)**: raised when a button is pressed.
 
 ## Hardware Registers
-The interrupt system uses two mains registers:
-- **IE (Interrupt Enable, 0xFFFF)**: Each bit enables/disables a specific interrupt type.
-- **IF (Interruption Flag, 0xFF0F)**: Each bit indicates whether an interrupt has been requested.
+Two registers drive the system, both using the same bit layout:
+- **IE (Interrupt Enable, 0xFFFF)**: each bit enables one interrupt type.
+- **IF (Interrupt Flag, 0xFF0F)**: each bit marks one interrupt as requested.
 
-**Bit layout** (both registers use the same pattern):
 ```
 Bit 4: Joypad
 Bit 3: Serial
 Bit 2: Timer
 Bit 1: LCD STAT
 Bit 0: V-Blank
-Bits 5-7: Unused (always 1 when reading IF, always 0 when reading IE)
+Bits 5-7: unused (read back as 1 on IF, as 0 on IE)
 ```
 
-## Interrupt Execution Flow
-1. **Request**: A hardware component sets a bit in IF (e.g., PPU sets bit 0 for V-Blank)
-2. **Check**: CPU checks if IME (Interrupt Master Enable) is on AND the corresponding bit in IE is set.
-3. **Handle**: If both conditions are met, the CPU:
-    - Pushes current PC onto the stack.
-    - Clears IME (disables further interrupts).
-    - Clears the IF bit.
-    - Jumps to the interrupt's vector address.
-4. **Execute**: Game code handles the interrupt.
-5. **Return**: RETI instruction restores PC and  re-enables IME.
-
 ## Vector Addresses
-When an interrupt is serviced, the CPU jumps to these fixed addresses:
+When an interrupt is serviced, the CPU jumps to a fixed address:
 - V-Blank: 0x0040
 - LCD STAT: 0x0048
 - Timer: 0x0050
 - Serial: 0x0058
 - Joypad: 0x0060
 
-## Current Implementation
+## Servicing Flow
+This controller covers steps 1, 2, and part of 3 below. The rest is CPU work.
+1. **Request**: a component sets its IF bit (via `request`).
+2. **Select**: the CPU asks the controller for the highest-priority interrupt that is both enabled and requested (via `next_request`).
+3. **Handle**: if IME is on and an interrupt is selected, the CPU pushes PC, clears IME, clears the IF bit (via `clear_request`), and jumps to the vector.
+4. **Execute**: game code runs the handler.
+5. **Return**: RETI restores PC and re-enables IME.
 
-### Interrupt Enum
+Note that IME (the Interrupt Master Enable flag) is held by the CPU, not by this controller. The controller only tracks IE and IF and resolves priority.
 
+## Interrupt Enum
 ```rust
 #[repr(u8)]
-#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Interrupt {
-    VBlank = 0b00000001,
-    LcdStat = 0b0000010,
-    Timer = 0b00000100,
-    Serial = 0b00001000,
-    Joypad = 0b00010000,
+    VBlank  = 0b00000001,
+    LcdStat = 0b00000010,
+    Timer   = 0b00000100,
+    Serial  = 0b00001000,
+    Joypad  = 0b00010000,
 }
 ```
-**Purpose**: Type-safe representation of the five interrupt types.
+A type-safe representation of the five interrupt types.
 
-### Design Choices:
-- `#[repr(u8)]`: Forces Rust to represent this enum as a u8 in memory, allowing direct casting to bit values.
-- Each variant is a power of 2 (single bit set), matching the bit position in IE/IF registers.
-- `Copy + Clone`: Allows easy copying of interrupt values.
-- `Debug + PartialEq`: Enables printing and comparision in tests.
+Design choices:
+- `#[repr(u8)]` forces a `u8` layout so the enum can be cast straight to its bit value.
+- Each variant is a single set bit, matching its position in IE and IF. `Interrupt::Timer as u8` yields `0b00000100`, ready for bitwise use.
+- Derives `Copy, Clone` (cheap to pass around) and `Debug, PartialEq` (printing and comparison in tests).
 
-**Usage**: `Interrupt::VBlank as u8` yields `0b00000001`, which can be directly used with bitwise operations on IE/IF.
-
-### Vector Address Method
+### vector()
 ```rust
 pub fn vector(self) -> u16 {
     match self {
-        Interrupt::VBlank => 0x40,
+        Interrupt::VBlank  => 0x40,
         Interrupt::LcdStat => 0x48,
-        Interrupt::Timer => 0x50,
-        Interrupt::Serial => 0x58,
-        Interrupt::Joypad => 0x60,
+        Interrupt::Timer   => 0x50,
+        Interrupt::Serial  => 0x58,
+        Interrupt::Joypad  => 0x60,
     }
 }
 ```
-Returns the memory address where the CPU should jump when servicing this interrupt. These addresses are defined by Game Boy hardware specification.
+Returns the address the CPU jumps to when servicing this interrupt. These addresses are fixed by the hardware.
 
-### InterruptController Structure
+## InterruptController Structure
 ```rust
 pub struct InterruptController {
     ienable: u8, // IE register (0xFFFF)
-    iflag: u8, // IF register (0xFF0F)
+    iflag: u8,   // IF register (0xFF0F)
 }
 ```
-#### Fields:
-- `ienable`: Represents the IE (Interrupt Enable) register. Each bit enables one interrupt type.
-- `iflag`: Represents the IF (Interrupt Flag) register. Each bit indicates a pending interrupt request.
+- `ienable`: the IE register, one enable bit per interrupt type.
+- `iflag`: the IF register, one request bit per interrupt type.
 
-Both are `u8` values where only the lower 5 bits are meaningful.
+Only the lower 5 bits of each are meaningful. The struct derives `Debug, Clone, Serialize, Deserialize`, so interrupt state is captured in save states.
 
-### IE Register Access
+`new()` starts both registers at 0 (nothing enabled, nothing pending).
+
+## Register Access
+### IE (0xFFFF)
 ```rust
 pub fn read_interrupt_enable(&self) -> u8 {
     self.ienable & 0b00011111
 }
-
-pub fn write_interrupt_enable(&mut seulf, val: u8) {
+pub fn write_interrupt_enable(&mut self, val: u8) {
     self.ienable = val & 0b00011111;
 }
 ```
-**Read**: Returns `ienable` with upper 3 bits masked to 0 (hardware behavior).
-**Write**: Stores only the lower 5 bits of the value. Upper 3 bits are always ignored.
-**The mask `0b00011111` (0x1F)**: Ensures only bits 0-4 are used, matching actual hardware behavior where only 5 interrupt types exist.
+Read masks the upper 3 bits to 0, write keeps only the lower 5 bits. The mask `0x1F` reflects that only 5 interrupt types exist.
 
-### IF Register Access
+### IF (0xFF0F)
 ```rust
 pub fn read_interrupt_flag(&self) -> u8 {
     self.iflag | 0b11100000
 }
- pub fn write_interrupt_flag(&mut self, val: u8) {
+pub fn write_interrupt_flag(&mut self, val: u8) {
     self.iflag = val & 0b00011111;
- }
- ```
- **Read**: Returns `iflag` with upper 3 bits forced to 1. This matches actual Game Boy hardware. When reading IF, bits 5-7 are always 1.
- **Write**: Stores only the lower 5 bits. Games can write to IF to clear interrupt requests.
+}
+```
+Read forces the upper 3 bits to 1, matching hardware, where reading IF always returns 1 in bits 5 to 7. Write keeps only the lower 5 bits, letting games clear pending requests by writing IF directly.
 
-### Requesting and Clearing Interrupts
+## Requesting and Clearing
 ```rust
 pub fn request(&mut self, interrupt: Interrupt) {
     self.iflag |= interrupt as u8;
 }
 ```
-**Purpose**: Hardware components call this to request an interrupt.
-**How it works**:
-- Converts the enum to its u8 value (e.g., `Timer` -> `0b00000100`)
-- Uses bitwise OR to set the corresponding bit to 1.
-- Multiple interrupts can be pending simultaneously.
-**Example**: If `iflag = 0b00000001` (V-Blank pending) and we reqest Timer:
-- `iflag |= 0b00000100`
-- Result: `iflag = 0b0000101` (both V-Blank and Timer pending).
+Sets the interrupt's bit in IF. Multiple interrupts can be pending at once. If IF is `0b00000001` (V-Blank) and Timer is requested, IF becomes `0b00000101` (both pending).
+
 ```rust
 pub fn clear_request(&mut self, interrupt: Interrupt) {
     self.iflag &= !(interrupt as u8);
 }
 ```
-**Purpose**: CPU calls this after servicing an interrupt to clear the request.
-**How it works:**
-- Converts enum to u8 and applies bitwise NOT (e.g., `!(0b00000100)` -> `0b11111011`)
-- Uses bitwise AND to clear only that specific bit
-- Other pending interrupts remain unaffected
+Clears only that interrupt's bit, leaving other pending requests intact. Clearing Timer from `0b00000101` leaves `0b00000001` (V-Blank still pending).
 
-**Example**: If `iflag = 0b00000101` (V-Blank and Timer) and we clear Timer:
-- `iflag &= !(0b00000100)` = `iflag &= 0b11111011`
-- Result: `iflag = 0b00000001` (only V-Blank remains)
-
-### Determining Next Interrupt
+## Selecting the Next Interrupt
 ```rust
 pub fn next_request(&self) -> Option<Interrupt> {
     let pending_request = self.ienable & self.iflag;
+
+    [
+        Interrupt::VBlank,
+        Interrupt::LcdStat,
+        Interrupt::Timer,
+        Interrupt::Serial,
+        Interrupt::Joypad,
+    ]
+    .iter()
+    .find(|&&interrupt| pending_request & (interrupt as u8) != 0)
+    .copied()
 }
 ```
-#### Step 1 - Calculate pending requests:
-- Uses bitwise AND between IE and IF
-- Result: bits that are 1 in BOTH registers (requested AND enabled)
-- Only these interrupts should actually be serviced
+Two steps:
 
-**Example**:
-- `ienable = 0b00010101` (V-Blank, Timer, Joypad enabled)
-- `iflag = 0b00001110` (LCD STAT, Timer, Serial requested)
-- `pending_request = 0b00000100` (only Timer is both enabled and requested)
-```rust
-[
-    Interrupt::VBlank,
-    Interrupt::LcdStat,
-    Interrupt::Timer,
-    Interrupt::Serial,
-    Interrupt::Joypad,
-]
-.iter()
-.find(|&&interrupt| pending_request & (interrupt as u8) != 0)
-.copied()
-```
+1. **Compute the actionable set**: `ienable & iflag` keeps only the bits that are both enabled and requested. An interrupt that is requested but not enabled, or enabled but not requested, is ignored.
+2. **Pick by priority**: the array is ordered from highest priority (V-Blank) to lowest (Joypad). `find` returns the first interrupt whose bit is set, and `copied` converts `Option<&Interrupt>` into `Option<Interrupt>`. Because iteration stops at the first match, the highest-priority pending interrupt wins automatically.
 
-#### Step 2 - Find highest priority interrupt:
-- Creates an array of interrupts **in priority order** (V-Blank highest, Joypad lowest)
-- `.iter()`: Creates an iterator over the array
-- `.find()`: Returns the first interrupt where the condition is true
-- Condition: `pending_request & (interrupt as u8) != 0` checks if this interrupt's bit is set
-- `.copied()`: Converts from `Option<&Interrupt>` to `Option<Interrupt>`
+Returns `Some(interrupt)` when an enabled interrupt is pending, `None` otherwise.
 
-**Priority mechanisme**: Since we iterate in priority order and use `.find()` (which stops at the first match), we automatically get the highest priority pending interrupt.
+Worked example: `ienable = 0b00010101` (V-Blank, Timer, Joypad enabled), `iflag = 0b00001110` (LCD STAT, Timer, Serial requested). The actionable set is `0b00000100`, so `next_request` returns `Some(Interrupt::Timer)`.
 
-**Return value**:
-- `Some(Interrupt::X)` if an enabled interrupt is pending.
-- `None` if no enabled interrupts are pending.
-
-**Example with multiple pending**:
-- `pending_request = 0b00010101` (V-Blank, Timer, Joypad all pending)
-- Iterator checks V-Blank first: `0b00010101 & 0b00000001 != 0` ✅
-- Returns `Some(Interrupt::VBlank)` immediatly without checking Timer or Joypad
+## Integration
+- Components raise interrupts through the MMU wrappers, for example the timer overflow path sets the Timer bit, and the PPU sets V-Blank and LCD STAT.
+- The CPU polls `next_request` between instructions and, when IME allows, services the result and calls `clear_request`.
+- IE and IF are reachable at their normal addresses (0xFFFF and 0xFF0F) through the MMU, which delegates to `read_interrupt_enable` / `write_interrupt_enable` and `read_interrupt_flag` / `write_interrupt_flag`.
 
 ## Implementation Status
-- ✅ All 5 interrupt types defined
-- ✅ Vector addresses for all interrupts
-- ✅ IE register read/write with correct masking
-- ✅ IF register read/write with hardware-accurate upper bits
+### Completed
+- ✅ All five interrupt types defined with correct bit values
+- ✅ Vector addresses for every interrupt
+- ✅ IE read/write with correct masking (upper bits cleared)
+- ✅ IF read/write with hardware-accurate upper bits (read back as 1)
 - ✅ Request and clear individual interrupts
-- ✅ Priority-based interrupt selection
-- ✅ Proper handling of enabled vs requested interrupts
+- ✅ Priority-based selection of the next actionable interrupt
+- ✅ Save-state (serde) support
 
-## Typical usage flow:
-1. Hardware component calls `controller.request(Interrupt::VBlank)`
-2. CPU checks `controller.next_request()` after each instruction
-3. If Some(interrupt) is returned and IME is enabled, CPU:
-    - Calls `controller.clear_request(interrupt)`
-    - Pushes PC to stack
-    - Sets PC to `interrupt.vector()`
-    - Disables IME
-4. Game code handles interrupt, ends with RETI
-5. RETI restores PC and re-enables IME
+---
 
+### Last Modification
+This document was last updated on **2026/07/04**, based on the state at commit `653854a1d657d2c499f7f261228352ead4feceff`.
 
-last modification: 2026/01/22
+Some changes may have been made to the code since then.

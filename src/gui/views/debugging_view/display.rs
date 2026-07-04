@@ -89,7 +89,7 @@ pub fn display_interface(
 
                     ui.add_space(8.0);
 
-                    let (hex_string, register_new_addr , remove_addr) = ui
+                    let (hex_string, register_new_addr, remove_addr) = ui
                         .group(|inner_ui| {
                             inner_ui.label(RichText::new("Memory Watch").strong());
                             watch_address(inner_ui, &data)
