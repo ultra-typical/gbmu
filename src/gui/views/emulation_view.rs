@@ -122,10 +122,12 @@ impl EmulationDevice {
                         if pause_button.clicked() {
                             self.ui_state.game_state =
                                 if GameModeState::Running == self.ui_state.game_state {
+                                    let _ = self.core_game.interface_ct.set_mode(Mode::Stop);
                                     GameModeState::Paused
                                 } else {
+                                    let _ = self.core_game.interface_ct.set_mode(Mode::Game);
                                     GameModeState::Running
-                                }
+                                };
                         }
 
                         ui.add_space(8.0);

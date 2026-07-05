@@ -200,7 +200,6 @@ impl<M: MemoryMapper + Serialize + std::fmt::Debug> GameBoy<M> {
                 }
                 Mode::Stop => {
                     println!("stopped mode set");
-                    self.step_to_execute = 1;
                     *mode = Self::stopped_mode;
                 }
                 Mode::ByFrame => {
