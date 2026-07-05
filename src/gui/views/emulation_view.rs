@@ -17,7 +17,9 @@ pub struct SaveState {
     pub name: String,
 }
 
-use crate::gui::views::emulation_view::emulation_ui_state::{EmulationUiState, GameModeState};
+use crate::gui::views::emulation_view::emulation_ui_state::{
+    AUTHORIZED_SPEEDS_PERCENTS, EmulationUiState, GameModeState,
+};
 
 use std::time::Instant;
 
@@ -218,15 +220,20 @@ impl EmulationDevice {
                         ui.add_space(8.0);
 
                         ui.label(RichText::new("Game Speed").color(Color32::WHITE).strong());
-                        let slider = egui::Slider::new(&mut self.ui_state.speed, 1.0..=16.0)
-                            .step_by(1.0)
-                            .suffix("x")
-                            .show_value(true);
+                        let slider = egui::Slider::new(
+                            &mut self.ui_state.speed_indice,
+                            0..=(AUTHORIZED_SPEEDS_PERCENTS.len() - 1),
+                        )
+                        .step_by(1.0)
+                        .custom_formatter(|value, _| {
+                            let speed = AUTHORIZED_SPEEDS_PERCENTS[value as usize] as f32 / 100.0;
+                            format!("x{}", speed)
+                        });
                         if ui.add_sized(vec2(140.0, 20.0), slider).changed() {
                             let _ = self
                                 .core_game
                                 .interface_ct
-                                .set_speed(self.ui_state.speed as u8);
+                                .set_speed(AUTHORIZED_SPEEDS_PERCENTS[self.ui_state.speed_indice]);
                         }
 
                         ui.add_space(8.0);

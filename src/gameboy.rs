@@ -37,7 +37,7 @@ pub struct GameBoy<M: MemoryMapper> {
 
     watched_address: HashSet<u16>,
     cycles_elapsed: u32,
-    speed: u64,
+    speed: u16,
     is_paused: bool,
 
     path: Option<PathBuf>,
@@ -108,7 +108,7 @@ impl<M: MemoryMapper + Serialize + std::fmt::Debug> GameBoy<M> {
 
             cycles_elapsed: 0,
             watched_address: HashSet::new(),
-            speed: 1,
+            speed: 100,
             is_paused: false,
 
             path: None,
@@ -162,8 +162,11 @@ impl<M: MemoryMapper + Serialize + std::fmt::Debug> GameBoy<M> {
             if self.should_get_fps {
                 ct.update_fps(Self::calculate_fps(&mut before))?;
             }
-            let mut wanted_duration =
-                Duration::from_micros(GAME_REFRESH_PERIOD_IN_MILLIS / self.speed);
+            let mut wanted_duration = if self.speed == 0 {
+                Duration::from_micros(GAME_REFRESH_PERIOD_IN_MILLIS * 100)
+            } else {
+                Duration::from_micros(GAME_REFRESH_PERIOD_IN_MILLIS * 100 / self.speed as u64)
+            };
             if self.cpu.is_in_fast_mode {
                 wanted_duration /= 2
             }
@@ -261,8 +264,8 @@ impl<M: MemoryMapper + Serialize + std::fmt::Debug> GameBoy<M> {
                 self.watched_address.remove(&address);
             }
             Request::SetSpeed(speed) => {
-                self.speed = speed as u64;
-                self.bus.get_apu().set_speed(speed as f64);
+                self.speed = speed;
+                self.bus.get_apu().set_speed(speed);
             }
             Request::SetVolume(volume) => {
                 self.bus.get_apu().set_volume(volume);
@@ -596,7 +599,7 @@ mod tests {
         gb.bus.write_byte(0xC000, 0x42);
         gb.watched_address.insert(0x1234);
         gb.cycles_elapsed = 7;
-        gb.speed = 2;
+        gb.speed = 200;
         gb.is_paused = true;
 
         let json = serde_json::to_string(&gb).expect("failed to serialize GameBoy");
@@ -608,7 +611,7 @@ mod tests {
         assert_eq!(restored.bus.read_byte(0xC000), 0x42);
         assert!(restored.watched_address.contains(&0x1234));
         assert_eq!(restored.cycles_elapsed, 7);
-        assert_eq!(restored.speed, 2);
+        assert_eq!(restored.speed, 200);
         assert!(restored.is_paused);
     }
 
