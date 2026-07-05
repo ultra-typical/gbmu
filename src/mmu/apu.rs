@@ -213,8 +213,8 @@ impl Apu {
         self.volume = percent as f32 / 100.0;
     }
 
-    pub fn set_speed(&mut self, speed: f64) {
-        self.speed = speed;
+    pub fn set_speed(&mut self, percent: u16) {
+        self.speed = percent as f64 / 100.0;
     }
 }
 

@@ -98,7 +98,7 @@ pub enum Request {
     StopWatch(u16),
     Step(usize),
     SetInstructionListLength(u8),
-    SetSpeed(u8),
+    SetSpeed(u16),
     SetVolume(u8),
 }
 
