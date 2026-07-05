@@ -42,13 +42,13 @@ pub struct Apu {
     // persist, and reconstructed unlinked to any thread on deserialize (the
     // caller must re-hook audio playback afterwards, same as Apu::new does).
     #[serde(skip, default = "default_audio_running")]
-    audio_running: Arc<AtomicBool>,
+    pub audio_running: Arc<AtomicBool>,
     sample_counter: f64,
     frame_seq_counter: u64,
     frame_seq_step: u8,
     #[serde(skip)]
-    sample_buffer: SampleBuffer,
-    volume: f32, // 1.0 = 100%
+    pub sample_buffer: SampleBuffer,
+    pub volume: f32, // 1.0 = 100%
     speed: f64,
 }
 

@@ -9,6 +9,7 @@ use crate::communications::{
     CpuState, GameCT, InstructionList, InterfaceCT, WatchedAdresses, create_communication_tools,
 };
 use crate::mmu::apu::Apu;
+use crate::mmu::apu::sample_buffer::SampleBuffer;
 use crate::{GBMU_FILE, update_presence};
 
 use crate::file::{SAVE_STATE_FILE, SAVE_STATE_TYPES_FILE, SaveStateTypes};
@@ -417,52 +418,72 @@ impl AnyGameApp {
         match (types.hardware, types.cart) {
             (HardwareKind::Dmg, MbcType::RomOnly) => {
                 let mut gb: GameBoy<DmgMmu<RomOnly, DmgTimers, DmgPpu>> = GameBoy::snapshot(save_state_path)?;
+                let volume = gb.bus.apu.volume;
                 gb.bus.apu = Apu::new();
+                gb.bus.apu.volume = volume;
                 Ok(AnyGameApp::DmgOnlyRom(gb))
             }
             (HardwareKind::Dmg, MbcType::Mbc1) => {
                 let mut gb: GameBoy<DmgMmu<Mbc1, DmgTimers, DmgPpu>> = GameBoy::snapshot(save_state_path)?;
+                let volume = gb.bus.apu.volume;
                 gb.bus.apu = Apu::new();
+                gb.bus.apu.volume = volume;
                 Ok(AnyGameApp::DmgMbc1(gb))
             }
             (HardwareKind::Dmg, MbcType::Mbc2) => {
                 let mut gb: GameBoy<DmgMmu<Mbc2, DmgTimers, DmgPpu>> = GameBoy::snapshot(save_state_path)?;
+                let volume = gb.bus.apu.volume;
                 gb.bus.apu = Apu::new();
+                gb.bus.apu.volume = volume;
                 Ok(AnyGameApp::DmgMbc2(gb))
             }
             (HardwareKind::Dmg, MbcType::Mbc3) => {
                 let mut gb: GameBoy<DmgMmu<Mbc3, DmgTimers, DmgPpu>> = GameBoy::snapshot(save_state_path)?;
+                let volume = gb.bus.apu.volume;
                 gb.bus.apu = Apu::new();
+                gb.bus.apu.volume = volume;
                 Ok(AnyGameApp::DmgMbc3(gb))
             }
             (HardwareKind::Dmg, MbcType::Mbc5) => {
                 let mut gb: GameBoy<DmgMmu<Mbc5, DmgTimers, DmgPpu>> = GameBoy::snapshot(save_state_path)?;
+                let volume = gb.bus.apu.volume;
                 gb.bus.apu = Apu::new();
+                gb.bus.apu.volume = volume;
                 Ok(AnyGameApp::DmgMbc5(gb))
             }
             (HardwareKind::Cgb, MbcType::RomOnly) => {
                 let mut gb: GameBoy<CgbMmu<RomOnly, DmgTimers, CgbPpu>> = GameBoy::snapshot(save_state_path)?;
+                let volume = gb.bus.apu.volume;
                 gb.bus.apu = Apu::new();
+                gb.bus.apu.volume = volume;
                 Ok(AnyGameApp::CgbOnlyRom(gb))
             }
             (HardwareKind::Cgb, MbcType::Mbc1) => {
                 let mut gb: GameBoy<CgbMmu<Mbc1, DmgTimers, CgbPpu>> = GameBoy::snapshot(save_state_path)?;
+                let volume = gb.bus.apu.volume;
                 gb.bus.apu = Apu::new();
+                gb.bus.apu.volume = volume;
                 Ok(AnyGameApp::CgbMbc1(gb))
             }
             (HardwareKind::Cgb, MbcType::Mbc2) => {
                 let mut gb: GameBoy<CgbMmu<Mbc2, DmgTimers, CgbPpu>> = GameBoy::snapshot(save_state_path)?;
+                let volume = gb.bus.apu.volume;
                 gb.bus.apu = Apu::new();
+                gb.bus.apu.volume = volume;
                 Ok(AnyGameApp::CgbMbc2(gb))
             }
             (HardwareKind::Cgb, MbcType::Mbc3) => {
                 let mut gb: GameBoy<CgbMmu<Mbc3, DmgTimers, CgbPpu>> = GameBoy::snapshot(save_state_path)?;
+                let volume = gb.bus.apu.volume;
                 gb.bus.apu = Apu::new();
+                gb.bus.apu.volume = volume;
                 Ok(AnyGameApp::CgbMbc3(gb))
             }
             (HardwareKind::Cgb, MbcType::Mbc5) => {
                 let mut gb: GameBoy<CgbMmu<Mbc5, DmgTimers, CgbPpu>> = GameBoy::snapshot(save_state_path)?;
+                let volume = gb.bus.apu.volume;
                 gb.bus.apu = Apu::new();
+                gb.bus.apu.volume = volume;
                 Ok(AnyGameApp::CgbMbc5(gb))
             }
         }
