@@ -73,7 +73,6 @@ impl eframe::App for GraphicalApp {
 pub struct EmulationAppOptions {
     boot_rom_path: Option<String>,
     rom_path: String,
-    boot_rom: bool,
     pub filename: String,
     gb_type: Option<GbType>,
 }
@@ -128,7 +127,6 @@ impl FromStr for GbType {
 pub struct CoreGameOptions {
     pub boot_rom_path: Option<String>,
     pub rom_path: String,
-    pub boot_rom: bool,
     pub filename: String,
     pub gb_type: Option<GbType>,
 }
@@ -151,7 +149,6 @@ impl CoreGameOptions {
         Self {
             boot_rom_path: None,
             rom_path,
-            boot_rom: false,
             filename,
             gb_type: None,
         }
@@ -163,7 +160,6 @@ impl From<EmulationAppOptions> for CoreGameOptions {
         Self {
             boot_rom_path: value.boot_rom_path,
             rom_path: value.rom_path,
-            boot_rom: value.boot_rom,
             filename: value.filename,
             gb_type: value.gb_type,
         }
@@ -174,14 +170,12 @@ impl EmulationAppOptions {
     pub fn new(
         boot_rom_path: Option<String>,
         rom_path: String,
-        boot_rom: bool,
         filename: String,
         gb_type: Option<GbType>,
     ) -> Self {
         Self {
             boot_rom_path,
             rom_path,
-            boot_rom,
             filename,
             gb_type,
         }
@@ -238,14 +232,6 @@ impl AnyGameApp {
 
         let gb_type = game_data.define_gb_type(&supported_gb_types);
 
-        let boot_rom_path = match game_data.boot_rom_path {
-            Some(path) => path,
-            None => match gb_type {
-                GbType::Cgb => "boot-roms/cgb.bin".into(),
-                GbType::Dmg => "boot-roms/dmg.bin".into(),
-            },
-        };
-
         let _ = update_presence(
             format!("In a {} Game", gb_type),
             Some(format!(
@@ -267,26 +253,53 @@ impl AnyGameApp {
             println!("Backup detected")
         };
 
-        let boot_rom_data: Option<[u8; 0x0900]> = if game_data.boot_rom {
-            let mut boot_rom = [0u8; 0x0900];
-            if let Ok(boot_bytes) = std::fs::read(boot_rom_path) {
+        let boot_rom_path = match game_data.boot_rom_path.as_deref() {
+            Some(path) => path,
+            None => match gb_type {
+                GbType::Cgb => "boot-roms/cgb.bin",
+                GbType::Dmg => "boot-roms/dmg.bin",
+            },
+        };
+
+        let boot_rom_data: Option<[u8; 0x0900]> = match std::fs::read(boot_rom_path) {
+            Ok(boot_bytes) => {
+                let mut boot_rom = [0u8; 0x0900];
                 match gb_type {
                     GbType::Dmg => {
-                        assert!(boot_bytes.len() == 0x100, "boot rom must be 256 bytes");
+                        if boot_bytes.len() != 0x100 {
+                            return Err(format!(
+                                "Boot rom must be 256 bytes for Dmg, but got {} bytes",
+                                boot_bytes.len()
+                            ));
+                        }
                         boot_rom[..0x100].copy_from_slice(&boot_bytes);
                     }
                     GbType::Cgb => {
-                        assert!(boot_bytes.len() == 0x900, "boot rom must be 2304 bytes");
+                        if boot_bytes.len() != 0x900 {
+                            return Err(format!(
+                                "Boot rom must be 2304 bytes for Cgb, but got {} bytes",
+                                boot_bytes.len()
+                            ));
+                        }
                         boot_rom.copy_from_slice(&boot_bytes);
                     }
                 };
                 Some(boot_rom)
-            } else {
-                eprintln!("Boot rom can't be read. Forcing boot rom simulation.");
-                None
             }
-        } else {
-            None
+            Err(_) => {
+                if game_data.boot_rom_path.is_some() {
+                    return Err(format!(
+                        "Could not read boot rom from path: {}",
+                        boot_rom_path
+                    ));
+                } else {
+                    println!(
+                        "Boot rom not found at path: {}. Continuing without boot rom.",
+                        boot_rom_path
+                    );
+                    None
+                }
+            }
         };
 
         println!("new AnyGameApp");

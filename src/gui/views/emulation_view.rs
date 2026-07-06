@@ -325,7 +325,6 @@ impl From<SelectionDevice> for EmulationDevice {
             gb_type: original.forced_launch,
             rom_path: rom_path.clone(),
             filename: original.filename.clone(),
-            boot_rom: true,
             boot_rom_path: None,
         };
         let mut core_game = CoreGameDevice::new(options);

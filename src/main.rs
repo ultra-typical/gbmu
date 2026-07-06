@@ -125,9 +125,8 @@ async fn main() {
 
     let app = if let Some(rom_path) = arguments.rom_path {
         let options = EmulationAppOptions::new(
-            None,
+            arguments.boot_rom_path,
             rom_path,
-            arguments.boot_rom,
             "".into(),
             arguments.gb_type,
         );

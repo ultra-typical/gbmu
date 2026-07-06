@@ -1,12 +1,12 @@
 use crate::gui::GbType;
-use clap::{Arg, ArgAction, command, value_parser};
+use clap::{Arg, command, value_parser};
 use std::fs::metadata;
 use std::io::ErrorKind;
 
 #[derive(Debug, Clone)]
 pub struct EmulatorArguments {
     pub rom_path: Option<String>,
-    pub boot_rom: bool,
+    pub boot_rom_path: Option<String>,
     pub gb_type: Option<GbType>,
 }
 
@@ -17,9 +17,9 @@ impl EmulatorArguments {
             .arg(
                 Arg::new("boot_rom")
                     .short('b')
-                    .long("boot_rom")
-                    .action(ArgAction::SetTrue)
-                    .help("If set, nintendo basic boot rom will boot first."),
+                    .long("boot-rom")
+                    .value_name("PATH")
+                    .help("Path to a Game Boy or Game Boy Color boot rom. If not specified, the emulator will simulate the boot rom's behavior."),
             )
             .arg(
                 Arg::new("type")
@@ -34,12 +34,12 @@ impl EmulatorArguments {
         let rom_path = matches.get_one::<String>("rom_path").map(String::from);
 
         // boot_with_nintendo_room
-        let boot_rom = matches.get_flag("boot_rom");
+        let boot_rom = matches.get_one::<String>("boot_rom").map(String::from);
         let gb_type = matches.get_one::<GbType>("type");
 
         let unchecked = Self {
             rom_path,
-            boot_rom,
+            boot_rom_path: boot_rom,
             gb_type: gb_type.cloned(),
         };
 
@@ -49,9 +49,11 @@ impl EmulatorArguments {
     pub fn check_fields(self) -> Result<Self, String> {
         let mut errors: Vec<String> = vec![];
 
-        // Put checks here
-        if let Err(error) = self.check_rom_path() {
+        if let Err(error) = Self::check_path(&self.rom_path) {
             errors.push(String::from("rom_path : ") + error.as_str());
+        }
+        if let Err(error) = Self::check_path(&self.boot_rom_path) {
+            errors.push(String::from("boot_rom_path : ") + error.as_str());
         }
 
         if errors.is_empty() {
@@ -62,8 +64,8 @@ impl EmulatorArguments {
         }
     }
 
-    pub fn check_rom_path(&self) -> Result<(), String> {
-        let Some(path) = &self.rom_path else {
+    pub fn check_path(path: &Option<String>) -> Result<(), String> {
+        let Some(path) = path else {
             return Ok(());
         };
         use std::os::unix::fs::PermissionsExt;
