@@ -1127,6 +1127,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 
 [[package]]
+name = "crossemu"
+version = "0.3.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "cpal",
+ "dirs 5.0.1",
+ "discord-presence",
+ "eframe",
+ "egui",
+ "egui-file-dialog",
+ "egui_extras",
+ "flamegraph",
+ "pixels",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "strum_macros",
+ "tokio",
+ "winit",
+]
+
+[[package]]
 name = "crunchy"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1839,29 +1862,6 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "slab",
-]
-
-[[package]]
-name = "gbmu"
-version = "0.3.0"
-dependencies = [
- "chrono",
- "clap",
- "cpal",
- "dirs 5.0.1",
- "discord-presence",
- "eframe",
- "egui",
- "egui-file-dialog",
- "egui_extras",
- "flamegraph",
- "pixels",
- "serde",
- "serde_bytes",
- "serde_json",
- "strum_macros",
- "tokio",
- "winit",
 ]
 
 [[package]]

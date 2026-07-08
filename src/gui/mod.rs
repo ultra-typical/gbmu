@@ -9,7 +9,7 @@ use crate::communications::{
     CpuState, GameCT, InstructionList, InterfaceCT, WatchedAdresses, create_communication_tools,
 };
 use crate::mmu::apu::Apu;
-use crate::{GBMU_FILE, update_presence};
+use crate::{CROSSEMU_FILE, update_presence};
 
 use crate::file::{SAVE_STATE_FILE, SAVE_STATE_TYPES_FILE, SaveStateTypes};
 use crate::gameboy::GameBoy;
@@ -662,7 +662,7 @@ impl CoreGameDevice {
             buffer: [0; FRAME_SIZE_IN_U8],
             texture_handler: None,
             sized_image: None,
-            key_mapping: GBMU_FILE.lock().unwrap().settings.keymapping.clone(),
+            key_mapping: CROSSEMU_FILE.lock().unwrap().settings.keymapping.clone(),
             options,
         }
     }
@@ -680,7 +680,7 @@ impl CoreGameDevice {
             buffer: [0; FRAME_SIZE_IN_U8],
             texture_handler: None,
             sized_image: None,
-            key_mapping: GBMU_FILE.lock().unwrap().settings.keymapping.clone(),
+            key_mapping: CROSSEMU_FILE.lock().unwrap().settings.keymapping.clone(),
             options,
         }
     }
@@ -761,7 +761,7 @@ impl Default for SelectionDevice {
                 .default_file_filter("GameBoy ROMS"),
             search: String::new(),
             listening: None,
-            key_mapping: GBMU_FILE.lock().unwrap().settings.keymapping.clone(),
+            key_mapping: CROSSEMU_FILE.lock().unwrap().settings.keymapping.clone(),
             forced_launch: None,
             forced_launch_text: "None".to_string(),
             save_state_previews: HashMap::new(),

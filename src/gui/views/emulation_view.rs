@@ -9,7 +9,7 @@ use crate::gui::{
     AppState, CoreGameDevice, CoreGameOptions, DebuggingDevice, EmulationDevice, ErrorDevice,
     GbType, SelectionDevice,
 };
-use crate::{GBMU_FILE, update_presence};
+use crate::{CROSSEMU_FILE, update_presence};
 
 #[derive(Debug)]
 pub struct SaveState {
@@ -267,8 +267,8 @@ impl EmulationDevice {
                                 .core_game
                                 .interface_ct
                                 .set_volume(self.ui_state.volume as u8);
-                            GBMU_FILE.lock().unwrap().settings.volume = self.ui_state.volume;
-                            GBMU_FILE.lock().unwrap().persist();
+                            CROSSEMU_FILE.lock().unwrap().settings.volume = self.ui_state.volume;
+                            CROSSEMU_FILE.lock().unwrap().persist();
                         }
                     });
                 });
@@ -338,7 +338,7 @@ impl From<SelectionDevice> for EmulationDevice {
         core_game.key_mapping = original.key_mapping;
         let _ = core_game
             .interface_ct
-            .set_volume(GBMU_FILE.lock().unwrap().settings.volume as u8);
+            .set_volume(CROSSEMU_FILE.lock().unwrap().settings.volume as u8);
         Self {
             rom_path,
             filename: original.filename,

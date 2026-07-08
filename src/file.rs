@@ -38,7 +38,7 @@ impl Default for Settings {
 }
 
 #[derive(Serialize, Deserialize, Default)]
-pub struct GbmuFile {
+pub struct CrossemuFile {
     pub history: Vec<PlayedRom>,
     pub settings: Settings,
 
@@ -52,37 +52,38 @@ pub struct SaveStateTypes {
     pub cart: MbcType,
 }
 
-impl GbmuFile {
+impl CrossemuFile {
     pub fn get_existing_or_new() -> Self {
         let path_main_file = dirs::home_dir()
             .expect("Could not find home directory")
-            .join(".gbmu/gbmu.json");
-        Self::open_gbmu_file(path_main_file).unwrap()
+            .join(".crossemu/crossemu.json");
+        Self::open_crossemu_file(path_main_file).unwrap()
     }
 
     #[allow(clippy::field_reassign_with_default)]
-    fn open_gbmu_file(path: PathBuf) -> Result<GbmuFile, std::io::Error> {
+    fn open_crossemu_file(path: PathBuf) -> Result<CrossemuFile, std::io::Error> {
         match File::open(&path) {
             Ok(file) => {
                 println!("Reading existing file!");
-                let mut gbmu: GbmuFile = serde_json::from_reader(file).unwrap_or_else(|e| {
-                    eprintln!("Warning: Could not parse config, starting fresh: {e}");
-                    GbmuFile::default()
-                });
-                gbmu.path = path;
-                Ok(gbmu)
+                let mut crossemu: CrossemuFile =
+                    serde_json::from_reader(file).unwrap_or_else(|e| {
+                        eprintln!("Warning: Could not parse config, starting fresh: {e}");
+                        CrossemuFile::default()
+                    });
+                crossemu.path = path;
+                Ok(crossemu)
             }
             Err(e) if e.kind() == ErrorKind::NotFound => {
                 println!("Creating new file!");
                 let dir = path.parent().expect("Path has no parent directory");
-                fs::create_dir_all(dir).expect("Could not create ~/.gbmu/");
-                let mut gbmu = GbmuFile::default();
-                gbmu.path = path;
-                gbmu.persist(); // write empty JSON so the file exists
-                Ok(gbmu)
+                fs::create_dir_all(dir).expect("Could not create ~/.crossemu/");
+                let mut crossemu = CrossemuFile::default();
+                crossemu.path = path;
+                crossemu.persist(); // write empty JSON so the file exists
+                Ok(crossemu)
             }
             Err(e) => panic!(
-                "Something went wrong opening ~/.gbmu/gbmu.json -> {e:?}.\n\
+                "Something went wrong opening ~/.crossemu/crossemu.json -> {e:?}.\n\
                  If you think this is an error, delete it and restart to create a fresh config."
             ),
         }

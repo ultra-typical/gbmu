@@ -18,7 +18,7 @@ use crate::communications::WatchedAdresses;
 use crate::communications::{GameCT, Mode, Request};
 use crate::cpu::defines::Cpu;
 use crate::cpu::*;
-use crate::file::GbmuFile;
+use crate::file::CrossemuFile;
 use crate::gameboy::defines::MicroOp;
 use crate::mmu::MemoryMapper;
 
@@ -270,7 +270,7 @@ impl<M: MemoryMapper + Serialize + std::fmt::Debug> GameBoy<M> {
                 self.bus.get_apu().set_volume(volume);
             }
             Request::SaveState(path) => {
-                GbmuFile::create_save_state(&path, self);
+                CrossemuFile::create_save_state(&path, self);
                 *mode = Self::game_mode;
             }
             _ => unreachable!(),
@@ -635,7 +635,7 @@ mod tests {
     #[test]
     fn snapshot_reports_an_error_for_a_missing_file() {
         let result: Result<GameBoy<DmgMmu<RomOnly, DmgTimers, DmgPpu>>, String> =
-            GameBoy::snapshot("/nonexistent/gbmu_snapshot.json".to_string());
+            GameBoy::snapshot("/nonexistent/crossemu_snapshot.json".to_string());
         assert!(result.is_err());
     }
 }

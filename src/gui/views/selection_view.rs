@@ -1,4 +1,4 @@
-use crate::GBMU_FILE;
+use crate::CROSSEMU_FILE;
 use crate::gui::egui::Id;
 use crate::gui::views::emulation_view::emulation_ui_state::EmulationUiState;
 use crate::gui::{AppState, CoreGameDevice, EmulationDevice, GbType, SelectionDevice};
@@ -16,9 +16,9 @@ impl SelectionDevice {
         let Some(home) = dirs::home_dir() else {
             return Vec::new();
         };
-        let gbmu_dir = home.join(".gbmu");
+        let crossemu_dir = home.join(".crossemu");
 
-        let Ok(entries) = fs::read_dir(&gbmu_dir) else {
+        let Ok(entries) = fs::read_dir(&crossemu_dir) else {
             return Vec::new();
         };
 
@@ -80,8 +80,8 @@ impl SelectionDevice {
         if let Some(key) = captured {
             if key != egui::Key::Escape {
                 self.key_mapping.remap(action, key);
-                GBMU_FILE.lock().unwrap().settings.keymapping = self.key_mapping.clone();
-                GBMU_FILE.lock().unwrap().persist();
+                CROSSEMU_FILE.lock().unwrap().settings.keymapping = self.key_mapping.clone();
+                CROSSEMU_FILE.lock().unwrap().persist();
             }
             self.listening = None;
         }
@@ -133,8 +133,8 @@ impl SelectionDevice {
                 .and_then(|name| name.to_str())
                 .unwrap_or("Unknown")
                 .to_string();
-            let mut gbmu = GBMU_FILE.lock().unwrap();
-            gbmu.record_launch(rom_name, PathBuf::from(&self.path));
+            let mut crossemu = CROSSEMU_FILE.lock().unwrap();
+            crossemu.record_launch(rom_name, PathBuf::from(&self.path));
             OutState::Emulation
         } else {
             OutState::Selection
@@ -353,8 +353,8 @@ impl SelectionDevice {
                 let search_lower = self.search.to_lowercase();
 
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    let gbmu = GBMU_FILE.lock().unwrap();
-                    for entry in gbmu.history.iter().filter(|entry| {
+                    let crossemu = CROSSEMU_FILE.lock().unwrap();
+                    for entry in crossemu.history.iter().filter(|entry| {
                         search_lower.is_empty()
                             || entry.rom_name.to_lowercase().contains(&search_lower)
                     }) {

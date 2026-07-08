@@ -1,4 +1,4 @@
-use crate::{GBMU_FILE, gui::CoreGameDevice};
+use crate::{CROSSEMU_FILE, gui::CoreGameDevice};
 
 pub const AUTHORIZED_SPEEDS_PERCENTS: [u16; 18] = [
     25, 50, 100, 150, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500,
@@ -28,7 +28,7 @@ impl Default for EmulationUiState {
                 .iter()
                 .position(|&speed| speed == 100)
                 .expect("AUTHORIZED_SPEEDS_PERCENTS must contain 100"),
-            volume: GBMU_FILE.lock().unwrap().settings.volume,
+            volume: CROSSEMU_FILE.lock().unwrap().settings.volume,
             show_save_popup: false,
             save_name: String::new(),
         }

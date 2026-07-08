@@ -100,7 +100,7 @@ impl InterfaceCT for InterfaceCommunicationTool {
     fn request_save_state(&self, save_state: SaveState) -> Result<(), String> {
         let home = dirs::home_dir().ok_or_else(|| "Could not find home directory".to_string())?;
 
-        let dir = home.join(".gbmu").join(&save_state.name);
+        let dir = home.join(".crossemu").join(&save_state.name);
 
         fs::create_dir_all(&dir)
             .map_err(|e| format!("Could not create directory {:?}: {e}", dir))?;

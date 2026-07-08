@@ -9,7 +9,7 @@ mod mmu;
 mod ppu;
 mod sound;
 
-use crate::{cli::EmulatorArguments, file::GbmuFile, gui::EmulationAppOptions};
+use crate::{cli::EmulatorArguments, file::CrossemuFile, gui::EmulationAppOptions};
 use discord_presence::{Client, DiscordError};
 use gui::GraphicalApp;
 use std::{
@@ -17,8 +17,8 @@ use std::{
     thread,
 };
 
-static GBMU_FILE: LazyLock<Mutex<GbmuFile>> =
-    LazyLock::new(|| Mutex::new(GbmuFile::get_existing_or_new()));
+static CROSSEMU_FILE: LazyLock<Mutex<CrossemuFile>> =
+    LazyLock::new(|| Mutex::new(CrossemuFile::get_existing_or_new()));
 
 static DISCORD_CLIENT: LazyLock<Mutex<Client>> = LazyLock::new(|| {
     let mut drpc = Client::new(1197937661176987798);
@@ -135,5 +135,5 @@ async fn main() {
         GraphicalApp::default()
     };
 
-    let _ = eframe::run_native("GBMU", options, Box::new(|_cc| Ok(Box::new(app))));
+    let _ = eframe::run_native("CROSS-EMU", options, Box::new(|_cc| Ok(Box::new(app))));
 }
