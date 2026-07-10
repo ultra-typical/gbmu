@@ -91,6 +91,10 @@ where
                     _ => {
                         frame[0] = T::from_sample(left);
                         frame[1] = T::from_sample(right);
+
+                        for sample in &mut frame[2..] {
+                            *sample = T::from_sample(0.0);
+                        }
                     }
                 }
             }
