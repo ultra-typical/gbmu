@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Default)]
 pub struct SampleBuffer {
-    buffer: Arc<Mutex<VecDeque<f32>>>,
+    buffer: Arc<Mutex<VecDeque<(f32, f32)>>>,
     pub audio_starting: Arc<AtomicBool>,
 }
 
@@ -19,12 +19,12 @@ impl SampleBuffer {
         }
     }
 
-    pub fn push(&self, sample: f32) {
+    pub fn push(&self, sample: (f32, f32)) {
         let mut buffer = self.buffer.lock().unwrap();
         buffer.push_back(sample);
     }
 
-    pub fn pop(&self) -> Option<f32> {
+    pub fn pop(&self) -> Option<(f32, f32)> {
         if !self.audio_starting.load(Ordering::Relaxed) {
             self.audio_starting.store(true, Ordering::Relaxed);
         }

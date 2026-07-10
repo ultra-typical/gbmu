@@ -82,9 +82,16 @@ where
         config,
         move |data: &mut [T], _| {
             for frame in data.chunks_mut(channels) {
-                let value = T::from_sample(buffer.pop().unwrap_or(0.0));
-                for sample in frame.iter_mut() {
-                    *sample = value;
+                let (left, right) = buffer.pop().unwrap_or((0.0, 0.0));
+
+                match channels {
+                    1 => {
+                        frame[0] = T::from_sample((left + right) / 2.0);
+                    }
+                    _ => {
+                        frame[0] = T::from_sample(left);
+                        frame[1] = T::from_sample(right);
+                    }
                 }
             }
         },
